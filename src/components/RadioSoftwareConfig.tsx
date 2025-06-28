@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,11 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 
-export const RadioSoftwareConfig: React.FC = () => {
+interface RadioSoftwareConfigProps {
+  testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number) => Promise<boolean>;
+}
+
+export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRadioConnection }) => {
   const [mairlistConfig, setMairlistConfig] = useState({
     enabled: true,
     host: 'localhost',
@@ -45,20 +48,28 @@ export const RadioSoftwareConfig: React.FC = () => {
     });
   };
 
-  const testConnection = async (software: string) => {
+  const testConnection = async (software: 'mAirList' | 'RadioDJ') => {
     toast({
       title: `Testing ${software} Connection`,
       description: "Attempting to connect...",
     });
     
-    // Simulate connection test
-    setTimeout(() => {
+    try {
+      const config = software === 'mAirList' ? mairlistConfig : radiodjConfig;
+      const result = await testRadioConnection(software, config.host, config.port);
+      
       toast({
         title: `${software} Connection Test`,
-        description: Math.random() > 0.5 ? "Connection successful!" : "Connection failed. Check settings.",
-        variant: Math.random() > 0.5 ? "default" : "destructive"
+        description: result ? "Connection successful!" : "Connection failed. Check settings.",
+        variant: result ? "default" : "destructive"
       });
-    }, 2000);
+    } catch (error) {
+      toast({
+        title: `${software} Connection Test`,
+        description: "Connection failed. Check settings.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
