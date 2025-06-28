@@ -6,6 +6,7 @@ import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
 interface MixerConfig {
   ip: string;
   port?: number;
+  model: 'X-Air 16' | 'X-Air 18';
 }
 
 interface FaderConfig {
@@ -26,7 +27,7 @@ export const useMixer = (config: MixerConfig) => {
   useEffect(() => {
     if (!config.ip) return;
 
-    const xairMixer = new XAirWebSocket(config.ip, config.port);
+    const xairMixer = new XAirWebSocket(config.ip, config.port, config.model);
     setMixer(xairMixer);
 
     // Subscribe to connection status
@@ -48,7 +49,7 @@ export const useMixer = (config: MixerConfig) => {
       unsubscribeFader();
       xairMixer.disconnect();
     };
-  }, [config.ip, config.port]);
+  }, [config.ip, config.port, config.model]);
 
   const checkFaderTrigger = useCallback((data: FaderData) => {
     const faderConfig = faderConfigs.find(config => 

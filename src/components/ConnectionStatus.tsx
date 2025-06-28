@@ -4,14 +4,17 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Wifi, WifiOff, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ConnectionStatusProps {
   isConnected: boolean;
   mixerIP: string;
+  mixerModel: 'X-Air 16' | 'X-Air 18';
   onConnect: (connected: boolean) => void;
   onIPChange: (ip: string) => void;
+  onModelChange: (model: 'X-Air 16' | 'X-Air 18') => void;
   onConnectMixer: () => Promise<boolean>;
   onDisconnectMixer: () => void;
 }
@@ -19,8 +22,10 @@ interface ConnectionStatusProps {
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   isConnected,
   mixerIP,
+  mixerModel,
   onConnect,
   onIPChange,
+  onModelChange,
   onConnectMixer,
   onDisconnectMixer
 }) => {
@@ -35,7 +40,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       if (success) {
         onConnect(true);
         toast({
-          title: "Connected to X-Air 18",
+          title: `Connected to ${mixerModel}`,
           description: `Successfully connected to mixer at ${mixerIP}`,
         });
       } else {
@@ -57,7 +62,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     onConnect(false);
     toast({
       title: "Disconnected",
-      description: "Disconnected from X-Air 18 mixer",
+      description: `Disconnected from ${mixerModel} mixer`,
     });
   };
 
@@ -73,23 +78,37 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
               {isConnected ? 'Connected' : 'Disconnected'}
             </h3>
             <p className="text-slate-400">
-              {isConnected ? `Mixer IP: ${mixerIP} (WebSocket OSC)` : 'Not connected to X-Air mixer'}
+              {isConnected ? `${mixerModel} at ${mixerIP} (WebSocket OSC)` : `Not connected to ${mixerModel} mixer`}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
           {!isConnected && (
-            <div className="flex items-center gap-2">
-              <Label htmlFor="mixer-ip" className="text-slate-300">IP Address:</Label>
-              <Input
-                id="mixer-ip"
-                value={mixerIP}
-                onChange={(e) => onIPChange(e.target.value)}
-                placeholder="192.168.1.100"
-                className="w-40 bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="mixer-model" className="text-slate-300">Model:</Label>
+                <Select value={mixerModel} onValueChange={onModelChange}>
+                  <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    <SelectItem value="X-Air 16" className="text-white hover:bg-slate-600">X-Air 16</SelectItem>
+                    <SelectItem value="X-Air 18" className="text-white hover:bg-slate-600">X-Air 18</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="mixer-ip" className="text-slate-300">IP Address:</Label>
+                <Input
+                  id="mixer-ip"
+                  value={mixerIP}
+                  onChange={(e) => onIPChange(e.target.value)}
+                  placeholder="192.168.1.100"
+                  className="w-40 bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+            </>
           )}
           
           <Button

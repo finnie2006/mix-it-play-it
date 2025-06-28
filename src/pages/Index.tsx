@@ -9,6 +9,7 @@ import { useMixer } from '@/hooks/useMixer';
 
 const Index = () => {
   const [mixerIP, setMixerIP] = useState('192.168.1.100');
+  const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
   const { 
     isConnected, 
     faderValues, 
@@ -16,7 +17,7 @@ const Index = () => {
     disconnect, 
     updateFaderConfig, 
     testRadioConnection 
-  } = useMixer({ ip: mixerIP, port: 10024 });
+  } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -26,14 +27,16 @@ const Index = () => {
             <Radio className="text-green-400" size={36} />
             X-Air Radio Controller
           </h1>
-          <p className="text-slate-300">Behringer X-Air 18 Radio Automation Interface</p>
+          <p className="text-slate-300">Behringer X-Air 16/18 Radio Automation Interface</p>
         </div>
 
         <ConnectionStatus 
           isConnected={isConnected} 
           mixerIP={mixerIP}
+          mixerModel={mixerModel}
           onConnect={() => {}} // Handled by useMixer hook
           onIPChange={setMixerIP}
+          onModelChange={setMixerModel}
           onConnectMixer={connect}
           onDisconnectMixer={disconnect}
         />

@@ -1,4 +1,3 @@
-
 export interface XAirMessage {
   address: string;
   args: any[];
@@ -18,8 +17,16 @@ export class XAirWebSocket {
   private isConnecting = false;
   private subscribers: Set<(data: FaderData) => void> = new Set();
   private statusSubscribers: Set<(connected: boolean) => void> = new Set();
+  private maxChannels: number;
 
-  constructor(private ip: string, private port: number = 10024) {}
+  constructor(
+    private ip: string, 
+    private port: number = 10024, 
+    private model: 'X-Air 16' | 'X-Air 18' = 'X-Air 18'
+  ) {
+    // Set max channels based on mixer model
+    this.maxChannels = model === 'X-Air 16' ? 12 : 16;
+  }
 
   connect(): Promise<boolean> {
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
@@ -34,7 +41,7 @@ export class XAirWebSocket {
         this.ws = new WebSocket(`ws://${this.ip}:${this.port}`);
         
         this.ws.onopen = () => {
-          console.log('Connected to X-Air mixer');
+          console.log(`Connected to ${this.model} mixer`);
           this.isConnecting = false;
           this.reconnectAttempts = 0;
           this.notifyStatusSubscribers(true);
@@ -49,7 +56,7 @@ export class XAirWebSocket {
         };
 
         this.ws.onclose = () => {
-          console.log('Disconnected from X-Air mixer');
+          console.log(`Disconnected from ${this.model} mixer`);
           this.isConnecting = false;
           this.notifyStatusSubscribers(false);
           this.attemptReconnect();
@@ -57,7 +64,7 @@ export class XAirWebSocket {
         };
 
         this.ws.onerror = (error) => {
-          console.error('X-Air WebSocket error:', error);
+          console.error(`${this.model} WebSocket error:`, error);
           this.isConnecting = false;
           resolve(false);
         };
@@ -99,8 +106,8 @@ export class XAirWebSocket {
   private subscribeFaderUpdates() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     
-    // Subscribe to all channel faders (1-16 for X-Air 18)
-    for (let i = 1; i <= 16; i++) {
+    // Subscribe to channel faders based on mixer model
+    for (let i = 1; i <= this.maxChannels; i++) {
       const channel = i.toString().padStart(2, '0');
       const subscribeMessage = {
         address: `/ch/${channel}/mix/fader`,
