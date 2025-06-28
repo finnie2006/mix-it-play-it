@@ -1,3 +1,4 @@
+
 export interface XAirMessage {
   address: string;
   args: any[];
@@ -26,22 +27,31 @@ export class XAirWebSocket {
   ) {
     // Set max channels based on mixer model
     this.maxChannels = model === 'X-Air 16' ? 12 : 16;
+    console.log(`🎛️ Initializing ${model} mixer connection to ${ip}:${port}`);
   }
 
   connect(): Promise<boolean> {
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
+      console.log('⚠️ Already connecting or connected');
       return Promise.resolve(this.ws?.readyState === WebSocket.OPEN);
     }
 
     this.isConnecting = true;
+    console.log(`🔄 Starting connection to ${this.model} at ws://${this.ip}:${this.port}`);
     
     return new Promise((resolve) => {
       try {
+        // Check if the URL is valid
+        const wsUrl = `ws://${this.ip}:${this.port}`;
+        console.log(`🌐 Attempting WebSocket connection to: ${wsUrl}`);
+        
         // X-Air uses WebSocket on port 10024 for OSC over WebSocket
-        this.ws = new WebSocket(`ws://${this.ip}:${this.port}`);
+        this.ws = new WebSocket(wsUrl);
+        console.log('📡 WebSocket object created, waiting for connection...');
         
         this.ws.onopen = () => {
-          console.log(`Connected to ${this.model} mixer`);
+          console.log(`✅ Successfully connected to ${this.model} mixer`);
+          console.log(`📊 WebSocket ready state: ${this.ws?.readyState}`);
           this.isConnecting = false;
           this.reconnectAttempts = 0;
           this.notifyStatusSubscribers(true);
@@ -52,11 +62,17 @@ export class XAirWebSocket {
         };
 
         this.ws.onmessage = (event) => {
+          console.log('📨 Received message from mixer:', event.data);
           this.handleMessage(event.data);
         };
 
-        this.ws.onclose = () => {
-          console.log(`Disconnected from ${this.model} mixer`);
+        this.ws.onclose = (event) => {
+          console.log(`❌ Disconnected from ${this.model} mixer`);
+          console.log(`🔍 Close event details:`, {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean
+          });
           this.isConnecting = false;
           this.notifyStatusSubscribers(false);
           this.attemptReconnect();
@@ -64,13 +80,38 @@ export class XAirWebSocket {
         };
 
         this.ws.onerror = (error) => {
-          console.error(`${this.model} WebSocket error:`, error);
+          console.error(`❌ ${this.model} WebSocket error:`, error);
+          console.log(`🔍 Error details:`, {
+            target: error.target,
+            type: error.type,
+            readyState: this.ws?.readyState
+          });
+          console.log(`🌐 Connection URL was: ws://${this.ip}:${this.port}`);
+          console.log(`💡 Troubleshooting tips:`);
+          console.log(`   - Ensure ${this.model} is powered on and connected to network`);
+          console.log(`   - Check if IP address ${this.ip} is correct`);
+          console.log(`   - Verify OSC is enabled on the mixer`);
+          console.log(`   - Try pinging the mixer: ping ${this.ip}`);
+          console.log(`   - Check if port ${this.port} is open`);
+          
           this.isConnecting = false;
           resolve(false);
         };
 
+        // Set a timeout for connection attempt
+        setTimeout(() => {
+          if (this.isConnecting && this.ws?.readyState === WebSocket.CONNECTING) {
+            console.log(`⏰ Connection timeout after 10 seconds`);
+            console.log(`🔍 WebSocket state: ${this.ws?.readyState} (0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED)`);
+            this.ws?.close();
+            this.isConnecting = false;
+            resolve(false);
+          }
+        }, 10000);
+
       } catch (error) {
-        console.error('Failed to create WebSocket connection:', error);
+        console.error('💥 Failed to create WebSocket connection:', error);
+        console.log(`🔍 Exception details:`, error);
         this.isConnecting = false;
         resolve(false);
       }
@@ -148,12 +189,13 @@ export class XAirWebSocket {
 
   private attemptReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('Max reconnection attempts reached');
+      console.log(`🛑 Max reconnection attempts reached (${this.maxReconnectAttempts})`);
       return;
     }
 
     this.reconnectAttempts++;
-    console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    console.log(`🔄 Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    console.log(`⏱️ Waiting ${this.reconnectDelay}ms before retry`);
     
     setTimeout(() => {
       this.connect();
