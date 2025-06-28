@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,11 @@ interface FaderConfig {
   description: string;
 }
 
-export const FaderConfiguration: React.FC = () => {
+interface FaderConfigurationProps {
+  onFaderConfigUpdate: (configs: any[]) => void;
+}
+
+export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderConfigUpdate }) => {
   const [configurations, setConfigurations] = useState<FaderConfig[]>([
     {
       id: '1',
@@ -50,24 +53,30 @@ export const FaderConfiguration: React.FC = () => {
   const { toast } = useToast();
 
   const handleSaveConfig = (config: FaderConfig) => {
+    let updatedConfigurations;
     if (editingConfig) {
-      setConfigurations(prev => prev.map(c => c.id === config.id ? config : c));
+      updatedConfigurations = configurations.map(c => c.id === config.id ? config : c);
+      setConfigurations(updatedConfigurations);
       toast({
         title: "Configuration Updated",
         description: `Fader ${config.channel} configuration has been updated.`,
       });
     } else {
-      setConfigurations(prev => [...prev, { ...config, id: Date.now().toString() }]);
+      updatedConfigurations = [...configurations, { ...config, id: Date.now().toString() }];
+      setConfigurations(updatedConfigurations);
       toast({
         title: "Configuration Added",
         description: `New fader configuration for channel ${config.channel} has been added.`,
       });
     }
+    onFaderConfigUpdate(updatedConfigurations);
     setEditingConfig(null);
   };
 
   const handleDeleteConfig = (id: string) => {
-    setConfigurations(prev => prev.filter(c => c.id !== id));
+    const updatedConfigurations = configurations.filter(c => c.id !== id);
+    setConfigurations(updatedConfigurations);
+    onFaderConfigUpdate(updatedConfigurations);
     toast({
       title: "Configuration Deleted",
       description: "Fader configuration has been removed.",

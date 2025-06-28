@@ -13,7 +13,22 @@ import { FaderConfiguration } from '@/components/FaderConfiguration';
 import { RadioSoftwareConfig } from '@/components/RadioSoftwareConfig';
 import { Settings, Sliders, Radio } from 'lucide-react';
 
-export const ConfigurationPanel: React.FC = () => {
+interface FaderConfig {
+  channel: number;
+  threshold: number;
+  radioCommand: any;
+  enabled: boolean;
+}
+
+interface ConfigurationPanelProps {
+  onFaderConfigUpdate: (configs: FaderConfig[]) => void;
+  testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number) => Promise<boolean>;
+}
+
+export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ 
+  onFaderConfigUpdate, 
+  testRadioConnection 
+}) => {
   return (
     <div className="space-y-6">
       <Card className="p-6 bg-slate-800/50 border-slate-700">
@@ -35,11 +50,11 @@ export const ConfigurationPanel: React.FC = () => {
           </TabsList>
 
           <TabsContent value="faders" className="mt-6">
-            <FaderConfiguration />
+            <FaderConfiguration onFaderConfigUpdate={onFaderConfigUpdate} />
           </TabsContent>
 
           <TabsContent value="software" className="mt-6">
-            <RadioSoftwareConfig />
+            <RadioSoftwareConfig testRadioConnection={testRadioConnection} />
           </TabsContent>
         </Tabs>
       </Card>
