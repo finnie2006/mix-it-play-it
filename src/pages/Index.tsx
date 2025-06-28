@@ -5,10 +5,18 @@ import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Radio, Sliders } from 'lucide-react';
+import { useMixer } from '@/hooks/useMixer';
 
 const Index = () => {
-  const [isConnected, setIsConnected] = useState(false);
   const [mixerIP, setMixerIP] = useState('192.168.1.100');
+  const { 
+    isConnected, 
+    faderValues, 
+    connect, 
+    disconnect, 
+    updateFaderConfig, 
+    testRadioConnection 
+  } = useMixer({ ip: mixerIP, port: 10024 });
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -24,8 +32,10 @@ const Index = () => {
         <ConnectionStatus 
           isConnected={isConnected} 
           mixerIP={mixerIP}
-          onConnect={setIsConnected}
+          onConnect={() => {}} // Handled by useMixer hook
           onIPChange={setMixerIP}
+          onConnectMixer={connect}
+          onDisconnectMixer={disconnect}
         />
 
         <Tabs defaultValue="dashboard" className="mt-8">
@@ -41,11 +51,18 @@ const Index = () => {
           </TabsList>
 
           <TabsContent value="dashboard" className="mt-6">
-            <MixerDashboard isConnected={isConnected} />
+            <MixerDashboard 
+              isConnected={isConnected} 
+              faderValues={faderValues}
+              testRadioConnection={testRadioConnection}
+            />
           </TabsContent>
 
           <TabsContent value="config" className="mt-6">
-            <ConfigurationPanel />
+            <ConfigurationPanel 
+              onFaderConfigUpdate={updateFaderConfig}
+              testRadioConnection={testRadioConnection}
+            />
           </TabsContent>
         </Tabs>
       </div>

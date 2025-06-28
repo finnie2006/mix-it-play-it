@@ -12,13 +12,17 @@ interface ConnectionStatusProps {
   mixerIP: string;
   onConnect: (connected: boolean) => void;
   onIPChange: (ip: string) => void;
+  onConnectMixer: () => Promise<boolean>;
+  onDisconnectMixer: () => void;
 }
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   isConnected,
   mixerIP,
   onConnect,
-  onIPChange
+  onIPChange,
+  onConnectMixer,
+  onDisconnectMixer
 }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const { toast } = useToast();
@@ -26,18 +30,21 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   const handleConnect = async () => {
     setIsConnecting(true);
     
-    // Simulate connection attempt
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      onConnect(true);
-      toast({
-        title: "Connected to X-Air 18",
-        description: `Successfully connected to mixer at ${mixerIP}`,
-      });
+      const success = await onConnectMixer();
+      if (success) {
+        onConnect(true);
+        toast({
+          title: "Connected to X-Air 18",
+          description: `Successfully connected to mixer at ${mixerIP}`,
+        });
+      } else {
+        throw new Error('Connection failed');
+      }
     } catch (error) {
       toast({
         title: "Connection Failed",
-        description: "Could not connect to the mixer. Check IP address and network.",
+        description: "Could not connect to the mixer. Check IP address and ensure mixer is on same network.",
         variant: "destructive"
       });
     } finally {
@@ -46,6 +53,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   };
 
   const handleDisconnect = () => {
+    onDisconnectMixer();
     onConnect(false);
     toast({
       title: "Disconnected",
@@ -65,7 +73,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
               {isConnected ? 'Connected' : 'Disconnected'}
             </h3>
             <p className="text-slate-400">
-              {isConnected ? `Mixer IP: ${mixerIP}` : 'Not connected to mixer'}
+              {isConnected ? `Mixer IP: ${mixerIP} (WebSocket OSC)` : 'Not connected to X-Air mixer'}
             </p>
           </div>
         </div>
