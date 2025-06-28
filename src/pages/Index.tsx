@@ -8,13 +8,14 @@ import { Settings, Radio, Sliders } from 'lucide-react';
 import { useMixer } from '@/hooks/useMixer';
 
 const Index = () => {
-  const [mixerIP, setMixerIP] = useState('192.168.1.100');
-  const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
+  const [mixerIP, setMixerIP] = useState('192.168.1.10');
+  const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 16');
   const { 
     isConnected, 
     faderValues, 
     connect, 
     disconnect, 
+    configureBridge,
     updateFaderConfig, 
     testRadioConnection 
   } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
@@ -39,6 +40,7 @@ const Index = () => {
           onModelChange={setMixerModel}
           onConnectMixer={connect}
           onDisconnectMixer={disconnect}
+          onBridgeConfigured={configureBridge}
         />
 
         <Tabs defaultValue="dashboard" className="mt-8">

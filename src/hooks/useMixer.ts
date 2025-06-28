@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { XAirWebSocket, FaderData } from '@/services/xairWebSocket';
+import { XAirWebSocket, FaderData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
 
 interface MixerConfig {
@@ -73,6 +73,18 @@ export const useMixer = (config: MixerConfig) => {
     }
   }, [mixer]);
 
+  const configureBridge = useCallback((bridgeConfig: { bridgeHost: string; bridgePort: number }) => {
+    if (mixer) {
+      const oscBridgeConfig: OSCBridgeConfig = {
+        bridgeHost: bridgeConfig.bridgeHost,
+        bridgePort: bridgeConfig.bridgePort,
+        mixerIP: config.ip,
+        mixerPort: config.port || 10024
+      };
+      mixer.setBridgeConfig(oscBridgeConfig);
+    }
+  }, [mixer, config.ip, config.port]);
+
   const updateFaderConfig = useCallback((configs: FaderConfig[]) => {
     setFaderConfigs(configs);
   }, []);
@@ -90,6 +102,7 @@ export const useMixer = (config: MixerConfig) => {
     faderValues,
     connect,
     disconnect,
+    configureBridge,
     updateFaderConfig,
     testRadioConnection,
     radioService
