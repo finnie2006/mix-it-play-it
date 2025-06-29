@@ -17,80 +17,127 @@ export class IntegratedOSCBridge {
   private mixerPort: number;
   private subscribers: Map<string, Set<(message: OSCMessage) => void>> = new Map();
   private messageHandlers: Set<(message: BridgeMessage) => void> = new Set();
-  private simulationTimer: NodeJS.Timeout | null = null;
+  private websocket: WebSocket | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private bridgeHost: string;
+  private bridgePort: number;
 
-  constructor(mixerIP: string, mixerPort: number = 10024) {
+  constructor(mixerIP: string, mixerPort: number = 10024, bridgeHost: string = 'localhost', bridgePort: number = 8080) {
     this.mixerIP = mixerIP;
     this.mixerPort = mixerPort;
+    this.bridgeHost = bridgeHost;
+    this.bridgePort = bridgePort;
   }
 
   async start(): Promise<boolean> {
     if (this.isRunning) return true;
 
-    console.log(`🌉 Starting integrated OSC bridge for ${this.mixerIP}:${this.mixerPort}`);
+    console.log(`🌉 Starting OSC bridge connection to ws://${this.bridgeHost}:${this.bridgePort}`);
+    console.log(`🎛️ Target mixer: ${this.mixerIP}:${this.mixerPort}`);
 
-    try {
-      // Since browsers can't directly send UDP packets, we'll simulate the OSC communication
-      // In a real-world scenario, this would need a proper bridge server
-      this.isRunning = true;
-      this.startSimulation();
-      
-      console.log('✅ Integrated OSC bridge started in simulation mode');
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to start integrated bridge:', error);
-      return false;
-    }
+    return new Promise((resolve) => {
+      try {
+        this.websocket = new WebSocket(`ws://${this.bridgeHost}:${this.bridgePort}`);
+        
+        this.websocket.onopen = () => {
+          console.log('✅ Connected to OSC bridge server');
+          this.isRunning = true;
+          
+          // Send initial configuration to bridge server
+          this.sendToBridge({
+            type: 'status',
+            mixerIP: this.mixerIP,
+            mixerPort: this.mixerPort
+          });
+          
+          resolve(true);
+        };
+
+        this.websocket.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            this.handleBridgeMessage(message);
+          } catch (error) {
+            console.error('Failed to parse bridge message:', error);
+          }
+        };
+
+        this.websocket.onerror = (error) => {
+          console.error('❌ Bridge WebSocket error:', error);
+          this.isRunning = false;
+          resolve(false);
+        };
+
+        this.websocket.onclose = () => {
+          console.log('🔌 Bridge connection closed');
+          this.isRunning = false;
+          this.attemptReconnect();
+        };
+
+        // Connection timeout
+        setTimeout(() => {
+          if (!this.isRunning) {
+            console.error('❌ Bridge connection timeout');
+            if (this.websocket) {
+              this.websocket.close();
+            }
+            resolve(false);
+          }
+        }, 5000);
+
+      } catch (error) {
+        console.error('❌ Failed to connect to bridge:', error);
+        resolve(false);
+      }
+    });
   }
 
-  private startSimulation(): void {
-    // Simulate receiving OSC data from mixer
-    this.simulationTimer = setInterval(() => {
-      // Simulate fader value changes for demo
-      const channels = this.mixerPort === 10024 ? 16 : 12; // X-Air 18 vs 16
-      const randomChannel = Math.floor(Math.random() * channels) + 1;
-      const randomValue = Math.random();
-      
-      const message: OSCMessage = {
-        address: `/ch/${randomChannel.toString().padStart(2, '0')}/mix/fader`,
-        args: [randomValue]
+  private handleBridgeMessage(message: BridgeMessage): void {
+    if (message.type === 'osc' && message.address) {
+      const oscMessage: OSCMessage = {
+        address: message.address,
+        args: message.args || []
       };
+      
+      console.log('🎛️ Received OSC Message:', oscMessage);
+      this.notifySubscribers(oscMessage);
+    }
 
-      this.notifySubscribers(message);
-    }, 5000 + Math.random() * 10000); // Random intervals between 5-15 seconds
+    // Notify message handlers
+    this.messageHandlers.forEach(handler => handler(message));
   }
 
   private notifySubscribers(message: OSCMessage): void {
-    console.log('🎛️ Simulated OSC Message:', message);
-    
-    // Notify direct subscribers
     const addressSubscribers = this.subscribers.get(message.address);
     if (addressSubscribers) {
       addressSubscribers.forEach(callback => callback(message));
     }
+  }
 
-    // Notify message handlers with bridge format
-    const bridgeMessage: BridgeMessage = {
-      type: 'osc',
-      address: message.address,
-      args: message.args,
-      timestamp: Date.now()
-    };
-
-    this.messageHandlers.forEach(handler => handler(bridgeMessage));
+  private sendToBridge(message: any): boolean {
+    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+      this.websocket.send(JSON.stringify(message));
+      return true;
+    }
+    return false;
   }
 
   sendOSCMessage(address: string, args: any[] = []): boolean {
     if (!this.isRunning) {
-      console.warn('⚠️ Bridge not running, cannot send OSC message');
+      console.warn('⚠️ Bridge not connected, cannot send OSC message');
       return false;
     }
 
-    console.log(`📤 Simulated OSC send: ${address}`, args);
-    
-    // In simulation mode, we just log the message
-    // In a real implementation, this would send UDP OSC to the mixer
-    return true;
+    const message = {
+      type: 'osc',
+      address,
+      args,
+      mixerIP: this.mixerIP,
+      mixerPort: this.mixerPort
+    };
+
+    console.log(`📤 Sending OSC: ${address}`, args);
+    return this.sendToBridge(message);
   }
 
   subscribe(address: string, callback?: (message: OSCMessage) => void): boolean {
@@ -101,6 +148,14 @@ export class IntegratedOSCBridge {
     if (callback) {
       this.subscribers.get(address)!.add(callback);
     }
+
+    // Send subscription request to bridge
+    this.sendToBridge({
+      type: 'subscribe',
+      address,
+      mixerIP: this.mixerIP,
+      mixerPort: this.mixerPort
+    });
 
     console.log(`🔔 Subscribed to: ${address}`);
     return true;
@@ -122,14 +177,29 @@ export class IntegratedOSCBridge {
     return () => this.messageHandlers.delete(handler);
   }
 
+  private attemptReconnect(): void {
+    if (this.reconnectTimer) return;
+    
+    console.log('🔄 Attempting to reconnect to bridge...');
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.start();
+    }, 3000);
+  }
+
   stop(): void {
     if (!this.isRunning) return;
 
-    console.log('🛑 Stopping integrated OSC bridge');
+    console.log('🛑 Stopping OSC bridge');
     
-    if (this.simulationTimer) {
-      clearInterval(this.simulationTimer);
-      this.simulationTimer = null;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    if (this.websocket) {
+      this.websocket.close();
+      this.websocket = null;
     }
 
     this.subscribers.clear();
@@ -138,14 +208,16 @@ export class IntegratedOSCBridge {
   }
 
   isActive(): boolean {
-    return this.isRunning;
+    return this.isRunning && this.websocket?.readyState === WebSocket.OPEN;
   }
 
   getConfig() {
     return {
       mixerIP: this.mixerIP,
       mixerPort: this.mixerPort,
-      isSimulated: true
+      bridgeHost: this.bridgeHost,
+      bridgePort: this.bridgePort,
+      isSimulated: false
     };
   }
 }

@@ -34,6 +34,7 @@ export class XAirWebSocket {
   private maxChannels: number;
   private integratedBridge: IntegratedOSCBridge | null = null;
   private isConnectedState = false;
+  private bridgeConfig: { host: string; port: number } = { host: 'localhost', port: 8080 };
 
   constructor(
     private ip: string, 
@@ -45,6 +46,7 @@ export class XAirWebSocket {
   }
 
   setBridgeConfig(config: OSCBridgeConfig) {
+    this.bridgeConfig = { host: config.bridgeHost, port: config.bridgePort };
     console.log(`🌉 OSC Bridge configured: ${config.bridgeHost}:${config.bridgePort} -> ${config.mixerIP}:${config.mixerPort}`);
   }
 
@@ -57,8 +59,13 @@ export class XAirWebSocket {
     
     return new Promise(async (resolve) => {
       try {
-        console.log('🔧 Starting integrated OSC bridge...');
-        this.integratedBridge = new IntegratedOSCBridge(this.ip, this.port);
+        console.log('🔧 Starting OSC bridge connection...');
+        this.integratedBridge = new IntegratedOSCBridge(
+          this.ip, 
+          this.port, 
+          this.bridgeConfig.host, 
+          this.bridgeConfig.port
+        );
         
         // Set up message handler
         const unsubscribe = this.integratedBridge.onMessage((message) => {
@@ -68,7 +75,7 @@ export class XAirWebSocket {
         const bridgeStarted = await this.integratedBridge.start();
         
         if (bridgeStarted) {
-          console.log('✅ Integrated OSC bridge connected successfully');
+          console.log('✅ OSC bridge connected successfully');
           this.isConnecting = false;
           this.isConnectedState = true;
           this.reconnectAttempts = 0;
@@ -76,11 +83,12 @@ export class XAirWebSocket {
           this.subscribeFaderUpdates();
           resolve(true);
         } else {
-          throw new Error('Failed to start integrated bridge');
+          throw new Error('Failed to connect to OSC bridge server');
         }
 
       } catch (error) {
-        console.error('💥 Failed to start integrated bridge:', error);
+        console.error('❌ Failed to connect to OSC bridge:', error);
+        console.error('Make sure the bridge server is running on ws://localhost:8080');
         this.isConnecting = false;
         this.isConnectedState = false;
         this.notifyStatusSubscribers(false);
