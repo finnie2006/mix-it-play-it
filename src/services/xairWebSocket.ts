@@ -1,3 +1,4 @@
+
 import { IntegratedOSCBridge } from './integratedBridge';
 
 export interface XAirMessage {
@@ -24,7 +25,6 @@ export interface OSCBridgeConfig {
 }
 
 export class XAirWebSocket {
-  private ws: WebSocket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 2000;
@@ -32,8 +32,8 @@ export class XAirWebSocket {
   private subscribers: Set<(data: FaderData) => void> = new Set();
   private statusSubscribers: Set<(connected: boolean) => void> = new Set();
   private maxChannels: number;
-  private bridgeConfig: OSCBridgeConfig | null = null;
   private integratedBridge: IntegratedOSCBridge | null = null;
+  private isConnectedState = false;
 
   constructor(
     private ip: string, 
@@ -45,158 +45,97 @@ export class XAirWebSocket {
   }
 
   setBridgeConfig(config: OSCBridgeConfig) {
-    this.bridgeConfig = config;
     console.log(`🌉 OSC Bridge configured: ${config.bridgeHost}:${config.bridgePort} -> ${config.mixerIP}:${config.mixerPort}`);
   }
 
   connect(): Promise<boolean> {
-    if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
-      return Promise.resolve(this.ws?.readyState === WebSocket.OPEN);
+    if (this.isConnecting || this.isConnectedState) {
+      return Promise.resolve(this.isConnectedState);
     }
 
     this.isConnecting = true;
     
     return new Promise(async (resolve) => {
       try {
-        // Start the integrated bridge first
         console.log('🔧 Starting integrated OSC bridge...');
         this.integratedBridge = new IntegratedOSCBridge(this.ip, this.port);
+        
+        // Set up message handler
+        const unsubscribe = this.integratedBridge.onMessage((message) => {
+          this.handleBridgeMessage(message);
+        });
+
         const bridgeStarted = await this.integratedBridge.start();
         
-        if (!bridgeStarted) {
-          console.warn('⚠️ Bridge failed to start, but continuing with connection attempt');
-        }
-
-        // Now connect to the bridge via WebSocket
-        const connectHost = this.bridgeConfig?.bridgeHost || 'localhost';
-        const connectPort = this.bridgeConfig?.bridgePort || 8080;
-        
-        console.log(`🔄 Connecting to OSC bridge at ws://${connectHost}:${connectPort}`);
-        
-        const wsUrl = `ws://${connectHost}:${connectPort}`;
-        this.ws = new WebSocket(wsUrl);
-        
-        this.ws.onopen = () => {
-          console.log(`✅ Connected to OSC bridge`);
+        if (bridgeStarted) {
+          console.log('✅ Integrated OSC bridge connected successfully');
           this.isConnecting = false;
+          this.isConnectedState = true;
           this.reconnectAttempts = 0;
           this.notifyStatusSubscribers(true);
           this.subscribeFaderUpdates();
           resolve(true);
-        };
-
-        this.ws.onmessage = (event) => {
-          this.handleMessage(event.data);
-        };
-
-        this.ws.onclose = (event) => {
-          console.log(`❌ Disconnected from OSC bridge (${event.code}: ${event.reason})`);
-          this.isConnecting = false;
-          this.notifyStatusSubscribers(false);
-          this.attemptReconnect();
-          resolve(false);
-        };
-
-        this.ws.onerror = (error) => {
-          console.error(`❌ Bridge connection error:`, error);
-          // If WebSocket connection fails, try to use the integrated bridge directly
-          console.log('🔄 Falling back to integrated bridge simulation');
-          this.isConnecting = false;
-          this.notifyStatusSubscribers(true);
-          this.subscribeFaderUpdates();
-          resolve(true);
-        };
-
-        setTimeout(() => {
-          if (this.isConnecting) {
-            console.log(`⏰ Bridge connection timeout, using simulation mode`);
-            this.isConnecting = false;
-            this.notifyStatusSubscribers(true);
-            this.subscribeFaderUpdates();
-            resolve(true);
-          }
-        }, 10000);
+        } else {
+          throw new Error('Failed to start integrated bridge');
+        }
 
       } catch (error) {
-        console.error('💥 Failed to connect to bridge:', error);
+        console.error('💥 Failed to start integrated bridge:', error);
         this.isConnecting = false;
+        this.isConnectedState = false;
+        this.notifyStatusSubscribers(false);
         resolve(false);
       }
     });
   }
 
-  private handleMessage(data: any) {
-    try {
-      const message: XAirMessage = JSON.parse(data);
-      
-      if (message.type === 'status') {
-        console.log('📊 Bridge status:', message);
-        return;
-      }
-      
-      if (message.type === 'osc' && message.address) {
-        // Handle fader updates
-        if (message.address.includes('/mix/fader')) {
-          const channelMatch = message.address.match(/\/ch\/(\d+)\//);
-          if (channelMatch && message.args && message.args.length > 0) {
-            const channel = parseInt(channelMatch[1]);
-            const value = message.args[0] * 100; // Convert 0-1 to 0-100
-            
-            const faderData: FaderData = {
-              channel,
-              value,
-              timestamp: message.timestamp || Date.now()
-            };
-            
-            console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}%`);
-            this.notifySubscribers(faderData);
-          }
+  private handleBridgeMessage(message: XAirMessage) {
+    if (message.type === 'status') {
+      console.log('📊 Bridge status:', message);
+      return;
+    }
+    
+    if (message.type === 'osc' && message.address) {
+      // Handle fader updates
+      if (message.address.includes('/mix/fader')) {
+        const channelMatch = message.address.match(/\/ch\/(\d+)\//);
+        if (channelMatch && message.args && message.args.length > 0) {
+          const channel = parseInt(channelMatch[1]);
+          const value = message.args[0] * 100; // Convert 0-1 to 0-100
+          
+          const faderData: FaderData = {
+            channel,
+            value,
+            timestamp: message.timestamp || Date.now()
+          };
+          
+          console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}%`);
+          this.notifySubscribers(faderData);
         }
       }
-    } catch (error) {
-      console.error('❌ Error parsing bridge message:', error);
     }
   }
 
   private subscribeFaderUpdates() {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    if (!this.integratedBridge?.isActive()) return;
     
     console.log(`🎚️ Subscribing to ${this.maxChannels} fader channels`);
     
     // Subscribe to channel faders
     for (let i = 1; i <= this.maxChannels; i++) {
       const channel = i.toString().padStart(2, '0');
-      this.sendMessage({
-        type: 'subscribe',
-        address: `/ch/${channel}/mix/fader`
-      });
+      const address = `/ch/${channel}/mix/fader`;
+      this.integratedBridge.subscribe(address);
     }
-  }
-
-  private sendMessage(message: XAirMessage) {
-    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.warn('⚠️ Bridge not connected, cannot send message');
-      return false;
-    }
-
-    console.log(`📤 Sending to bridge:`, message);
-    this.ws.send(JSON.stringify(message));
-    return true;
   }
 
   sendCommand(address: string, args: any[] = []) {
-    // Try WebSocket first, then fall back to integrated bridge
-    const wsSuccess = this.sendMessage({
-      type: 'osc',
-      address,
-      args
-    });
-
-    if (!wsSuccess && this.integratedBridge?.isActive()) {
+    if (this.integratedBridge?.isActive()) {
       return this.integratedBridge.sendOSCMessage(address, args);
     }
 
-    return wsSuccess;
+    console.warn('⚠️ Bridge not connected, cannot send command');
+    return false;
   }
 
   onFaderUpdate(callback: (data: FaderData) => void) {
@@ -217,36 +156,19 @@ export class XAirWebSocket {
     this.statusSubscribers.forEach(callback => callback(connected));
   }
 
-  private attemptReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log(`🛑 Max reconnection attempts reached`);
-      return;
-    }
-
-    this.reconnectAttempts++;
-    console.log(`🔄 Reconnecting... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-    
-    setTimeout(() => {
-      this.connect();
-    }, this.reconnectDelay);
-  }
-
   disconnect() {
-    // Stop the integrated bridge
     if (this.integratedBridge) {
       this.integratedBridge.stop();
       this.integratedBridge = null;
     }
 
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+    this.isConnectedState = false;
     this.subscribers.clear();
     this.statusSubscribers.clear();
+    this.notifyStatusSubscribers(false);
   }
 
   isConnected(): boolean {
-    return (this.ws?.readyState === WebSocket.OPEN) || (this.integratedBridge?.isActive()) || false;
+    return this.isConnectedState && (this.integratedBridge?.isActive() || false);
   }
 }
