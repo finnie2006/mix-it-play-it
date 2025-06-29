@@ -12,9 +12,12 @@ const Index = () => {
   const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 16');
   const { 
     isConnected, 
+    mixerValidated,
+    mixerStatusMessage,
     faderValues, 
     connect, 
     disconnect, 
+    validateMixer,
     configureBridge,
     updateFaderConfig, 
     testRadioConnection 
@@ -32,7 +35,9 @@ const Index = () => {
         </div>
 
         <ConnectionStatus 
-          isConnected={isConnected} 
+          isConnected={isConnected}
+          mixerValidated={mixerValidated}
+          mixerStatusMessage={mixerStatusMessage}
           mixerIP={mixerIP}
           mixerModel={mixerModel}
           onConnect={() => {}} // Handled by useMixer hook
@@ -40,6 +45,7 @@ const Index = () => {
           onModelChange={setMixerModel}
           onConnectMixer={connect}
           onDisconnectMixer={disconnect}
+          onValidateMixer={validateMixer}
           onBridgeConfigured={configureBridge}
         />
 
@@ -57,7 +63,7 @@ const Index = () => {
 
           <TabsContent value="dashboard" className="mt-6">
             <MixerDashboard 
-              isConnected={isConnected} 
+              isConnected={isConnected && mixerValidated} 
               faderValues={faderValues}
               testRadioConnection={testRadioConnection}
             />

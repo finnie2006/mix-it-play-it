@@ -18,6 +18,8 @@ interface FaderConfig {
 
 export const useMixer = (config: MixerConfig) => {
   const [isConnected, setIsConnected] = useState(false);
+  const [mixerValidated, setMixerValidated] = useState(false);
+  const [mixerStatusMessage, setMixerStatusMessage] = useState('');
   const [faderValues, setFaderValues] = useState<Record<number, number>>({});
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
   const [radioService] = useState(() => new RadioSoftwareService());
@@ -33,6 +35,12 @@ export const useMixer = (config: MixerConfig) => {
     // Subscribe to connection status
     const unsubscribeStatus = xairMixer.onStatusChange(setIsConnected);
 
+    // Subscribe to mixer validation status
+    const unsubscribeMixerStatus = xairMixer.onMixerStatus((validated, message) => {
+      setMixerValidated(validated);
+      setMixerStatusMessage(message);
+    });
+
     // Subscribe to fader updates
     const unsubscribeFader = xairMixer.onFaderUpdate((data: FaderData) => {
       setFaderValues(prev => ({
@@ -46,6 +54,7 @@ export const useMixer = (config: MixerConfig) => {
 
     return () => {
       unsubscribeStatus();
+      unsubscribeMixerStatus();
       unsubscribeFader();
       xairMixer.disconnect();
     };
@@ -70,6 +79,12 @@ export const useMixer = (config: MixerConfig) => {
   const disconnect = useCallback(() => {
     if (mixer) {
       mixer.disconnect();
+    }
+  }, [mixer]);
+
+  const validateMixer = useCallback(() => {
+    if (mixer) {
+      mixer.validateMixer();
     }
   }, [mixer]);
 
@@ -99,9 +114,12 @@ export const useMixer = (config: MixerConfig) => {
 
   return {
     isConnected,
+    mixerValidated,
+    mixerStatusMessage,
     faderValues,
     connect,
     disconnect,
+    validateMixer,
     configureBridge,
     updateFaderConfig,
     testRadioConnection,

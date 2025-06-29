@@ -31,6 +31,7 @@ export class XAirWebSocket {
   private isConnecting = false;
   private subscribers: Set<(data: FaderData) => void> = new Set();
   private statusSubscribers: Set<(connected: boolean) => void> = new Set();
+  private mixerStatusSubscribers: Set<(validated: boolean, message: string) => void> = new Set();
   private maxChannels: number;
   private integratedBridge: IntegratedOSCBridge | null = null;
   private isConnectedState = false;
@@ -70,6 +71,12 @@ export class XAirWebSocket {
         // Set up message handler
         const unsubscribe = this.integratedBridge.onMessage((message) => {
           this.handleBridgeMessage(message);
+        });
+
+        // Set up mixer status handler
+        const unsubscribeMixerStatus = this.integratedBridge.onMixerStatus((validated, message) => {
+          console.log(`🎛️ Mixer validation status: ${validated ? 'Valid' : 'Invalid'} - ${message}`);
+          this.notifyMixerStatusSubscribers(validated, message);
         });
 
         const bridgeStarted = await this.integratedBridge.start();
@@ -146,6 +153,12 @@ export class XAirWebSocket {
     return false;
   }
 
+  validateMixer() {
+    if (this.integratedBridge?.isActive()) {
+      this.integratedBridge.validateMixer();
+    }
+  }
+
   onFaderUpdate(callback: (data: FaderData) => void) {
     this.subscribers.add(callback);
     return () => this.subscribers.delete(callback);
@@ -156,12 +169,21 @@ export class XAirWebSocket {
     return () => this.statusSubscribers.delete(callback);
   }
 
+  onMixerStatus(callback: (validated: boolean, message: string) => void) {
+    this.mixerStatusSubscribers.add(callback);
+    return () => this.mixerStatusSubscribers.delete(callback);
+  }
+
   private notifySubscribers(data: FaderData) {
     this.subscribers.forEach(callback => callback(data));
   }
 
   private notifyStatusSubscribers(connected: boolean) {
     this.statusSubscribers.forEach(callback => callback(connected));
+  }
+
+  private notifyMixerStatusSubscribers(validated: boolean, message: string) {
+    this.mixerStatusSubscribers.forEach(callback => callback(validated, message));
   }
 
   disconnect() {
@@ -173,10 +195,15 @@ export class XAirWebSocket {
     this.isConnectedState = false;
     this.subscribers.clear();
     this.statusSubscribers.clear();
+    this.mixerStatusSubscribers.clear();
     this.notifyStatusSubscribers(false);
   }
 
   isConnected(): boolean {
     return this.isConnectedState && (this.integratedBridge?.isActive() || false);
+  }
+
+  isMixerValidated(): boolean {
+    return this.integratedBridge?.isMixerValidated() || false;
   }
 }

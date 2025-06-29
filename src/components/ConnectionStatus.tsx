@@ -11,6 +11,8 @@ import { OSCBridgeInfo } from '@/components/OSCBridgeInfo';
 
 interface ConnectionStatusProps {
   isConnected: boolean;
+  mixerValidated?: boolean;
+  mixerStatusMessage?: string;
   mixerIP: string;
   mixerModel: 'X-Air 16' | 'X-Air 18';
   onConnect: (connected: boolean) => void;
@@ -18,11 +20,14 @@ interface ConnectionStatusProps {
   onModelChange: (model: 'X-Air 16' | 'X-Air 18') => void;
   onConnectMixer: () => Promise<boolean>;
   onDisconnectMixer: () => void;
+  onValidateMixer?: () => void;
   onBridgeConfigured?: (config: { bridgeHost: string; bridgePort: number }) => void;
 }
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   isConnected,
+  mixerValidated = false,
+  mixerStatusMessage = '',
   mixerIP,
   mixerModel,
   onConnect,
@@ -30,11 +35,20 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   onModelChange,
   onConnectMixer,
   onDisconnectMixer,
+  onValidateMixer,
   onBridgeConfigured
 }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [showBridgeInfo, setShowBridgeInfo] = useState(false);
   const { toast } = useToast();
+
+  const getConnectionStatus = () => {
+    if (!isConnected) return { status: 'Disconnected', color: 'red' };
+    if (!mixerValidated) return { status: 'Bridge Connected (Mixer Unvalidated)', color: 'yellow' };
+    return { status: 'Connected & Validated', color: 'green' };
+  };
+
+  const connectionInfo = getConnectionStatus();
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -50,7 +64,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         onConnect(true);
         toast({
           title: `Connected to ${mixerModel}`,
-          description: `Successfully connected with integrated OSC bridge to ${mixerIP}`,
+          description: `Bridge connected to ${mixerIP}. Validating mixer...`,
         });
       } else {
         throw new Error('Connection failed');
@@ -64,6 +78,16 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       setShowBridgeInfo(true);
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleValidateMixer = () => {
+    if (onValidateMixer) {
+      onValidateMixer();
+      toast({
+        title: "Validating Mixer",
+        description: "Sending validation request to mixer...",
+      });
     }
   };
 
@@ -81,15 +105,22 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       <Card className="p-6 bg-slate-800/50 border-slate-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-full ${isConnected ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'}`}>
+            <div className={`p-3 rounded-full ${
+              connectionInfo.color === 'green' ? 'bg-green-600/20 text-green-400' :
+              connectionInfo.color === 'yellow' ? 'bg-yellow-600/20 text-yellow-400' :
+              'bg-red-600/20 text-red-400'
+            }`}>
               {isConnected ? <Server size={24} /> : <WifiOff size={24} />}
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">
-                {isConnected ? 'Connected (Integrated Bridge)' : 'Disconnected'}
+                {connectionInfo.status}
               </h3>
               <p className="text-slate-400">
-                {isConnected ? `${mixerModel} at ${mixerIP} via integrated OSC bridge` : `Not connected to ${mixerModel} mixer`}
+                {isConnected 
+                  ? `${mixerModel} at ${mixerIP} - ${mixerStatusMessage || 'Checking mixer status...'}`
+                  : `Not connected to ${mixerModel} mixer`
+                }
               </p>
             </div>
           </div>
@@ -120,6 +151,17 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
                   />
                 </div>
               </>
+            )}
+            
+            {isConnected && !mixerValidated && onValidateMixer && (
+              <Button
+                onClick={handleValidateMixer}
+                variant="outline"
+                className="border-yellow-600 text-yellow-400 hover:bg-yellow-600/10"
+              >
+                <Settings size={16} className="mr-2" />
+                Validate Mixer
+              </Button>
             )}
             
             <Button

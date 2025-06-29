@@ -5,10 +5,14 @@ interface OSCMessage {
 }
 
 interface BridgeMessage {
-  type: 'osc' | 'status' | 'subscribe';
+  type: 'osc' | 'status' | 'subscribe' | 'mixer_status';
   address?: string;
   args?: any[];
   timestamp?: number;
+  connected?: boolean;
+  mixerIP?: string;
+  mixerPort?: number;
+  message?: string;
 }
 
 export class IntegratedOSCBridge {
@@ -17,10 +21,12 @@ export class IntegratedOSCBridge {
   private mixerPort: number;
   private subscribers: Map<string, Set<(message: OSCMessage) => void>> = new Map();
   private messageHandlers: Set<(message: BridgeMessage) => void> = new Set();
+  private statusHandlers: Set<(connected: boolean, message: string) => void> = new Set();
   private websocket: WebSocket | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private bridgeHost: string;
   private bridgePort: number;
+  private mixerValidated = false;
 
   constructor(mixerIP: string, mixerPort: number = 10024, bridgeHost: string = 'localhost', bridgePort: number = 8080) {
     this.mixerIP = mixerIP;
@@ -71,6 +77,7 @@ export class IntegratedOSCBridge {
         this.websocket.onclose = () => {
           console.log('🔌 Bridge connection closed');
           this.isRunning = false;
+          this.mixerValidated = false;
           this.attemptReconnect();
         };
 
@@ -93,6 +100,16 @@ export class IntegratedOSCBridge {
   }
 
   private handleBridgeMessage(message: BridgeMessage): void {
+    if (message.type === 'mixer_status') {
+      console.log('🎛️ Mixer status update:', message);
+      this.mixerValidated = message.connected || false;
+      
+      // Notify status handlers
+      this.statusHandlers.forEach(handler => 
+        handler(this.mixerValidated, message.message || '')
+      );
+    }
+    
     if (message.type === 'osc' && message.address) {
       const oscMessage: OSCMessage = {
         address: message.address,
@@ -161,6 +178,15 @@ export class IntegratedOSCBridge {
     return true;
   }
 
+  validateMixer(): void {
+    if (this.isRunning) {
+      console.log('🔍 Requesting mixer validation...');
+      this.sendToBridge({
+        type: 'validate_mixer'
+      });
+    }
+  }
+
   unsubscribe(address: string, callback?: (message: OSCMessage) => void): boolean {
     const addressSubscribers = this.subscribers.get(address);
     if (addressSubscribers && callback) {
@@ -175,6 +201,11 @@ export class IntegratedOSCBridge {
   onMessage(handler: (message: BridgeMessage) => void): () => void {
     this.messageHandlers.add(handler);
     return () => this.messageHandlers.delete(handler);
+  }
+
+  onMixerStatus(handler: (connected: boolean, message: string) => void): () => void {
+    this.statusHandlers.add(handler);
+    return () => this.statusHandlers.delete(handler);
   }
 
   private attemptReconnect(): void {
@@ -204,11 +235,17 @@ export class IntegratedOSCBridge {
 
     this.subscribers.clear();
     this.messageHandlers.clear();
+    this.statusHandlers.clear();
     this.isRunning = false;
+    this.mixerValidated = false;
   }
 
   isActive(): boolean {
     return this.isRunning && this.websocket?.readyState === WebSocket.OPEN;
+  }
+
+  isMixerValidated(): boolean {
+    return this.mixerValidated;
   }
 
   getConfig() {

@@ -12,6 +12,11 @@ console.log(`📡 Mixer: ${MIXER_IP}:${MIXER_PORT}`);
 console.log(`🌐 WebSocket: localhost:${BRIDGE_PORT}`);
 console.log(`🔌 Local OSC: localhost:${LOCAL_OSC_PORT}`);
 
+// Mixer validation state
+let mixerConnected = false;
+let lastMixerResponse = null;
+let validationTimer = null;
+
 // Create OSC UDP port
 const oscPort = new osc.UDPPort({
     localAddress: '0.0.0.0',
@@ -30,11 +35,62 @@ const wss = new WebSocket.Server({
 // Track connected clients
 const clients = new Set();
 
+// Broadcast status to all clients
+function broadcastMixerStatus(connected, message = '') {
+    const statusMessage = JSON.stringify({
+        type: 'mixer_status',
+        connected: connected,
+        mixerIP: MIXER_IP,
+        mixerPort: MIXER_PORT,
+        message: message,
+        timestamp: Date.now()
+    });
+    
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try {
+                client.send(statusMessage);
+            } catch (error) {
+                console.error('Error sending status to client:', error);
+            }
+        }
+    });
+}
+
+// Validate mixer connectivity
+function validateMixerConnection() {
+    console.log('🔍 Validating mixer connection...');
+    
+    // Send /info command to test mixer response
+    oscPort.send({
+        address: '/info',
+        args: []
+    });
+    
+    // Set timeout for validation
+    const validationTimeout = setTimeout(() => {
+        if (!mixerConnected) {
+            console.log('❌ Mixer validation timeout - no response from mixer');
+            mixerConnected = false;
+            broadcastMixerStatus(false, `No response from mixer at ${MIXER_IP}:${MIXER_PORT}`);
+        }
+    }, 3000); // 3 second timeout
+    
+    // Clear any existing validation timer
+    if (validationTimer) {
+        clearTimeout(validationTimer);
+    }
+    validationTimer = validationTimeout;
+}
+
 // Open OSC port
 oscPort.open();
 
 oscPort.on('ready', () => {
     console.log('✅ OSC UDP port ready');
+    
+    // Start mixer validation
+    validateMixerConnection();
     
     // Send periodic /xremote command to keep connection alive
     setInterval(() => {
@@ -42,16 +98,37 @@ oscPort.on('ready', () => {
             address: '/xremote',
             args: []
         });
+        
+        // Revalidate mixer connection every 30 seconds
+        if (Date.now() - (lastMixerResponse || 0) > 30000) {
+            validateMixerConnection();
+        }
     }, 9000); // Every 9 seconds
 });
 
 oscPort.on('error', (error) => {
     console.error('❌ OSC Error:', error);
+    mixerConnected = false;
+    broadcastMixerStatus(false, `OSC Error: ${error.message}`);
 });
 
 // Handle incoming OSC messages from mixer
 oscPort.on('message', (oscMessage) => {
     console.log('📨 OSC from mixer:', oscMessage.address, oscMessage.args);
+    
+    // Update mixer connection status
+    lastMixerResponse = Date.now();
+    if (!mixerConnected) {
+        console.log('✅ Mixer connection validated');
+        mixerConnected = true;
+        broadcastMixerStatus(true, 'Mixer responding to OSC commands');
+        
+        // Clear validation timer since we got a response
+        if (validationTimer) {
+            clearTimeout(validationTimer);
+            validationTimer = null;
+        }
+    }
     
     // Broadcast to all WebSocket clients
     const message = JSON.stringify({
@@ -85,6 +162,16 @@ wss.on('connection', (ws) => {
         mixerPort: MIXER_PORT
     }));
     
+    // Send current mixer validation status
+    ws.send(JSON.stringify({
+        type: 'mixer_status',
+        connected: mixerConnected,
+        mixerIP: MIXER_IP,
+        mixerPort: MIXER_PORT,
+        message: mixerConnected ? 'Mixer responding' : 'Validating mixer connection...',
+        timestamp: Date.now()
+    }));
+    
     // Handle messages from WebSocket client
     ws.on('message', (data) => {
         try {
@@ -106,6 +193,9 @@ wss.on('connection', (ws) => {
                     address: message.address,
                     args: []
                 });
+            } else if (message.type === 'validate_mixer') {
+                // Manual mixer validation request
+                validateMixerConnection();
             }
         } catch (error) {
             console.error('❌ Error parsing WebSocket message:', error);
