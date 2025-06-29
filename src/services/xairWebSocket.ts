@@ -1,14 +1,14 @@
-
 import { IntegratedOSCBridge } from './integratedBridge';
 
 export interface XAirMessage {
-  type: 'osc' | 'status' | 'subscribe';
+  type: 'osc' | 'status' | 'subscribe' | 'mixer_status';
   address?: string;
   args?: any[];
   connected?: boolean;
   mixerIP?: string;
   mixerPort?: number;
   timestamp?: number;
+  message?: string;
 }
 
 export interface FaderData {
