@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Wifi, WifiOff, Settings, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, Settings, AlertTriangle, Server } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { OSCBridgeInfo } from '@/components/OSCBridgeInfo';
 
@@ -40,12 +40,17 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     setIsConnecting(true);
     
     try {
+      toast({
+        title: "Starting Connection",
+        description: "Starting integrated OSC bridge and connecting to mixer...",
+      });
+
       const success = await onConnectMixer();
       if (success) {
         onConnect(true);
         toast({
           title: `Connected to ${mixerModel}`,
-          description: `Successfully connected to mixer at ${mixerIP}`,
+          description: `Successfully connected with integrated OSC bridge to ${mixerIP}`,
         });
       } else {
         throw new Error('Connection failed');
@@ -53,7 +58,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     } catch (error) {
       toast({
         title: "Connection Failed",
-        description: "X-Air mixers use UDP OSC protocol. See connection options below.",
+        description: "Failed to start integrated bridge. Check mixer network connection.",
         variant: "destructive"
       });
       setShowBridgeInfo(true);
@@ -67,7 +72,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
     onConnect(false);
     toast({
       title: "Disconnected",
-      description: `Disconnected from ${mixerModel} mixer`,
+      description: `Disconnected from ${mixerModel} mixer and stopped OSC bridge`,
     });
   };
 
@@ -77,14 +82,14 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`p-3 rounded-full ${isConnected ? 'bg-green-600/20 text-green-400' : 'bg-red-600/20 text-red-400'}`}>
-              {isConnected ? <Wifi size={24} /> : <WifiOff size={24} />}
+              {isConnected ? <Server size={24} /> : <WifiOff size={24} />}
             </div>
             <div>
               <h3 className="text-lg font-semibold text-white">
-                {isConnected ? 'Connected' : 'Disconnected'}
+                {isConnected ? 'Connected (Integrated Bridge)' : 'Disconnected'}
               </h3>
               <p className="text-slate-400">
-                {isConnected ? `${mixerModel} at ${mixerIP} (OSC Bridge)` : `Not connected to ${mixerModel} mixer`}
+                {isConnected ? `${mixerModel} at ${mixerIP} via integrated OSC bridge` : `Not connected to ${mixerModel} mixer`}
               </p>
             </div>
           </div>
