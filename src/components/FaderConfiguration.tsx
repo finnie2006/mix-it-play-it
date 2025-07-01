@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,27 +97,33 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
   }, []); // Remove onFaderConfigUpdate from dependencies to prevent infinite loop
 
   const handleSaveConfig = (config: FaderConfig) => {
+    console.log('💾 Saving configuration:', config);
+    
     let updatedConfigurations;
-    if (editingConfig) {
+    if (editingConfig && editingConfig.id) {
+      // Editing existing configuration
       updatedConfigurations = configurations.map(c => c.id === config.id ? config : c);
-      setConfigurations(updatedConfigurations);
-      toast({
-        title: "Configuration Updated",
-        description: `Fader ${config.channel} configuration has been updated.`,
-      });
+      console.log('✏️ Updated existing configuration');
     } else {
-      updatedConfigurations = [...configurations, { ...config, id: Date.now().toString() }];
-      setConfigurations(updatedConfigurations);
-      toast({
-        title: "Configuration Added",
-        description: `New fader configuration for channel ${config.channel} has been added.`,
-      });
+      // Adding new configuration
+      const newConfig = { ...config, id: Date.now().toString() };
+      updatedConfigurations = [...configurations, newConfig];
+      console.log('➕ Added new configuration');
     }
+    
+    console.log('📋 All configurations after save:', updatedConfigurations);
+    
+    setConfigurations(updatedConfigurations);
     
     // Save to localStorage and notify parent
     saveConfigurations(updatedConfigurations);
     onFaderConfigUpdate(updatedConfigurations);
     setEditingConfig(null);
+    
+    toast({
+      title: editingConfig && editingConfig.id ? "Configuration Updated" : "Configuration Added",
+      description: `Fader ${config.channel} configuration has been ${editingConfig && editingConfig.id ? 'updated' : 'added'}.`,
+    });
   };
 
   const handleDeleteConfig = (id: string) => {
@@ -230,6 +237,7 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📝 Form submitted with config:', editConfig);
     onSave(editConfig);
   };
 
@@ -249,7 +257,7 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
               min="1"
               max="18"
               value={editConfig.channel}
-              onChange={(e) => setEditConfig(prev => ({ ...prev, channel: parseInt(e.target.value) }))}
+              onChange={(e) => setEditConfig(prev => ({ ...prev, channel: parseInt(e.target.value) || 1 }))}
               className="bg-slate-700 border-slate-600 text-white"
             />
           </div>
@@ -261,7 +269,7 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
               min="0"
               max="100"
               value={editConfig.threshold}
-              onChange={(e) => setEditConfig(prev => ({ ...prev, threshold: parseInt(e.target.value) }))}
+              onChange={(e) => setEditConfig(prev => ({ ...prev, threshold: parseInt(e.target.value) || 0 }))}
               className="bg-slate-700 border-slate-600 text-white"
             />
           </div>
