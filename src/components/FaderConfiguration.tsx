@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,32 +25,77 @@ interface FaderConfigurationProps {
   onFaderConfigUpdate: (configs: any[]) => void;
 }
 
-export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderConfigUpdate }) => {
-  const [configurations, setConfigurations] = useState<FaderConfig[]>([
-    {
-      id: '1',
-      channel: 1,
-      enabled: true,
-      threshold: 50,
-      action: 'play',
-      radioSoftware: 'mairlist',
-      command: 'PLAYER 1 PLAY',
-      description: 'Main Jingle Player'
-    },
-    {
-      id: '2',
-      channel: 2,
-      enabled: true,
-      threshold: 60,
-      action: 'stop',
-      radioSoftware: 'mairlist',
-      command: 'PLAYER 2 STOP',
-      description: 'Music Stop'
-    }
-  ]);
+const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
 
+export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderConfigUpdate }) => {
+  const [configurations, setConfigurations] = useState<FaderConfig[]>([]);
   const [editingConfig, setEditingConfig] = useState<FaderConfig | null>(null);
   const { toast } = useToast();
+
+  // Load saved configurations on mount
+  useEffect(() => {
+    const loadSavedConfigurations = () => {
+      const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
+      if (savedConfigs) {
+        try {
+          const parsedConfigs = JSON.parse(savedConfigs);
+          console.log('🔧 Loading saved fader configurations:', parsedConfigs);
+          
+          // Convert from the stored format back to the component format
+          const componentConfigs: FaderConfig[] = parsedConfigs.map((config: any, index: number) => ({
+            id: config.id || (index + 1).toString(),
+            channel: config.channel,
+            enabled: config.enabled,
+            threshold: config.threshold,
+            action: config.radioCommand?.action || config.action || 'play',
+            radioSoftware: config.radioCommand?.software || config.radioSoftware || 'mairlist',
+            command: config.radioCommand?.command || config.command || '',
+            description: config.description || `Channel ${config.channel}`
+          }));
+          
+          setConfigurations(componentConfigs);
+          // Notify parent component with the loaded configurations
+          onFaderConfigUpdate(componentConfigs);
+        } catch (error) {
+          console.error('Failed to load saved fader configurations:', error);
+          // Set default configurations if loading fails
+          setDefaultConfigurations();
+        }
+      } else {
+        // Set default configurations if none exist
+        setDefaultConfigurations();
+      }
+    };
+
+    const setDefaultConfigurations = () => {
+      const defaultConfigs: FaderConfig[] = [
+        {
+          id: '1',
+          channel: 1,
+          enabled: true,
+          threshold: 50,
+          action: 'play',
+          radioSoftware: 'mairlist',
+          command: 'PLAYER 1 PLAY',
+          description: 'Main Jingle Player'
+        },
+        {
+          id: '2',
+          channel: 2,
+          enabled: true,
+          threshold: 60,
+          action: 'stop',
+          radioSoftware: 'mairlist',
+          command: 'PLAYER 2 STOP',
+          description: 'Music Stop'
+        }
+      ];
+      setConfigurations(defaultConfigs);
+      onFaderConfigUpdate(defaultConfigs);
+    };
+
+    loadSavedConfigurations();
+  }, [onFaderConfigUpdate]);
 
   const handleSaveConfig = (config: FaderConfig) => {
     let updatedConfigurations;
@@ -69,6 +114,9 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
         description: `New fader configuration for channel ${config.channel} has been added.`,
       });
     }
+    
+    // Save to localStorage and notify parent
+    saveConfigurations(updatedConfigurations);
     onFaderConfigUpdate(updatedConfigurations);
     setEditingConfig(null);
   };
@@ -76,11 +124,24 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
   const handleDeleteConfig = (id: string) => {
     const updatedConfigurations = configurations.filter(c => c.id !== id);
     setConfigurations(updatedConfigurations);
+    
+    // Save to localStorage and notify parent
+    saveConfigurations(updatedConfigurations);
     onFaderConfigUpdate(updatedConfigurations);
+    
     toast({
       title: "Configuration Deleted",
       description: "Fader configuration has been removed.",
     });
+  };
+
+  const saveConfigurations = (configs: FaderConfig[]) => {
+    try {
+      localStorage.setItem(FADER_CONFIG_STORAGE_KEY, JSON.stringify(configs));
+      console.log('💾 Fader configurations saved to localStorage:', configs);
+    } catch (error) {
+      console.error('Failed to save fader configurations:', error);
+    }
   };
 
   return (
