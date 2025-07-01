@@ -47,13 +47,16 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
       <div className="space-y-3">
         <div>
           <div className="flex justify-between text-sm mb-1">
-            <span className="text-slate-400">Level</span>
+            <span className="text-slate-400">Fader Position</span>
             <span className="text-white font-mono">{Math.round(value)}%</span>
           </div>
           <Progress 
             value={value} 
             className="h-2"
           />
+          <div className="text-xs text-slate-500 mt-1">
+            Shows physical fader position, not input level
+          </div>
         </div>
 
         <div className="space-y-2 text-sm">

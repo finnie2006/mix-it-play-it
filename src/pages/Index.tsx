@@ -66,6 +66,7 @@ const Index = () => {
               isConnected={isConnected && mixerValidated} 
               faderValues={faderValues}
               testRadioConnection={testRadioConnection}
+              mixerModel={mixerModel}
             />
           </TabsContent>
 
