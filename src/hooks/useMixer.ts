@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
@@ -66,7 +65,7 @@ export const useMixer = (config: MixerConfig) => {
     );
 
     if (faderConfig && data.value >= faderConfig.threshold) {
-      console.log(`Fader ${data.channel} triggered radio command:`, faderConfig.radioCommand);
+      console.log(`🎚️ Fader ${data.channel} at ${data.value.toFixed(1)}% triggered radio command (threshold: ${faderConfig.threshold}%):`, faderConfig.radioCommand);
       radioService.sendCommand(faderConfig.radioCommand);
     }
   }, [faderConfigs, radioService]);
@@ -100,8 +99,21 @@ export const useMixer = (config: MixerConfig) => {
     }
   }, [mixer, config.ip, config.port]);
 
-  const updateFaderConfig = useCallback((configs: FaderConfig[]) => {
-    setFaderConfigs(configs);
+  const updateFaderConfig = useCallback((configs: any[]) => {
+    // Convert the configuration format to match our FaderConfig interface
+    const convertedConfigs: FaderConfig[] = configs.map(config => ({
+      channel: config.channel,
+      threshold: config.threshold,
+      enabled: config.enabled,
+      radioCommand: {
+        software: config.radioSoftware,
+        action: config.action,
+        command: config.command
+      }
+    }));
+    
+    console.log('🔧 Updated fader configurations:', convertedConfigs);
+    setFaderConfigs(convertedConfigs);
   }, []);
 
   const testRadioConnection = useCallback(async (
