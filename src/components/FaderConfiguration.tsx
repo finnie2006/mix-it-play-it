@@ -32,7 +32,7 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
   const [editingConfig, setEditingConfig] = useState<FaderConfig | null>(null);
   const { toast } = useToast();
 
-  // Load saved configurations on mount
+  // Load saved configurations on mount - removed the dependency to prevent infinite loop
   useEffect(() => {
     const loadSavedConfigurations = () => {
       const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
@@ -54,15 +54,13 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
           }));
           
           setConfigurations(componentConfigs);
-          // Notify parent component with the loaded configurations
+          // Only notify parent on initial load
           onFaderConfigUpdate(componentConfigs);
         } catch (error) {
           console.error('Failed to load saved fader configurations:', error);
-          // Set default configurations if loading fails
           setDefaultConfigurations();
         }
       } else {
-        // Set default configurations if none exist
         setDefaultConfigurations();
       }
     };
@@ -95,7 +93,7 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
     };
 
     loadSavedConfigurations();
-  }, [onFaderConfigUpdate]);
+  }, []); // Remove onFaderConfigUpdate from dependencies to prevent infinite loop
 
   const handleSaveConfig = (config: FaderConfig) => {
     let updatedConfigurations;
