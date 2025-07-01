@@ -1,4 +1,4 @@
-import WebSocket from 'ws';
+
 import { XAirMessage } from './xairWebSocket';
 
 export interface BridgeConfig {
@@ -10,7 +10,7 @@ export interface BridgeConfig {
 export class IntegratedOSCBridge {
   private ws: WebSocket | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
-  private isActive = false;
+  private isActiveState = false;
   private messageHandlers: Set<(message: XAirMessage) => void> = new Set();
   private statusHandlers: Set<(validated: boolean, message: string) => void> = new Set();
   private mixerValidated = false;
@@ -32,7 +32,7 @@ export class IntegratedOSCBridge {
         
         this.ws.onopen = () => {
           console.log('✅ Connected to OSC bridge');
-          this.isActive = true;
+          this.isActiveState = true;
           
           // Send mixer IP update to bridge server
           this.updateMixerIP(this.mixerIP);
@@ -59,20 +59,20 @@ export class IntegratedOSCBridge {
 
         this.ws.onclose = () => {
           console.log('❌ OSC bridge connection closed');
-          this.isActive = false;
+          this.isActiveState = false;
           this.mixerValidated = false;
           this.attemptReconnect();
         };
 
         this.ws.onerror = (error) => {
           console.error('❌ OSC bridge connection error:', error);
-          this.isActive = false;
+          this.isActiveState = false;
           resolve(false);
         };
 
         // Timeout for connection
         setTimeout(() => {
-          if (!this.isActive) {
+          if (!this.isActiveState) {
             console.error('❌ OSC bridge connection timeout');
             resolve(false);
           }
@@ -101,7 +101,7 @@ export class IntegratedOSCBridge {
 
   stop() {
     console.log('🛑 Stopping OSC bridge connection');
-    this.isActive = false;
+    this.isActiveState = false;
     
     if (this.ws) {
       this.ws.close();
@@ -180,15 +180,11 @@ export class IntegratedOSCBridge {
     this.statusHandlers.forEach(callback => callback(validated, message));
   }
 
-  isActiveState(): boolean {
-    return this.isActive;
+  public isActive(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN || false;
   }
 
-  isActive: () => boolean = () => {
-    return this.ws?.readyState === WebSocket.OPEN;
-  };
-
-  isMixerValidated(): boolean {
+  public isMixerValidated(): boolean {
     return this.mixerValidated;
   }
 }
