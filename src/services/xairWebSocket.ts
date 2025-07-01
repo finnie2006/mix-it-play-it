@@ -111,12 +111,28 @@ export class XAirWebSocket {
     }
     
     if (message.type === 'osc' && message.address) {
-      // Handle fader updates - fix the regex pattern
+      // Handle fader updates - improved parsing
       if (message.address.includes('/mix/fader')) {
-        const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/fader/);
+        const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/fader$/);
         if (channelMatch && message.args && message.args.length > 0) {
           const channel = parseInt(channelMatch[1]);
-          const value = message.args[0] * 100; // Convert 0-1 to 0-100
+          
+          // Get the raw fader value (0.0 to 1.0)
+          let rawValue = message.args[0];
+          
+          // Handle different argument formats
+          if (typeof rawValue === 'object' && rawValue.value !== undefined) {
+            rawValue = rawValue.value;
+          }
+          
+          // Ensure we have a valid number
+          if (typeof rawValue !== 'number' || isNaN(rawValue)) {
+            console.warn(`Invalid fader value for channel ${channel}:`, rawValue);
+            return;
+          }
+          
+          // Convert 0-1 to 0-100 and ensure it's within bounds
+          const value = Math.max(0, Math.min(100, rawValue * 100));
           
           const faderData: FaderData = {
             channel,
@@ -124,7 +140,7 @@ export class XAirWebSocket {
             timestamp: message.timestamp || Date.now()
           };
           
-          console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}%`);
+          console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}% (raw: ${rawValue})`);
           this.notifySubscribers(faderData);
         }
       }
