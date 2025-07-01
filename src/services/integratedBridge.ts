@@ -1,260 +1,194 @@
+import WebSocket from 'ws';
+import { XAirMessage } from './xairWebSocket';
 
-interface OSCMessage {
-  address: string;
-  args: any[];
-}
-
-interface BridgeMessage {
-  type: 'osc' | 'status' | 'subscribe' | 'mixer_status';
-  address?: string;
-  args?: any[];
-  timestamp?: number;
-  connected?: boolean;
-  mixerIP?: string;
-  mixerPort?: number;
-  message?: string;
+export interface BridgeConfig {
+  mixerIP: string;
+  mixerPort: number;
+  bridgePort: number;
 }
 
 export class IntegratedOSCBridge {
-  private isRunning = false;
-  private mixerIP: string;
-  private mixerPort: number;
-  private subscribers: Map<string, Set<(message: OSCMessage) => void>> = new Map();
-  private messageHandlers: Set<(message: BridgeMessage) => void> = new Set();
-  private statusHandlers: Set<(connected: boolean, message: string) => void> = new Set();
-  private websocket: WebSocket | null = null;
+  private ws: WebSocket | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
-  private bridgeHost: string;
-  private bridgePort: number;
+  private isActive = false;
+  private messageHandlers: Set<(message: XAirMessage) => void> = new Set();
+  private statusHandlers: Set<(validated: boolean, message: string) => void> = new Set();
   private mixerValidated = false;
 
-  constructor(mixerIP: string, mixerPort: number = 10024, bridgeHost: string = 'localhost', bridgePort: number = 8080) {
-    this.mixerIP = mixerIP;
-    this.mixerPort = mixerPort;
-    this.bridgeHost = bridgeHost;
-    this.bridgePort = bridgePort;
-  }
+  constructor(
+    private mixerIP: string,
+    private mixerPort: number,
+    private bridgeHost: string = 'localhost',
+    private bridgePort: number = 8080
+  ) {}
 
   async start(): Promise<boolean> {
-    if (this.isRunning) return true;
-
-    console.log(`🌉 Starting OSC bridge connection to ws://${this.bridgeHost}:${this.bridgePort}`);
-    console.log(`🎛️ Target mixer: ${this.mixerIP}:${this.mixerPort}`);
-
     return new Promise((resolve) => {
       try {
-        this.websocket = new WebSocket(`ws://${this.bridgeHost}:${this.bridgePort}`);
+        const wsUrl = `ws://${this.bridgeHost}:${this.bridgePort}`;
+        console.log(`🌉 Connecting to OSC bridge at ${wsUrl}`);
         
-        this.websocket.onopen = () => {
-          console.log('✅ Connected to OSC bridge server');
-          this.isRunning = true;
+        this.ws = new WebSocket(wsUrl);
+        
+        this.ws.onopen = () => {
+          console.log('✅ Connected to OSC bridge');
+          this.isActive = true;
           
-          // Send initial configuration to bridge server
-          this.sendToBridge({
-            type: 'status',
-            mixerIP: this.mixerIP,
-            mixerPort: this.mixerPort
-          });
+          // Send mixer IP update to bridge server
+          this.updateMixerIP(this.mixerIP);
           
           resolve(true);
         };
 
-        this.websocket.onmessage = (event) => {
+        this.ws.onmessage = (event) => {
           try {
-            const message = JSON.parse(event.data);
-            this.handleBridgeMessage(message);
+            const message: XAirMessage = JSON.parse(event.data);
+            
+            if (message.type === 'mixer_status') {
+              this.mixerValidated = message.connected || false;
+              const statusMessage = message.message || 'Unknown status';
+              console.log(`🎛️ Mixer status: ${this.mixerValidated ? 'Connected' : 'Disconnected'} - ${statusMessage}`);
+              this.notifyStatusHandlers(this.mixerValidated, statusMessage);
+            }
+            
+            this.notifyMessageHandlers(message);
           } catch (error) {
-            console.error('Failed to parse bridge message:', error);
+            console.error('Error parsing bridge message:', error);
           }
         };
 
-        this.websocket.onerror = (error) => {
-          console.error('❌ Bridge WebSocket error:', error);
-          this.isRunning = false;
-          resolve(false);
-        };
-
-        this.websocket.onclose = () => {
-          console.log('🔌 Bridge connection closed');
-          this.isRunning = false;
+        this.ws.onclose = () => {
+          console.log('❌ OSC bridge connection closed');
+          this.isActive = false;
           this.mixerValidated = false;
           this.attemptReconnect();
         };
 
-        // Connection timeout
+        this.ws.onerror = (error) => {
+          console.error('❌ OSC bridge connection error:', error);
+          this.isActive = false;
+          resolve(false);
+        };
+
+        // Timeout for connection
         setTimeout(() => {
-          if (!this.isRunning) {
-            console.error('❌ Bridge connection timeout');
-            if (this.websocket) {
-              this.websocket.close();
-            }
+          if (!this.isActive) {
+            console.error('❌ OSC bridge connection timeout');
             resolve(false);
           }
         }, 5000);
 
       } catch (error) {
-        console.error('❌ Failed to connect to bridge:', error);
+        console.error('❌ Failed to create WebSocket connection:', error);
         resolve(false);
       }
     });
   }
 
-  private handleBridgeMessage(message: BridgeMessage): void {
-    if (message.type === 'mixer_status') {
-      console.log('🎛️ Mixer status update:', message);
-      this.mixerValidated = message.connected || false;
+  updateMixerIP(newMixerIP: string): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      console.log(`🔄 Updating bridge server mixer IP to: ${newMixerIP}`);
+      this.mixerIP = newMixerIP;
       
-      // Notify status handlers
-      this.statusHandlers.forEach(handler => 
-        handler(this.mixerValidated, message.message || '')
-      );
-    }
-    
-    if (message.type === 'osc' && message.address) {
-      const oscMessage: OSCMessage = {
-        address: message.address,
-        args: message.args || []
+      const updateMessage = {
+        type: 'update_mixer_ip',
+        mixerIP: newMixerIP
       };
       
-      console.log('🎛️ Received OSC Message:', oscMessage);
-      this.notifySubscribers(oscMessage);
-    }
-
-    // Notify message handlers
-    this.messageHandlers.forEach(handler => handler(message));
-  }
-
-  private notifySubscribers(message: OSCMessage): void {
-    const addressSubscribers = this.subscribers.get(message.address);
-    if (addressSubscribers) {
-      addressSubscribers.forEach(callback => callback(message));
+      this.ws.send(JSON.stringify(updateMessage));
     }
   }
 
-  private sendToBridge(message: any): boolean {
-    if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
-      this.websocket.send(JSON.stringify(message));
-      return true;
-    }
-    return false;
-  }
-
-  sendOSCMessage(address: string, args: any[] = []): boolean {
-    if (!this.isRunning) {
-      console.warn('⚠️ Bridge not connected, cannot send OSC message');
-      return false;
-    }
-
-    const message = {
-      type: 'osc',
-      address,
-      args,
-      mixerIP: this.mixerIP,
-      mixerPort: this.mixerPort
-    };
-
-    console.log(`📤 Sending OSC: ${address}`, args);
-    return this.sendToBridge(message);
-  }
-
-  subscribe(address: string, callback?: (message: OSCMessage) => void): boolean {
-    if (!this.subscribers.has(address)) {
-      this.subscribers.set(address, new Set());
-    }
-
-    if (callback) {
-      this.subscribers.get(address)!.add(callback);
-    }
-
-    // Send subscription request to bridge
-    this.sendToBridge({
-      type: 'subscribe',
-      address,
-      mixerIP: this.mixerIP,
-      mixerPort: this.mixerPort
-    });
-
-    console.log(`🔔 Subscribed to: ${address}`);
-    return true;
-  }
-
-  validateMixer(): void {
-    if (this.isRunning) {
-      console.log('🔍 Requesting mixer validation...');
-      this.sendToBridge({
-        type: 'validate_mixer'
-      });
-    }
-  }
-
-  unsubscribe(address: string, callback?: (message: OSCMessage) => void): boolean {
-    const addressSubscribers = this.subscribers.get(address);
-    if (addressSubscribers && callback) {
-      addressSubscribers.delete(callback);
-      if (addressSubscribers.size === 0) {
-        this.subscribers.delete(address);
-      }
-    }
-    return true;
-  }
-
-  onMessage(handler: (message: BridgeMessage) => void): () => void {
-    this.messageHandlers.add(handler);
-    return () => this.messageHandlers.delete(handler);
-  }
-
-  onMixerStatus(handler: (connected: boolean, message: string) => void): () => void {
-    this.statusHandlers.add(handler);
-    return () => this.statusHandlers.delete(handler);
-  }
-
-  private attemptReconnect(): void {
-    if (this.reconnectTimer) return;
+  stop() {
+    console.log('🛑 Stopping OSC bridge connection');
+    this.isActive = false;
     
-    console.log('🔄 Attempting to reconnect to bridge...');
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+  }
+
+  private attemptReconnect() {
+    if (this.reconnectTimer) return;
+
     this.reconnectTimer = setTimeout(() => {
+      console.log('🔄 Attempting to reconnect to OSC bridge...');
       this.reconnectTimer = null;
       this.start();
     }, 3000);
   }
 
-  stop(): void {
-    if (!this.isRunning) return;
-
-    console.log('🛑 Stopping OSC bridge');
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
+  subscribe(address: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const subscribeMessage = {
+        type: 'subscribe',
+        address: address
+      };
+      this.ws.send(JSON.stringify(subscribeMessage));
+    } else {
+      console.warn('⚠️ Cannot subscribe, bridge not connected');
     }
-
-    if (this.websocket) {
-      this.websocket.close();
-      this.websocket = null;
-    }
-
-    this.subscribers.clear();
-    this.messageHandlers.clear();
-    this.statusHandlers.clear();
-    this.isRunning = false;
-    this.mixerValidated = false;
   }
 
-  isActive(): boolean {
-    return this.isRunning && this.websocket?.readyState === WebSocket.OPEN;
+  sendOSCMessage(address: string, args: any[] = []) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const oscMessage = {
+        type: 'osc',
+        address: address,
+        args: args
+      };
+      this.ws.send(JSON.stringify(oscMessage));
+      return true;
+    } else {
+      console.warn('⚠️ Cannot send OSC message, bridge not connected');
+      return false;
+    }
   }
+
+  validateMixer() {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const validateMessage = {
+        type: 'validate_mixer'
+      };
+      this.ws.send(JSON.stringify(validateMessage));
+    } else {
+      console.warn('⚠️ Cannot validate mixer, bridge not connected');
+    }
+  }
+
+  onMessage(callback: (message: XAirMessage) => void) {
+    this.messageHandlers.add(callback);
+    return () => this.messageHandlers.delete(callback);
+  }
+
+  onMixerStatus(callback: (validated: boolean, message: string) => void) {
+    this.statusHandlers.add(callback);
+    return () => this.statusHandlers.delete(callback);
+  }
+
+  private notifyMessageHandlers(message: XAirMessage) {
+    this.messageHandlers.forEach(callback => callback(message));
+  }
+
+  private notifyStatusHandlers(validated: boolean, message: string) {
+    this.statusHandlers.forEach(callback => callback(validated, message));
+  }
+
+  isActiveState(): boolean {
+    return this.isActive;
+  }
+
+  isActive: () => boolean = () => {
+    return this.ws?.readyState === WebSocket.OPEN;
+  };
 
   isMixerValidated(): boolean {
     return this.mixerValidated;
-  }
-
-  getConfig() {
-    return {
-      mixerIP: this.mixerIP,
-      mixerPort: this.mixerPort,
-      bridgeHost: this.bridgeHost,
-      bridgePort: this.bridgePort,
-      isSimulated: false
-    };
   }
 }

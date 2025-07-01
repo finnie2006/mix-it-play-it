@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
@@ -15,6 +16,8 @@ interface FaderConfig {
   enabled: boolean;
 }
 
+const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
+
 export const useMixer = (config: MixerConfig) => {
   const [isConnected, setIsConnected] = useState(false);
   const [mixerValidated, setMixerValidated] = useState(false);
@@ -23,6 +26,20 @@ export const useMixer = (config: MixerConfig) => {
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
   const [radioService] = useState(() => new RadioSoftwareService());
   const [faderConfigs, setFaderConfigs] = useState<FaderConfig[]>([]);
+
+  // Load saved fader configurations on mount
+  useEffect(() => {
+    const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
+    if (savedConfigs) {
+      try {
+        const parsedConfigs = JSON.parse(savedConfigs);
+        console.log('🔧 Loaded saved fader configurations:', parsedConfigs);
+        setFaderConfigs(parsedConfigs);
+      } catch (error) {
+        console.error('Failed to load saved fader configurations:', error);
+      }
+    }
+  }, []);
 
   // Initialize mixer connection
   useEffect(() => {
@@ -114,6 +131,14 @@ export const useMixer = (config: MixerConfig) => {
     
     console.log('🔧 Updated fader configurations:', convertedConfigs);
     setFaderConfigs(convertedConfigs);
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem(FADER_CONFIG_STORAGE_KEY, JSON.stringify(convertedConfigs));
+      console.log('💾 Fader configurations saved to localStorage');
+    } catch (error) {
+      console.error('Failed to save fader configurations:', error);
+    }
   }, []);
 
   const testRadioConnection = useCallback(async (

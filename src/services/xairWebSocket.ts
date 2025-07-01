@@ -48,6 +48,15 @@ export class XAirWebSocket {
 
   setBridgeConfig(config: OSCBridgeConfig) {
     this.bridgeConfig = { host: config.bridgeHost, port: config.bridgePort };
+    
+    // If we have an active bridge and the mixer IP changed, update it
+    if (this.integratedBridge && this.ip !== config.mixerIP) {
+      console.log(`🔄 Mixer IP changed from ${this.ip} to ${config.mixerIP}`);
+      this.ip = config.mixerIP;
+      this.port = config.mixerPort;
+      this.integratedBridge.updateMixerIP(this.ip);
+    }
+    
     console.log(`🌉 OSC Bridge configured: ${config.bridgeHost}:${config.bridgePort} -> ${config.mixerIP}:${config.mixerPort}`);
   }
 
