@@ -4,24 +4,51 @@ import { Card } from '@/components/ui/card';
 import { FaderChannel } from '@/components/FaderChannel';
 import { RadioSoftwareStatus } from '@/components/RadioSoftwareStatus';
 
+interface FaderConfig {
+  id: string;
+  channel: number;
+  enabled: boolean;
+  threshold: number;
+  action: string;
+  radioSoftware: string;
+  command: string;
+  description: string;
+}
+
 interface MixerDashboardProps {
   isConnected: boolean;
   faderValues?: Record<number, number>;
   testRadioConnection?: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number) => Promise<boolean>;
   mixerModel?: 'X-Air 16' | 'X-Air 18';
+  faderConfigs?: FaderConfig[];
 }
 
 export const MixerDashboard: React.FC<MixerDashboardProps> = ({ 
   isConnected, 
   faderValues = {}, 
   testRadioConnection,
-  mixerModel = 'X-Air 18'
+  mixerModel = 'X-Air 18',
+  faderConfigs = []
 }) => {
   // Set channel count based on mixer model
   const maxChannels = mixerModel === 'X-Air 16' ? 12 : 16;
   const [configuredFaders] = useState(
     Array.from({ length: maxChannels }, (_, i) => i + 1)
   );
+
+  // Helper function to get config for a specific channel
+  const getConfigForChannel = (channel: number) => {
+    return faderConfigs.find(config => config.channel === channel);
+  };
+
+  // Helper function to determine if a fader is active based on its configuration
+  const isFaderActive = (channel: number, value: number) => {
+    const config = getConfigForChannel(channel);
+    if (!config || !config.enabled) {
+      return false;
+    }
+    return value >= config.threshold;
+  };
 
   if (!isConnected) {
     return (
@@ -49,14 +76,28 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
-        {configuredFaders.map(channel => (
-          <FaderChannel
-            key={channel}
-            channel={channel}
-            value={faderValues[channel] || 0}
-            isActive={(faderValues[channel] || 0) > 50}
-          />
-        ))}
+        {configuredFaders.map(channel => {
+          const config = getConfigForChannel(channel);
+          const value = faderValues[channel] || 0;
+          const isActive = isFaderActive(channel, value);
+          
+          return (
+            <FaderChannel
+              key={channel}
+              channel={channel}
+              value={value}
+              isActive={isActive}
+              config={config ? {
+                action: config.action,
+                radioSoftware: config.radioSoftware,
+                playerCommand: config.command,
+                threshold: config.threshold,
+                enabled: config.enabled,
+                description: config.description
+              } : undefined}
+            />
+          );
+        })}
       </div>
     </div>
   );

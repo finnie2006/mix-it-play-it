@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { MixerDashboard } from '@/components/MixerDashboard';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
@@ -10,6 +11,8 @@ const Index = () => {
   const [mixerIP, setMixerIP] = useState('192.168.1.10');
   // Set default to X-Air 18 since your logs show XR18
   const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
+  const [faderConfigs, setFaderConfigs] = useState<any[]>([]);
+  
   const { 
     isConnected, 
     mixerValidated,
@@ -22,6 +25,11 @@ const Index = () => {
     updateFaderConfig, 
     testRadioConnection 
   } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
+
+  const handleFaderConfigUpdate = (configs: any[]) => {
+    setFaderConfigs(configs);
+    updateFaderConfig(configs);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -67,12 +75,13 @@ const Index = () => {
               faderValues={faderValues}
               testRadioConnection={testRadioConnection}
               mixerModel={mixerModel}
+              faderConfigs={faderConfigs}
             />
           </TabsContent>
 
           <TabsContent value="config" className="mt-6">
             <ConfigurationPanel 
-              onFaderConfigUpdate={updateFaderConfig}
+              onFaderConfigUpdate={handleFaderConfigUpdate}
               testRadioConnection={testRadioConnection}
             />
           </TabsContent>

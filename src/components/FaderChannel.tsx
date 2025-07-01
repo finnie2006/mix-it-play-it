@@ -3,7 +3,7 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Play, Square, Volume2 } from 'lucide-react';
+import { Play, Square, Volume2, Settings } from 'lucide-react';
 
 interface FaderChannelProps {
   channel: number;
@@ -13,6 +13,9 @@ interface FaderChannelProps {
     action: string;
     radioSoftware: string;
     playerCommand: string;
+    threshold: number;
+    enabled: boolean;
+    description: string;
   };
 }
 
@@ -20,12 +23,10 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
   channel, 
   value, 
   isActive,
-  config = {
-    action: 'Play Track',
-    radioSoftware: 'mAirList',
-    playerCommand: 'PLAYER 1 PLAY'
-  }
+  config
 }) => {
+  const hasConfig = config && config.enabled;
+  
   return (
     <Card className={`p-4 transition-all duration-300 ${
       isActive 
@@ -59,18 +60,34 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
           </div>
         </div>
 
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <Play size={14} className="text-blue-400" />
-            <span className="text-slate-300">{config.action}</span>
+        {hasConfig ? (
+          <div className="space-y-2 text-sm">
+            <div className="text-slate-300 font-medium">{config.description}</div>
+            <div className="flex items-center gap-2">
+              <Play size={14} className="text-blue-400" />
+              <span className="text-slate-300">{config.action}</span>
+            </div>
+            <div className="text-slate-500">
+              Target: {config.radioSoftware}
+            </div>
+            <div className="text-xs text-slate-400">
+              Trigger at: {config.threshold}%
+            </div>
+            <div className="text-xs font-mono text-slate-600 bg-slate-900/50 p-1 rounded">
+              {config.playerCommand}
+            </div>
           </div>
-          <div className="text-slate-500">
-            Target: {config.radioSoftware}
+        ) : (
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center gap-2 text-slate-500">
+              <Settings size={14} />
+              <span>Not configured</span>
+            </div>
+            <div className="text-xs text-slate-500">
+              Configure this fader in the Configuration tab
+            </div>
           </div>
-          <div className="text-xs font-mono text-slate-600 bg-slate-900/50 p-1 rounded">
-            {config.playerCommand}
-          </div>
-        </div>
+        )}
       </div>
     </Card>
   );
