@@ -111,9 +111,9 @@ export class XAirWebSocket {
     }
     
     if (message.type === 'osc' && message.address) {
-      // Handle fader updates
+      // Handle fader updates - fix the regex pattern
       if (message.address.includes('/mix/fader')) {
-        const channelMatch = message.address.match(/\/ch\/(\d+)\//);
+        const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/fader/);
         if (channelMatch && message.args && message.args.length > 0) {
           const channel = parseInt(channelMatch[1]);
           const value = message.args[0] * 100; // Convert 0-1 to 0-100

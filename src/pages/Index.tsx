@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { MixerDashboard } from '@/components/MixerDashboard';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
@@ -9,7 +8,8 @@ import { useMixer } from '@/hooks/useMixer';
 
 const Index = () => {
   const [mixerIP, setMixerIP] = useState('192.168.1.10');
-  const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 16');
+  // Set default to X-Air 18 since your logs show XR18
+  const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
   const { 
     isConnected, 
     mixerValidated,
