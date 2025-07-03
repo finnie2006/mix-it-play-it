@@ -88,7 +88,10 @@ export class RadioSoftwareService {
       console.error('❌ mAirList connection failed:', error);
       
       if (error instanceof TypeError && error.message.includes('NetworkError')) {
-        console.warn('⚠️ CORS error detected - command may still work on mAirList side');
+        console.warn('🎯 CORS Error Detected! This is normal - mAirList server needs CORS configuration');
+        console.warn('💡 Your command was likely sent successfully, but browser blocks the response');
+        console.warn('🔧 Solution: Configure mAirList CORS or use the OSC bridge for HTTP requests');
+        // For connection testing, we'll consider CORS errors as "possibly successful"
         return true;
       }
       
