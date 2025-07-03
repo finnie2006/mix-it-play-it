@@ -13,17 +13,55 @@ export class RadioSoftwareService {
     username: '',
     password: ''
   };
+  private bridgeWs: WebSocket | null = null;
+  private bridgeConnected = false;
+
+  constructor() {
+    this.initializeBridge();
+  }
+
+  private async initializeBridge() {
+    try {
+      this.bridgeWs = new WebSocket('ws://localhost:8080');
+      
+      this.bridgeWs.onopen = () => {
+        this.bridgeConnected = true;
+        console.log('🌉 Connected to bridge for mAirList proxy');
+      };
+
+      this.bridgeWs.onclose = () => {
+        this.bridgeConnected = false;
+        console.log('❌ Bridge connection closed');
+      };
+
+      this.bridgeWs.onerror = () => {
+        this.bridgeConnected = false;
+      };
+    } catch (error) {
+      console.log('⚠️ Bridge not available, using direct HTTP for mAirList');
+    }
+  }
 
   setMairListCredentials(username: string, password: string) {
     this.mairlistCredentials = { username, password };
-    console.log('🔐 mAirList credentials updated');
+    
+    // Update bridge server with credentials
+    if (this.bridgeConnected && this.bridgeWs) {
+      this.bridgeWs.send(JSON.stringify({
+        type: 'mairlist_config',
+        host: 'localhost',
+        port: 9300,
+        username,
+        password
+      }));
+    }
   }
 
   async sendCommand(config: RadioCommand): Promise<boolean> {
     try {
       switch (config.software) {
         case 'mAirList':
-          return await this.sendToMAirListWithAuth(config);
+          return await this.sendToMAirList(config);
         case 'RadioDJ':
           console.log('RadioDJ support temporarily disabled - focusing on mAirList');
           return false;
@@ -37,14 +75,56 @@ export class RadioSoftwareService {
     }
   }
 
-  private async sendToMAirListWithAuth(config: RadioCommand): Promise<boolean> {
+  private async sendToMAirList(config: RadioCommand): Promise<boolean> {
+    // Try bridge first (no CORS issues)
+    if (this.bridgeConnected && this.bridgeWs) {
+      console.log(`📻 Sending mAirList command via bridge: ${config.command}`);
+      return await this.sendViaBridge(config);
+    }
+    
+    // Fallback to direct HTTP (may have CORS issues)
+    console.log(`📻 Sending mAirList command directly: ${config.command}`);
+    return await this.sendToMAirListDirect(config);
+  }
+
+  private async sendViaBridge(config: RadioCommand): Promise<boolean> {
+    return new Promise((resolve) => {
+      const requestId = Math.random().toString(36).substr(2, 9);
+      
+      const handleResponse = (event: MessageEvent) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'mairlist_response' && message.requestId === requestId) {
+            this.bridgeWs?.removeEventListener('message', handleResponse);
+            console.log(`📻 mAirList response: ${message.success ? 'Success' : 'Failed'}`);
+            resolve(message.success);
+          }
+        } catch (error) {
+          // Ignore parsing errors
+        }
+      };
+
+      this.bridgeWs?.addEventListener('message', handleResponse);
+      
+      this.bridgeWs?.send(JSON.stringify({
+        type: 'mairlist_command',
+        command: config.command,
+        requestId
+      }));
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        this.bridgeWs?.removeEventListener('message', handleResponse);
+        resolve(false);
+      }, 5000);
+    });
+  }
+
+  private async sendToMAirListDirect(config: RadioCommand): Promise<boolean> {
     const host = config.host || 'localhost';
     const port = config.port || 9300;
     const username = config.username || this.mairlistCredentials.username;
     const password = config.password || this.mairlistCredentials.password;
-    
-    console.log(`📻 Sending mAirList command: ${config.command} to ${host}:${port}`);
-    console.log(`🔐 Using credentials - Username: "${username}", Password: "${password}"`);
     
     if (!username || !password) {
       console.error('❌ Missing username or password for mAirList authentication');
@@ -52,14 +132,9 @@ export class RadioSoftwareService {
     }
     
     try {
-      // Create Authorization header for HTTP Basic Auth
       const credentials = `${username}:${password}`;
       const encodedCredentials = btoa(credentials);
       const authHeader = `Basic ${encodedCredentials}`;
-      
-      console.log(`🔐 Auth header: ${authHeader}`);
-      console.log(`🔐 Credentials string: "${credentials}"`);
-      console.log(`🔐 Base64 encoded: "${encodedCredentials}"`);
       
       const response = await fetch(`http://${host}:${port}/execute`, {
         method: 'POST',
@@ -70,16 +145,13 @@ export class RadioSoftwareService {
         body: `command=${encodeURIComponent(config.command)}`,
       });
       
-      console.log(`📻 mAirList HTTP response: ${response.status} ${response.statusText}`);
-      
       if (response.status === 401) {
         console.error('❌ Authentication failed - check username/password');
-        console.error('❌ Server expects Basic realm="RESTRemote"');
         return false;
       }
       
       if (response.status === 0 || response.type === 'opaque') {
-        console.warn('⚠️ CORS blocked the response, but command may have been sent');
+        console.warn('⚠️ CORS blocked response, but command may have been sent');
         return true;
       }
       
@@ -88,10 +160,7 @@ export class RadioSoftwareService {
       console.error('❌ mAirList connection failed:', error);
       
       if (error instanceof TypeError && error.message.includes('NetworkError')) {
-        console.warn('🎯 CORS Error Detected! This is normal - mAirList server needs CORS configuration');
-        console.warn('💡 Your command was likely sent successfully, but browser blocks the response');
-        console.warn('🔧 Solution: Configure mAirList CORS or use the OSC bridge for HTTP requests');
-        // For connection testing, we'll consider CORS errors as "possibly successful"
+        console.warn('🎯 CORS Error! Use bridge server to avoid this issue');
         return true;
       }
       
@@ -105,16 +174,12 @@ export class RadioSoftwareService {
       return false;
     }
     
-    const testPort = port || 9300;
-    
-    console.log(`🧪 testConnection called with: host=${host}, port=${testPort}, username=${username}, password=${password}`);
-    
     try {
-      const result = await this.sendToMAirListWithAuth({
+      const result = await this.sendToMAirList({
         software: 'mAirList',
         command: 'STATUS',
         host,
-        port: testPort,
+        port: port || 9300,
         username,
         password
       });
@@ -132,5 +197,11 @@ export class RadioSoftwareService {
 
   disconnectAll() {
     console.log('🧹 All connections cleaned up');
+    if (this.bridgeWs) {
+      this.bridgeWs.close();
+      this.bridgeWs = null;
+      this.bridgeConnected = false;
+    }
   }
 }
+
