@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,7 +29,7 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
   return (
     <Card className={`p-4 transition-all duration-300 ${
       isActive 
-        ? 'bg-gradient-to-br from-green-600/20 to-green-800/20 border-green-500/50 shadow-lg shadow-green-500/20' 
+        ? 'bg-slate-700/80 border-green-500/50 shadow-lg shadow-green-500/20' 
         : 'bg-slate-800/50 border-slate-700'
     }`}>
       <div className="flex items-center justify-between mb-3">
