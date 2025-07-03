@@ -43,12 +43,24 @@ export class RadioSoftwareService {
     const username = config.username || this.mairlistCredentials.username;
     const password = config.password || this.mairlistCredentials.password;
     
-    console.log(`📻 Sending mAirList command: ${config.command} to ${host}:${port} with auth`);
+    console.log(`📻 Sending mAirList command: ${config.command} to ${host}:${port}`);
+    console.log(`🔐 Using credentials - Username: "${username}", Password: "${password}"`);
+    
+    if (!username || !password) {
+      console.error('❌ Missing username or password for mAirList authentication');
+      return false;
+    }
     
     try {
       // Create Authorization header for HTTP Basic Auth
-      const credentials = btoa(`${username}:${password}`);
-      const authHeader = `Basic ${credentials}`;
+      // Make sure we're encoding the credentials correctly
+      const credentials = `${username}:${password}`;
+      const encodedCredentials = btoa(credentials);
+      const authHeader = `Basic ${encodedCredentials}`;
+      
+      console.log(`🔐 Auth header: ${authHeader}`);
+      console.log(`🔐 Credentials string: "${credentials}"`);
+      console.log(`🔐 Base64 encoded: "${encodedCredentials}"`);
       
       const response = await fetch(`http://${host}:${port}/execute`, {
         method: 'POST',
@@ -59,16 +71,16 @@ export class RadioSoftwareService {
         body: `command=${encodeURIComponent(config.command)}`,
       });
       
-      console.log(`✅ mAirList HTTP response: ${response.status} ${response.statusText}`);
+      console.log(`📻 mAirList HTTP response: ${response.status} ${response.statusText}`);
       
       if (response.status === 401) {
         console.error('❌ Authentication failed - check username/password');
+        console.error('❌ Server expects Basic realm="RESTRemote"');
         return false;
       }
       
       if (response.status === 0 || response.type === 'opaque') {
         console.warn('⚠️ CORS blocked the response, but command may have been sent');
-        // Even if CORS blocks the response, the command might still work
         return true;
       }
       
@@ -76,10 +88,9 @@ export class RadioSoftwareService {
     } catch (error) {
       console.error('❌ mAirList connection failed:', error);
       
-      // Check if it's a CORS error
       if (error instanceof TypeError && error.message.includes('NetworkError')) {
         console.warn('⚠️ CORS error detected - command may still work on mAirList side');
-        return true; // Assume success since CORS doesn't mean the command failed
+        return true;
       }
       
       return false;
@@ -112,12 +123,10 @@ export class RadioSoftwareService {
   }
 
   disconnect(software: string, host: string, port: number) {
-    // No persistent connections to clean up for HTTP requests
     console.log(`🧹 Cleaned up ${software} connection`);
   }
 
   disconnectAll() {
-    // No persistent connections to clean up for HTTP requests
     console.log('🧹 All connections cleaned up');
   }
 }
