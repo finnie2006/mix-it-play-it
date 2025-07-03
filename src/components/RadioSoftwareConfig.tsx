@@ -4,14 +4,14 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { Info } from 'lucide-react';
 
 interface RadioSoftwareConfigProps {
-  testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number) => Promise<boolean>;
+  testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number, username?: string, password?: string) => Promise<boolean>;
 }
 
 const RADIO_CONFIG_STORAGE_KEY = 'xair-radio-software-config';
@@ -19,20 +19,11 @@ const RADIO_CONFIG_STORAGE_KEY = 'xair-radio-software-config';
 export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRadioConnection }) => {
   const [mairlistConfig, setMairlistConfig] = useState({
     enabled: true,
-    host: 'localhost',
+    host: '192.168.0.194',
     port: 9300,
-    username: '',
+    username: 'finn',
     password: '',
-    apiEndpoint: '/remote'
-  });
-
-  const [radiodjConfig, setRadiodjConfig] = useState({
-    enabled: false,
-    host: 'localhost',
-    port: 18123,
-    username: '',
-    password: '',
-    apiEndpoint: '/api'
+    apiEndpoint: '/execute'
   });
 
   const { toast } = useToast();
@@ -43,70 +34,86 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     if (savedConfig) {
       try {
         const parsed = JSON.parse(savedConfig);
-        if (parsed.mairlist) setMairlistConfig(parsed.mairlist);
-        if (parsed.radiodj) setRadiodjConfig(parsed.radiodj);
-        console.log('📻 Loaded radio software configurations:', parsed);
+        if (parsed.mairlist) {
+          setMairlistConfig(prev => ({
+            ...prev,
+            ...parsed.mairlist
+          }));
+        }
+        console.log('📻 Loaded mAirList configuration:', parsed.mairlist);
       } catch (error) {
         console.error('Failed to load radio software configurations:', error);
       }
     }
   }, []);
 
-  const saveConfigurations = () => {
+  const saveConfiguration = () => {
     const config = {
-      mairlist: mairlistConfig,
-      radiodj: radiodjConfig
+      mairlist: mairlistConfig
     };
     try {
       localStorage.setItem(RADIO_CONFIG_STORAGE_KEY, JSON.stringify(config));
-      console.log('💾 Radio software configurations saved:', config);
+      console.log('💾 mAirList configuration saved:', config);
     } catch (error) {
-      console.error('Failed to save radio software configurations:', error);
+      console.error('Failed to save mAirList configuration:', error);
     }
   };
 
   const handleSaveMairList = () => {
-    saveConfigurations();
+    saveConfiguration();
     toast({
       title: "mAirList Configuration Saved",
       description: "Connection settings have been updated.",
     });
   };
 
-  const handleSaveRadioDJ = () => {
-    saveConfigurations();
-    toast({
-      title: "RadioDJ Configuration Saved",
-      description: "Connection settings have been updated.",
-    });
-  };
+  const testConnection = async () => {
+    if (!mairlistConfig.username || !mairlistConfig.password) {
+      toast({
+        title: "Missing Credentials",
+        description: "Please enter both username and password",
+        variant: "destructive"
+      });
+      return;
+    }
 
-  const testConnection = async (software: 'mAirList' | 'RadioDJ') => {
     toast({
-      title: `Testing ${software} Connection`,
-      description: "Attempting to connect...",
+      title: "Testing mAirList Connection",
+      description: "Attempting to connect with credentials...",
     });
     
     try {
-      const config = software === 'mAirList' ? mairlistConfig : radiodjConfig;
-      const result = await testRadioConnection(software, config.host, config.port);
+      const result = await testRadioConnection(
+        'mAirList', 
+        mairlistConfig.host, 
+        mairlistConfig.port, 
+        mairlistConfig.username, 
+        mairlistConfig.password
+      );
       
       toast({
-        title: `${software} Connection Test`,
-        description: result ? "Connection successful!" : "Connection failed. Check settings.",
+        title: "mAirList Connection Test",
+        description: result ? "Connection successful!" : "Connection failed. Check settings and credentials.",
         variant: result ? "default" : "destructive"
       });
     } catch (error) {
       toast({
-        title: `${software} Connection Test`,
-        description: "Connection failed. Check settings.",
+        title: "mAirList Connection Test",
+        description: "Connection failed. Check settings and credentials.",
         variant: "destructive"
       });
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <Alert className="border-blue-500/20 bg-blue-500/10">
+        <Info className="h-4 w-4 text-blue-400" />
+        <AlertDescription className="text-blue-100">
+          <strong>Focus Mode:</strong> Currently configured for mAirList only. Make sure to enter your credentials from the mAirList REST Remote configuration.
+        </AlertDescription>
+      </Alert>
+
       {/* mAirList Configuration */}
       <Card className={`p-6 border-slate-600 transition-all duration-300 ${
         mairlistConfig.enabled 
@@ -154,17 +161,18 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <Label htmlFor="mairlist-username" className="text-slate-300">Username (Optional)</Label>
+            <Label htmlFor="mairlist-username" className="text-slate-300">Username <span className="text-red-400">*</span></Label>
             <Input
               id="mairlist-username"
               value={mairlistConfig.username}
               onChange={(e) => setMairlistConfig(prev => ({ ...prev, username: e.target.value }))}
               className="bg-slate-700 border-slate-600 text-white"
               disabled={!mairlistConfig.enabled}
+              placeholder="Enter mAirList username"
             />
           </div>
           <div>
-            <Label htmlFor="mairlist-password" className="text-slate-300">Password (Optional)</Label>
+            <Label htmlFor="mairlist-password" className="text-slate-300">Password <span className="text-red-400">*</span></Label>
             <Input
               id="mairlist-password"
               type="password"
@@ -172,6 +180,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
               onChange={(e) => setMairlistConfig(prev => ({ ...prev, password: e.target.value }))}
               className="bg-slate-700 border-slate-600 text-white"
               disabled={!mairlistConfig.enabled}
+              placeholder="Enter mAirList password"
             />
           </div>
         </div>
@@ -189,10 +198,10 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
 
         <div className="flex justify-between">
           <Button
-            onClick={() => testConnection('mAirList')}
+            onClick={testConnection}
             variant="outline"
             className="border-slate-600 text-slate-300 hover:bg-slate-700"
-            disabled={!mairlistConfig.enabled}
+            disabled={!mairlistConfig.enabled || !mairlistConfig.username || !mairlistConfig.password}
           >
             Test Connection
           </Button>
@@ -206,128 +215,29 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
         </div>
       </Card>
 
-      {/* RadioDJ Configuration */}
-      <Card className={`p-6 border-slate-600 transition-all duration-300 ${
-        radiodjConfig.enabled 
-          ? 'bg-slate-800/70 border-blue-500/50 shadow-lg shadow-blue-500/10' 
-          : 'bg-slate-900/30 border-slate-700'
-      }`}>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h3 className="text-xl font-semibold text-white">RadioDJ Configuration</h3>
-            <Badge variant={radiodjConfig.enabled ? 'default' : 'secondary'} className={
-              radiodjConfig.enabled ? 'bg-blue-600 text-white' : 'bg-slate-600 text-slate-300'
-            }>
-              {radiodjConfig.enabled ? 'ENABLED' : 'DISABLED'}
-            </Badge>
-          </div>
-          <Switch
-            checked={radiodjConfig.enabled}
-            onCheckedChange={(checked) => setRadiodjConfig(prev => ({ ...prev, enabled: checked }))}
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <Label htmlFor="radiodj-host" className="text-slate-300">Host</Label>
-            <Input
-              id="radiodj-host"
-              value={radiodjConfig.host}
-              onChange={(e) => setRadiodjConfig(prev => ({ ...prev, host: e.target.value }))}
-              className="bg-slate-700 border-slate-600 text-white"
-              disabled={!radiodjConfig.enabled}
-            />
-          </div>
-          <div>
-            <Label htmlFor="radiodj-port" className="text-slate-300">Port</Label>
-            <Input
-              id="radiodj-port"
-              type="number"
-              value={radiodjConfig.port}
-              onChange={(e) => setRadiodjConfig(prev => ({ ...prev, port: parseInt(e.target.value) }))}
-              className="bg-slate-700 border-slate-600 text-white"
-              disabled={!radiodjConfig.enabled}
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-4">
-          <div>
-            <Label htmlFor="radiodj-username" className="text-slate-300">Username (Optional)</Label>
-            <Input
-              id="radiodj-username"
-              value={radiodjConfig.username}
-              onChange={(e) => setRadiodjConfig(prev => ({ ...prev, username: e.target.value }))}
-              className="bg-slate-700 border-slate-600 text-white"
-              disabled={!radiodjConfig.enabled}
-            />
-          </div>
-          <div>
-            <Label htmlFor="radiodj-password" className="text-slate-300">Password (Optional)</Label>
-            <Input
-              id="radiodj-password"
-              type="password"
-              value={radiodjConfig.password}
-              onChange={(e) => setRadiodjConfig(prev => ({ ...prev, password: e.target.value }))}
-              className="bg-slate-700 border-slate-600 text-white"
-              disabled={!radiodjConfig.enabled}
-            />
-          </div>
-        </div>
-
-        <div className="mb-4">
-          <Label htmlFor="radiodj-endpoint" className="text-slate-300">API Endpoint</Label>
-          <Input
-            id="radiodj-endpoint"
-            value={radiodjConfig.apiEndpoint}
-            onChange={(e) => setRadiodjConfig(prev => ({ ...prev, apiEndpoint: e.target.value }))}
-            className="bg-slate-700 border-slate-600 text-white"
-            disabled={!radiodjConfig.enabled}
-          />
-        </div>
-
-        <div className="flex justify-between">
-          <Button
-            onClick={() => testConnection('RadioDJ')}
-            variant="outline"
-            className="border-slate-600 text-slate-300 hover:bg-slate-700"
-            disabled={!radiodjConfig.enabled}
-          >
-            Test Connection
-          </Button>
-          <Button
-            onClick={handleSaveRadioDJ}
-            className="bg-green-600 hover:bg-green-700"
-            disabled={!radiodjConfig.enabled}
-          >
-            Save Configuration
-          </Button>
-        </div>
-      </Card>
-
       {/* Command Examples */}
       <Card className="p-6 bg-slate-900/50 border-slate-600">
-        <h3 className="text-lg font-semibold text-white mb-4">Command Examples</h3>
+        <h3 className="text-lg font-semibold text-white mb-4">mAirList Command Examples</h3>
         
         <div className="space-y-4">
           <div>
-            <h4 className="font-medium text-slate-300 mb-2">mAirList Commands:</h4>
+            <h4 className="font-medium text-slate-300 mb-2">Common Commands:</h4>
             <div className="space-y-1 text-sm font-mono bg-slate-800 p-3 rounded">
               <div className="text-green-400">PLAYER 1 PLAY</div>
+              <div className="text-green-400">PLAYER 1 STOP</div>
+              <div className="text-green-400">PLAYER 2 PLAY</div>
               <div className="text-green-400">PLAYER 2 STOP</div>
               <div className="text-green-400">PLAYLIST NEXT</div>
-              <div className="text-green-400">JINGLE FIRE "jingle1.mp3"</div>
+              <div className="text-green-400">STATUS</div>
             </div>
           </div>
           
-          <div>
-            <h4 className="font-medium text-slate-300 mb-2">RadioDJ API Examples:</h4>
-            <div className="space-y-1 text-sm font-mono bg-slate-800 p-3 rounded">
-              <div className="text-blue-400">http://localhost:18123/api/cmd?pass=password&c=PlayPause</div>
-              <div className="text-blue-400">http://localhost:18123/api/cmd?pass=password&c=Stop</div>
-              <div className="text-blue-400">http://localhost:18123/api/cmd?pass=password&c=NextTrack</div>
-            </div>
-          </div>
+          <Alert className="border-yellow-500/20 bg-yellow-500/10">
+            <Info className="h-4 w-4 text-yellow-500" />
+            <AlertDescription className="text-yellow-100">
+              <strong>CORS Note:</strong> Your browser may show CORS errors, but commands should still reach mAirList if authentication is correct.
+            </AlertDescription>
+          </Alert>
         </div>
       </Card>
     </div>
