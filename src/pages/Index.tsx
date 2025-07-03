@@ -1,11 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MixerDashboard } from '@/components/MixerDashboard';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Settings, Radio, Sliders } from 'lucide-react';
 import { useMixer } from '@/hooks/useMixer';
+
+const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
 
 const Index = () => {
   const [mixerIP, setMixerIP] = useState('192.168.1.10');
@@ -25,6 +27,68 @@ const Index = () => {
     updateFaderConfig, 
     testRadioConnection 
   } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
+
+  // Load saved configurations on mount
+  useEffect(() => {
+    const loadSavedConfigurations = () => {
+      const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
+      if (savedConfigs) {
+        try {
+          const parsedConfigs = JSON.parse(savedConfigs);
+          console.log('🔧 Loading saved fader configurations at app level:', parsedConfigs);
+          
+          // Convert from the stored format back to the component format
+          const componentConfigs: any[] = parsedConfigs.map((config: any, index: number) => ({
+            id: config.id || (index + 1).toString(),
+            channel: config.channel,
+            enabled: config.enabled,
+            threshold: config.threshold,
+            action: config.radioCommand?.action || config.action || 'play',
+            radioSoftware: config.radioCommand?.software || config.radioSoftware || 'mairlist',
+            command: config.radioCommand?.command || config.command || '',
+            description: config.description || `Channel ${config.channel}`
+          }));
+          
+          setFaderConfigs(componentConfigs);
+          updateFaderConfig(componentConfigs);
+        } catch (error) {
+          console.error('Failed to load saved fader configurations:', error);
+          setDefaultConfigurations();
+        }
+      } else {
+        setDefaultConfigurations();
+      }
+    };
+
+    const setDefaultConfigurations = () => {
+      const defaultConfigs: any[] = [
+        {
+          id: '1',
+          channel: 1,
+          enabled: true,
+          threshold: 50,
+          action: 'play',
+          radioSoftware: 'mairlist',
+          command: 'PLAYER 1 PLAY',
+          description: 'Main Jingle Player'
+        },
+        {
+          id: '2',
+          channel: 2,
+          enabled: true,
+          threshold: 60,
+          action: 'stop',
+          radioSoftware: 'mairlist',
+          command: 'PLAYER 2 STOP',
+          description: 'Music Stop'
+        }
+      ];
+      setFaderConfigs(defaultConfigs);
+      updateFaderConfig(defaultConfigs);
+    };
+
+    loadSavedConfigurations();
+  }, [updateFaderConfig]);
 
   const handleFaderConfigUpdate = (configs: any[]) => {
     setFaderConfigs(configs);

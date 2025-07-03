@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,14 +32,14 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
   const [editingConfig, setEditingConfig] = useState<FaderConfig | null>(null);
   const { toast } = useToast();
 
-  // Load saved configurations on mount - removed the dependency to prevent infinite loop
+  // Load saved configurations on mount
   useEffect(() => {
     const loadSavedConfigurations = () => {
       const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
       if (savedConfigs) {
         try {
           const parsedConfigs = JSON.parse(savedConfigs);
-          console.log('🔧 Loading saved fader configurations:', parsedConfigs);
+          console.log('🔧 Loading saved fader configurations in FaderConfiguration:', parsedConfigs);
           
           // Convert from the stored format back to the component format
           const componentConfigs: FaderConfig[] = parsedConfigs.map((config: any, index: number) => ({
@@ -55,42 +54,10 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
           }));
           
           setConfigurations(componentConfigs);
-          // Only notify parent on initial load
-          onFaderConfigUpdate(componentConfigs);
         } catch (error) {
           console.error('Failed to load saved fader configurations:', error);
-          setDefaultConfigurations();
         }
-      } else {
-        setDefaultConfigurations();
       }
-    };
-
-    const setDefaultConfigurations = () => {
-      const defaultConfigs: FaderConfig[] = [
-        {
-          id: '1',
-          channel: 1,
-          enabled: true,
-          threshold: 50,
-          action: 'play',
-          radioSoftware: 'mairlist',
-          command: 'PLAYER 1 PLAY',
-          description: 'Main Jingle Player'
-        },
-        {
-          id: '2',
-          channel: 2,
-          enabled: true,
-          threshold: 60,
-          action: 'stop',
-          radioSoftware: 'mairlist',
-          command: 'PLAYER 2 STOP',
-          description: 'Music Stop'
-        }
-      ];
-      setConfigurations(defaultConfigs);
-      onFaderConfigUpdate(defaultConfigs);
     };
 
     loadSavedConfigurations();
