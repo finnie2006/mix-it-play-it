@@ -10,65 +10,30 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, Edit, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface FaderConfig {
-  id: string;
-  channel: number;
-  enabled: boolean;
-  threshold: number;
-  action: string;
-  radioSoftware: string;
-  command: string;
-  description: string;
-  muteEnabled?: boolean;
-  muteAction?: string;
-  muteRadioSoftware?: string;
-  muteCommand?: string;
-}
+import { SettingsService, FaderMappingConfig } from '@/services/settingsService';
 
 interface FaderConfigurationProps {
   onFaderConfigUpdate: (configs: any[]) => void;
 }
 
-const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
-
 export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderConfigUpdate }) => {
-  const [configurations, setConfigurations] = useState<FaderConfig[]>([]);
-  const [editingConfig, setEditingConfig] = useState<FaderConfig | null>(null);
+  const [configurations, setConfigurations] = useState<FaderMappingConfig[]>([]);
+  const [editingConfig, setEditingConfig] = useState<FaderMappingConfig | null>(null);
   const { toast } = useToast();
+  const settingsService = SettingsService.getInstance();
 
   // Load saved configurations on mount
   useEffect(() => {
     const loadSavedConfigurations = () => {
-      const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
-      if (savedConfigs) {
-        try {
-          const parsedConfigs = JSON.parse(savedConfigs);
-          console.log('🔧 Loading saved fader configurations in FaderConfiguration:', parsedConfigs);
-          
-          // Convert from the stored format back to the component format
-          const componentConfigs: FaderConfig[] = parsedConfigs.map((config: any, index: number) => ({
-            id: config.id || (index + 1).toString(),
-            channel: config.channel,
-            enabled: config.enabled,
-            threshold: config.threshold,
-            action: config.radioCommand?.action || config.action || 'play',
-            radioSoftware: config.radioCommand?.software || config.radioSoftware || 'mairlist',
-            command: config.radioCommand?.command || config.command || '',
-            description: config.description || `Channel ${config.channel}`
-          }));
-          
-          setConfigurations(componentConfigs);
-        } catch (error) {
-          console.error('Failed to load saved fader configurations:', error);
-        }
-      }
+      const savedConfigs = settingsService.getFaderMappings();
+      console.log('🔧 Loading fader configurations from settings service:', savedConfigs);
+      setConfigurations(savedConfigs);
     };
 
     loadSavedConfigurations();
-  }, []); // Remove onFaderConfigUpdate from dependencies to prevent infinite loop
+  }, []);
 
-  const handleSaveConfig = (config: FaderConfig) => {
+  const handleSaveConfig = (config: FaderMappingConfig) => {
     console.log('💾 Saving configuration:', config);
     
     let updatedConfigurations;
@@ -87,8 +52,8 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
     
     setConfigurations(updatedConfigurations);
     
-    // Save to localStorage and notify parent
-    saveConfigurations(updatedConfigurations);
+    // Save using settings service and notify parent
+    settingsService.updateFaderMappings(updatedConfigurations);
     onFaderConfigUpdate(updatedConfigurations);
     setEditingConfig(null);
     
@@ -102,23 +67,14 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
     const updatedConfigurations = configurations.filter(c => c.id !== id);
     setConfigurations(updatedConfigurations);
     
-    // Save to localStorage and notify parent
-    saveConfigurations(updatedConfigurations);
+    // Save using settings service and notify parent
+    settingsService.updateFaderMappings(updatedConfigurations);
     onFaderConfigUpdate(updatedConfigurations);
     
     toast({
       title: "Configuration Deleted",
       description: "Fader configuration has been removed.",
     });
-  };
-
-  const saveConfigurations = (configs: FaderConfig[]) => {
-    try {
-      localStorage.setItem(FADER_CONFIG_STORAGE_KEY, JSON.stringify(configs));
-      console.log('💾 Fader configurations saved to localStorage:', configs);
-    } catch (error) {
-      console.error('Failed to save fader configurations:', error);
-    }
   };
 
   return (
@@ -132,12 +88,12 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
             enabled: true,
             threshold: 50,
             action: 'play',
-            radioSoftware: 'mairlist',
+            radioSoftware: 'mAirList',
             command: '',
             description: '',
             muteEnabled: false,
             muteAction: 'stop',
-            muteRadioSoftware: 'mairlist',
+            muteRadioSoftware: 'mAirList',
             muteCommand: ''
           })}
           className="bg-green-600 hover:bg-green-700"
@@ -219,8 +175,8 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
 };
 
 interface FaderConfigEditorProps {
-  config: FaderConfig;
-  onSave: (config: FaderConfig) => void;
+  config: FaderMappingConfig;
+  onSave: (config: FaderMappingConfig) => void;
   onCancel: () => void;
 }
 
@@ -301,7 +257,7 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-slate-700 border-slate-600">
                       <SelectItem value="play">Play</SelectItem>
                       <SelectItem value="stop">Stop</SelectItem>
                       <SelectItem value="pause">Pause</SelectItem>
@@ -316,10 +272,9 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mairlist">mAirList</SelectItem>
-                      <SelectItem value="radiodj">RadioDJ</SelectItem>
-                      <SelectItem value="custom">Custom HTTP</SelectItem>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      <SelectItem value="mAirList">mAirList</SelectItem>
+                      <SelectItem value="RadioDJ">RadioDJ (via mAirList)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -366,7 +321,7 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-slate-700 border-slate-600">
                       <SelectItem value="play">Play</SelectItem>
                       <SelectItem value="stop">Stop</SelectItem>
                       <SelectItem value="pause">Pause</SelectItem>
@@ -378,16 +333,15 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
                 <div>
                   <Label htmlFor="muteSoftware" className="text-slate-300">Radio Software</Label>
                   <Select 
-                    value={editConfig.muteRadioSoftware || 'mairlist'} 
+                    value={editConfig.muteRadioSoftware || 'mAirList'} 
                     onValueChange={(value) => setEditConfig(prev => ({ ...prev, muteRadioSoftware: value }))}
                   >
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mairlist">mAirList</SelectItem>
-                      <SelectItem value="radiodj">RadioDJ</SelectItem>
-                      <SelectItem value="custom">Custom HTTP</SelectItem>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      <SelectItem value="mAirList">mAirList</SelectItem>
+                      <SelectItem value="RadioDJ">RadioDJ (via mAirList)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

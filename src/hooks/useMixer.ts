@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
@@ -115,10 +114,11 @@ export const useMixer = (config: MixerConfig) => {
     const fellBelowThreshold = currentState.lastValue >= (faderConfig.threshold - 5) && data.value < (faderConfig.threshold - 5);
     
     if (crossedThreshold && !currentState.triggered) {
-      console.log(`🎚️ Fader ${data.channel} crossed threshold ${faderConfig.threshold}% -> Sending mAirList command:`, faderConfig.radioCommand.command);
+      console.log(`🎚️ Fader ${data.channel} crossed threshold ${faderConfig.threshold}% -> Sending ${faderConfig.radioCommand.software} command:`, faderConfig.radioCommand.command);
       
+      // Use the software selection from the dropdown properly
       const command: RadioCommand = {
-        software: 'mAirList',
+        software: faderConfig.radioCommand.software === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
         command: faderConfig.radioCommand.command,
         host: 'localhost'
       };
@@ -151,10 +151,11 @@ export const useMixer = (config: MixerConfig) => {
     );
 
     if (faderConfig && faderConfig.muteCommand) {
-      console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} -> Sending mAirList command:`, faderConfig.muteCommand.command);
+      console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} -> Sending ${faderConfig.muteCommand.software} command:`, faderConfig.muteCommand.command);
       
+      // Use the software selection from the dropdown properly  
       const command: RadioCommand = {
-        software: 'mAirList',
+        software: faderConfig.muteCommand.software === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
         command: faderConfig.muteCommand.command,
         host: 'localhost'
       };
@@ -199,19 +200,19 @@ export const useMixer = (config: MixerConfig) => {
       threshold: config.threshold,
       enabled: config.enabled,
       radioCommand: {
-        software: 'mAirList', // Force to mAirList since RadioDJ is disabled
+        software: config.radioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
         command: config.command,
         host: 'localhost'
       },
       muteEnabled: config.muteEnabled || false,
       muteCommand: config.muteCommand ? {
-        software: 'mAirList', // Force to mAirList since RadioDJ is disabled
+        software: config.muteRadioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
         command: config.muteCommand,
         host: 'localhost'
       } : undefined
     }));
     
-    console.log('🔧 Updated fader configurations for mAirList:', convertedConfigs);
+    console.log('🔧 Updated fader configurations with proper software selection:', convertedConfigs);
     setFaderConfigs(convertedConfigs);
     
     // Reset trigger states when config changes

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,12 +9,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Info } from 'lucide-react';
 import { RadioSoftwareService } from '@/services/radioSoftware';
+import { SettingsService } from '@/services/settingsService';
 
 interface RadioSoftwareConfigProps {
   testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number, username?: string, password?: string) => Promise<boolean>;
 }
-
-const RADIO_CONFIG_STORAGE_KEY = 'xair-radio-software-config';
 
 export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRadioConnection }) => {
   const [mairlistConfig, setMairlistConfig] = useState({
@@ -29,27 +27,21 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
 
   const { toast } = useToast();
   const radioService = new RadioSoftwareService();
+  const settingsService = SettingsService.getInstance();
 
   // Load saved configurations on mount
   useEffect(() => {
-    const savedConfig = localStorage.getItem(RADIO_CONFIG_STORAGE_KEY);
-    if (savedConfig) {
-      try {
-        const parsed = JSON.parse(savedConfig);
-        if (parsed.mairlist) {
-          const loadedConfig = {
-            ...mairlistConfig,
-            ...parsed.mairlist
-          };
-          setMairlistConfig(loadedConfig);
-          
-          // Send credentials to bridge server when component loads
-          if (loadedConfig.username && loadedConfig.password) {
-            radioService.setMairListCredentials(loadedConfig.username, loadedConfig.password);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to load radio software configurations:', error);
+    const savedConfig = settingsService.getRadioSoftwareConfig();
+    if (savedConfig.mairlist) {
+      const loadedConfig = {
+        ...mairlistConfig,
+        ...savedConfig.mairlist
+      };
+      setMairlistConfig(loadedConfig);
+      
+      // Send credentials to bridge server when component loads
+      if (loadedConfig.username && loadedConfig.password) {
+        radioService.setMairListCredentials(loadedConfig.username, loadedConfig.password);
       }
     }
   }, []);
@@ -58,15 +50,12 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     const config = {
       mairlist: mairlistConfig
     };
-    try {
-      localStorage.setItem(RADIO_CONFIG_STORAGE_KEY, JSON.stringify(config));
-      
-      // Send credentials to bridge server when saving
-      if (mairlistConfig.username && mairlistConfig.password) {
-        radioService.setMairListCredentials(mairlistConfig.username, mairlistConfig.password);
-      }
-    } catch (error) {
-      console.error('Failed to save mAirList configuration:', error);
+    
+    settingsService.updateRadioSoftwareConfig(config);
+    
+    // Send credentials to bridge server when saving
+    if (mairlistConfig.username && mairlistConfig.password) {
+      radioService.setMairListCredentials(mairlistConfig.username, mairlistConfig.password);
     }
   };
 
