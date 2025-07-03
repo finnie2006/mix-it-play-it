@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -36,12 +37,17 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
       try {
         const parsed = JSON.parse(savedConfig);
         if (parsed.mairlist) {
-          setMairlistConfig(prev => ({
-            ...prev,
+          const loadedConfig = {
+            ...mairlistConfig,
             ...parsed.mairlist
-          }));
+          };
+          setMairlistConfig(loadedConfig);
+          
+          // Send credentials to bridge server when component loads
+          if (loadedConfig.username && loadedConfig.password) {
+            radioService.setMairListCredentials(loadedConfig.username, loadedConfig.password);
+          }
         }
-        console.log('📻 Loaded mAirList configuration:', parsed.mairlist);
       } catch (error) {
         console.error('Failed to load radio software configurations:', error);
       }
@@ -54,7 +60,11 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     };
     try {
       localStorage.setItem(RADIO_CONFIG_STORAGE_KEY, JSON.stringify(config));
-      console.log('💾 mAirList configuration saved:', config);
+      
+      // Send credentials to bridge server when saving
+      if (mairlistConfig.username && mairlistConfig.password) {
+        radioService.setMairListCredentials(mairlistConfig.username, mairlistConfig.password);
+      }
     } catch (error) {
       console.error('Failed to save mAirList configuration:', error);
     }
@@ -64,7 +74,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     saveConfiguration();
     toast({
       title: "mAirList Configuration Saved",
-      description: "Connection settings have been updated.",
+      description: "Connection settings and credentials have been updated on bridge server.",
     });
   };
 
@@ -78,20 +88,15 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
       return;
     }
 
+    // Ensure credentials are sent to bridge server before testing
+    radioService.setMairListCredentials(mairlistConfig.username, mairlistConfig.password);
+    
     toast({
       title: "Testing mAirList Connection",
-      description: "Attempting to connect with credentials...",
-    });
-    
-    console.log('🧪 Testing connection with credentials:', {
-      username: mairlistConfig.username,
-      password: mairlistConfig.password,
-      host: mairlistConfig.host,
-      port: mairlistConfig.port
+      description: "Attempting to connect via bridge server...",
     });
     
     try {
-      // Use the RadioSoftwareService directly instead of going through the hook
       const result = await radioService.testConnection(
         'mAirList', 
         mairlistConfig.host, 
@@ -102,13 +107,13 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
       
       toast({
         title: "mAirList Connection Test",
-        description: result ? "Connection successful!" : "Connection failed. Check settings and credentials.",
+        description: result ? "Connection successful via bridge!" : "Connection failed. Check settings and ensure mAirList is running.",
         variant: result ? "default" : "destructive"
       });
     } catch (error) {
       toast({
         title: "mAirList Connection Test",
-        description: "Connection failed. Check settings and credentials.",
+        description: "Connection failed. Check settings and ensure bridge server is running.",
         variant: "destructive"
       });
     }
@@ -119,7 +124,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
       <Alert className="border-blue-500/20 bg-blue-500/10">
         <Info className="h-4 w-4 text-blue-400" />
         <AlertDescription className="text-blue-100">
-          <strong>Focus Mode:</strong> Currently configured for mAirList only. Make sure to enter your credentials from the mAirList REST Remote configuration.
+          <strong>Bridge Mode:</strong> mAirList commands are now routed through the bridge server to avoid CORS issues. Make sure your bridge server is running.
         </AlertDescription>
       </Alert>
 
@@ -241,10 +246,10 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
             </div>
           </div>
           
-          <Alert className="border-yellow-500/20 bg-yellow-500/10">
-            <Info className="h-4 w-4 text-yellow-500" />
-            <AlertDescription className="text-yellow-100">
-              <strong>CORS Note:</strong> Your browser may show CORS errors, but commands should still reach mAirList if authentication is correct.
+          <Alert className="border-green-500/20 bg-green-500/10">
+            <Info className="h-4 w-4 text-green-500" />
+            <AlertDescription className="text-green-100">
+              <strong>Bridge Mode:</strong> All mAirList commands now go through the bridge server, eliminating CORS issues completely.
             </AlertDescription>
           </Alert>
         </div>
