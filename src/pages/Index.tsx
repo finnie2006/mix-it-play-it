@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MixerDashboard } from '@/components/MixerDashboard';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
@@ -19,7 +18,8 @@ const Index = () => {
     isConnected, 
     mixerValidated,
     mixerStatusMessage,
-    faderValues, 
+    faderValues,
+    muteStates,
     connect, 
     disconnect, 
     validateMixer,
@@ -137,6 +137,7 @@ const Index = () => {
             <MixerDashboard 
               isConnected={isConnected && mixerValidated} 
               faderValues={faderValues}
+              muteStates={muteStates}
               testRadioConnection={testRadioConnection}
               mixerModel={mixerModel}
               faderConfigs={faderConfigs}

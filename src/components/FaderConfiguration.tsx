@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, Edit } from 'lucide-react';
+import { Trash2, Plus, Edit, Volume2, VolumeX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface FaderConfig {
@@ -19,6 +20,10 @@ interface FaderConfig {
   radioSoftware: string;
   command: string;
   description: string;
+  muteEnabled?: boolean;
+  muteAction?: string;
+  muteRadioSoftware?: string;
+  muteCommand?: string;
 }
 
 interface FaderConfigurationProps {
@@ -129,7 +134,11 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
             action: 'play',
             radioSoftware: 'mairlist',
             command: '',
-            description: ''
+            description: '',
+            muteEnabled: false,
+            muteAction: 'stop',
+            muteRadioSoftware: 'mairlist',
+            muteCommand: ''
           })}
           className="bg-green-600 hover:bg-green-700"
         >
@@ -151,12 +160,28 @@ export const FaderConfiguration: React.FC<FaderConfigurationProps> = ({ onFaderC
                 </div>
                 <div className="space-y-1">
                   <h4 className="font-semibold text-white">{config.description || `Channel ${config.channel}`}</h4>
-                  <p className="text-sm text-slate-400">
-                    {config.action.toUpperCase()} on {config.radioSoftware} @ {config.threshold}%
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <Volume2 size={14} className="text-blue-400" />
+                    <p className="text-sm text-slate-400">
+                      Fader: {config.action.toUpperCase()} on {config.radioSoftware} @ {config.threshold}%
+                    </p>
+                  </div>
+                  {config.muteEnabled && (
+                    <div className="flex items-center gap-2">
+                      <VolumeX size={14} className="text-red-400" />
+                      <p className="text-sm text-slate-400">
+                        Mute: {config.muteAction?.toUpperCase()} on {config.muteRadioSoftware}
+                      </p>
+                    </div>
+                  )}
                   <p className="text-xs font-mono text-slate-500 bg-slate-800 px-2 py-1 rounded">
-                    {config.command}
+                    Fader: {config.command}
                   </p>
+                  {config.muteEnabled && config.muteCommand && (
+                    <p className="text-xs font-mono text-slate-500 bg-slate-800 px-2 py-1 rounded">
+                      Mute: {config.muteCommand}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2">
@@ -214,7 +239,7 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
         {config.id ? 'Edit' : 'Add'} Fader Configuration
       </h3>
       
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="channel" className="text-slate-300">Channel</Label>
@@ -229,80 +254,158 @@ const FaderConfigEditor: React.FC<FaderConfigEditorProps> = ({ config, onSave, o
             />
           </div>
           <div>
-            <Label htmlFor="threshold" className="text-slate-300">Trigger Threshold (%)</Label>
+            <Label htmlFor="description" className="text-slate-300">Description</Label>
             <Input
-              id="threshold"
-              type="number"
-              min="0"
-              max="100"
-              value={editConfig.threshold}
-              onChange={(e) => setEditConfig(prev => ({ ...prev, threshold: parseInt(e.target.value) || 0 }))}
+              id="description"
+              value={editConfig.description}
+              onChange={(e) => setEditConfig(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="e.g., Main Jingle Player"
               className="bg-slate-700 border-slate-600 text-white"
             />
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="description" className="text-slate-300">Description</Label>
-          <Input
-            id="description"
-            value={editConfig.description}
-            onChange={(e) => setEditConfig(prev => ({ ...prev, description: e.target.value }))}
-            placeholder="e.g., Main Jingle Player"
-            className="bg-slate-700 border-slate-600 text-white"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="action" className="text-slate-300">Action</Label>
-            <Select value={editConfig.action} onValueChange={(value) => setEditConfig(prev => ({ ...prev, action: value }))}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="play">Play</SelectItem>
-                <SelectItem value="stop">Stop</SelectItem>
-                <SelectItem value="pause">Pause</SelectItem>
-                <SelectItem value="next">Next Track</SelectItem>
-                <SelectItem value="prev">Previous Track</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Fader Configuration Section */}
+        <div className="border border-slate-600 rounded-lg p-4 space-y-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enabled"
+              checked={editConfig.enabled}
+              onCheckedChange={(checked) => setEditConfig(prev => ({ ...prev, enabled: checked }))}
+            />
+            <Label htmlFor="enabled" className="text-slate-300 font-medium flex items-center gap-2">
+              <Volume2 size={16} className="text-blue-400" />
+              Enable Fader Trigger
+            </Label>
           </div>
-          <div>
-            <Label htmlFor="software" className="text-slate-300">Radio Software</Label>
-            <Select value={editConfig.radioSoftware} onValueChange={(value) => setEditConfig(prev => ({ ...prev, radioSoftware: value }))}>
-              <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mairlist">mAirList</SelectItem>
-                <SelectItem value="radiodj">RadioDJ</SelectItem>
-                <SelectItem value="custom">Custom HTTP</SelectItem>
-              </SelectContent>
-            </Select>
+
+          {editConfig.enabled && (
+            <>
+              <div>
+                <Label htmlFor="threshold" className="text-slate-300">Trigger Threshold (%)</Label>
+                <Input
+                  id="threshold"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editConfig.threshold}
+                  onChange={(e) => setEditConfig(prev => ({ ...prev, threshold: parseInt(e.target.value) || 0 }))}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="action" className="text-slate-300">Fader Action</Label>
+                  <Select value={editConfig.action} onValueChange={(value) => setEditConfig(prev => ({ ...prev, action: value }))}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="play">Play</SelectItem>
+                      <SelectItem value="stop">Stop</SelectItem>
+                      <SelectItem value="pause">Pause</SelectItem>
+                      <SelectItem value="next">Next Track</SelectItem>
+                      <SelectItem value="prev">Previous Track</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="software" className="text-slate-300">Radio Software</Label>
+                  <Select value={editConfig.radioSoftware} onValueChange={(value) => setEditConfig(prev => ({ ...prev, radioSoftware: value }))}>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mairlist">mAirList</SelectItem>
+                      <SelectItem value="radiodj">RadioDJ</SelectItem>
+                      <SelectItem value="custom">Custom HTTP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="command" className="text-slate-300">Fader Command/URL</Label>
+                <Textarea
+                  id="command"
+                  value={editConfig.command}
+                  onChange={(e) => setEditConfig(prev => ({ ...prev, command: e.target.value }))}
+                  placeholder="e.g., PLAYER 1 PLAY or http://localhost:9300/api/command"
+                  className="bg-slate-700 border-slate-600 text-white"
+                  rows={2}
+                />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Mute Configuration Section */}
+        <div className="border border-slate-600 rounded-lg p-4 space-y-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="muteEnabled"
+              checked={editConfig.muteEnabled || false}
+              onCheckedChange={(checked) => setEditConfig(prev => ({ ...prev, muteEnabled: checked }))}
+            />
+            <Label htmlFor="muteEnabled" className="text-slate-300 font-medium flex items-center gap-2">
+              <VolumeX size={16} className="text-red-400" />
+              Enable Mute Trigger
+            </Label>
           </div>
-        </div>
 
-        <div>
-          <Label htmlFor="command" className="text-slate-300">Command/URL</Label>
-          <Textarea
-            id="command"
-            value={editConfig.command}
-            onChange={(e) => setEditConfig(prev => ({ ...prev, command: e.target.value }))}
-            placeholder="e.g., PLAYER 1 PLAY or http://localhost:9300/api/command"
-            className="bg-slate-700 border-slate-600 text-white"
-            rows={3}
-          />
-        </div>
+          {editConfig.muteEnabled && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="muteAction" className="text-slate-300">Mute Action</Label>
+                  <Select 
+                    value={editConfig.muteAction || 'stop'} 
+                    onValueChange={(value) => setEditConfig(prev => ({ ...prev, muteAction: value }))}
+                  >
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="play">Play</SelectItem>
+                      <SelectItem value="stop">Stop</SelectItem>
+                      <SelectItem value="pause">Pause</SelectItem>
+                      <SelectItem value="next">Next Track</SelectItem>
+                      <SelectItem value="prev">Previous Track</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="muteSoftware" className="text-slate-300">Radio Software</Label>
+                  <Select 
+                    value={editConfig.muteRadioSoftware || 'mairlist'} 
+                    onValueChange={(value) => setEditConfig(prev => ({ ...prev, muteRadioSoftware: value }))}
+                  >
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mairlist">mAirList</SelectItem>
+                      <SelectItem value="radiodj">RadioDJ</SelectItem>
+                      <SelectItem value="custom">Custom HTTP</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="enabled"
-            checked={editConfig.enabled}
-            onCheckedChange={(checked) => setEditConfig(prev => ({ ...prev, enabled: checked }))}
-          />
-          <Label htmlFor="enabled" className="text-slate-300">Enable this configuration</Label>
+              <div>
+                <Label htmlFor="muteCommand" className="text-slate-300">Mute Command/URL</Label>
+                <Textarea
+                  id="muteCommand"
+                  value={editConfig.muteCommand || ''}
+                  onChange={(e) => setEditConfig(prev => ({ ...prev, muteCommand: e.target.value }))}
+                  placeholder="e.g., PLAYER 1 STOP or http://localhost:9300/api/stop"
+                  className="bg-slate-700 border-slate-600 text-white"
+                  rows={2}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end space-x-2 pt-4">

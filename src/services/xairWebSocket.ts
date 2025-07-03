@@ -1,4 +1,3 @@
-
 import { IntegratedOSCBridge } from './integratedBridge';
 
 export interface XAirMessage {
@@ -18,6 +17,12 @@ export interface FaderData {
   timestamp: number;
 }
 
+export interface MuteData {
+  channel: number;
+  muted: boolean;
+  timestamp: number;
+}
+
 export interface OSCBridgeConfig {
   bridgeHost: string;
   bridgePort: number;
@@ -31,6 +36,7 @@ export class XAirWebSocket {
   private reconnectDelay = 2000;
   private isConnecting = false;
   private subscribers: Set<(data: FaderData) => void> = new Set();
+  private muteSubscribers: Set<(data: MuteData) => void> = new Set();
   private statusSubscribers: Set<(connected: boolean) => void> = new Set();
   private mixerStatusSubscribers: Set<(validated: boolean, message: string) => void> = new Set();
   private maxChannels: number;
@@ -154,19 +160,55 @@ export class XAirWebSocket {
           this.notifySubscribers(faderData);
         }
       }
+      
+      // Handle mute updates
+      if (message.address.includes('/mix/on')) {
+        const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/on$/);
+        if (channelMatch && message.args && message.args.length > 0) {
+          const channel = parseInt(channelMatch[1]);
+          
+          // Get the mute value (1 = unmuted, 0 = muted)
+          let rawValue = message.args[0];
+          
+          // Handle different argument formats
+          if (typeof rawValue === 'object' && rawValue.value !== undefined) {
+            rawValue = rawValue.value;
+          }
+          
+          // Ensure we have a valid number/boolean
+          if (typeof rawValue !== 'number' && typeof rawValue !== 'boolean') {
+            console.warn(`Invalid mute value for channel ${channel}:`, rawValue);
+            return;
+          }
+          
+          // Convert to boolean (1 = unmuted/false, 0 = muted/true)
+          const muted = rawValue === 0 || rawValue === false;
+          
+          const muteData: MuteData = {
+            channel,
+            muted,
+            timestamp: message.timestamp || Date.now()
+          };
+          
+          console.log(`🔇 Channel ${channel}: ${muted ? 'MUTED' : 'UNMUTED'}`);
+          this.notifyMuteSubscribers(muteData);
+        }
+      }
     }
   }
 
   private subscribeFaderUpdates() {
     if (!this.integratedBridge?.isActive()) return;
     
-    console.log(`🎚️ Subscribing to ${this.maxChannels} fader channels`);
+    console.log(`🎚️ Subscribing to ${this.maxChannels} fader channels and mute states`);
     
-    // Subscribe to channel faders
+    // Subscribe to channel faders and mute states
     for (let i = 1; i <= this.maxChannels; i++) {
       const channel = i.toString().padStart(2, '0');
-      const address = `/ch/${channel}/mix/fader`;
-      this.integratedBridge.subscribe(address);
+      const faderAddress = `/ch/${channel}/mix/fader`;
+      const muteAddress = `/ch/${channel}/mix/on`;
+      this.integratedBridge.subscribe(faderAddress);
+      this.integratedBridge.subscribe(muteAddress);
     }
   }
 
@@ -190,6 +232,11 @@ export class XAirWebSocket {
     return () => this.subscribers.delete(callback);
   }
 
+  onMuteUpdate(callback: (data: MuteData) => void) {
+    this.muteSubscribers.add(callback);
+    return () => this.muteSubscribers.delete(callback);
+  }
+
   onStatusChange(callback: (connected: boolean) => void) {
     this.statusSubscribers.add(callback);
     return () => this.statusSubscribers.delete(callback);
@@ -202,6 +249,10 @@ export class XAirWebSocket {
 
   private notifySubscribers(data: FaderData) {
     this.subscribers.forEach(callback => callback(data));
+  }
+
+  private notifyMuteSubscribers(data: MuteData) {
+    this.muteSubscribers.forEach(callback => callback(data));
   }
 
   private notifyStatusSubscribers(connected: boolean) {

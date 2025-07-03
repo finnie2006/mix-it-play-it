@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { FaderChannel } from '@/components/FaderChannel';
@@ -13,11 +12,16 @@ interface FaderConfig {
   radioSoftware: string;
   command: string;
   description: string;
+  muteEnabled: boolean;
+  muteAction: string;
+  muteRadioSoftware: string;
+  muteCommand: string;
 }
 
 interface MixerDashboardProps {
   isConnected: boolean;
   faderValues?: Record<number, number>;
+  muteStates?: Record<number, boolean>;
   testRadioConnection?: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number) => Promise<boolean>;
   mixerModel?: 'X-Air 16' | 'X-Air 18';
   faderConfigs?: FaderConfig[];
@@ -25,9 +29,10 @@ interface MixerDashboardProps {
 
 export const MixerDashboard: React.FC<MixerDashboardProps> = ({ 
   isConnected, 
-  faderValues = {}, 
-  testRadioConnection,
-  mixerModel = 'X-Air 18',
+  faderValues, 
+  muteStates = {},
+  testRadioConnection, 
+  mixerModel,
   faderConfigs = []
 }) => {
   // Set channel count based on mixer model
@@ -75,26 +80,36 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
         </p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4 gap-4">
-        {configuredFaders.map(channel => {
-          const config = getConfigForChannel(channel);
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {Array.from({ length: maxChannels }, (_, i) => {
+          const channel = i + 1;
           const value = faderValues[channel] || 0;
-          const isActive = isFaderActive(channel, value);
+          const isMuted = muteStates[channel] || false;
+          const isActive = value > 5; // Consider active if fader is above 5%
           
+          // Find matching configuration for this channel
+          const config = faderConfigs.find(c => c.channel === channel);
+          const channelConfig = config ? {
+            action: config.action,
+            radioSoftware: config.radioSoftware,
+            playerCommand: config.command,
+            threshold: config.threshold,
+            enabled: config.enabled,
+            description: config.description,
+            muteEnabled: config.muteEnabled,
+            muteAction: config.muteAction,
+            muteRadioSoftware: config.muteRadioSoftware,
+            muteCommand: config.muteCommand
+          } : undefined;
+
           return (
             <FaderChannel
               key={channel}
               channel={channel}
               value={value}
               isActive={isActive}
-              config={config ? {
-                action: config.action,
-                radioSoftware: config.radioSoftware,
-                playerCommand: config.command,
-                threshold: config.threshold,
-                enabled: config.enabled,
-                description: config.description
-              } : undefined}
+              isMuted={isMuted}
+              config={channelConfig}
             />
           );
         })}

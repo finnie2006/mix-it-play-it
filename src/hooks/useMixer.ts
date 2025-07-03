@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { XAirWebSocket, FaderData, OSCBridgeConfig } from '@/services/xairWebSocket';
+import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
 
 interface MixerConfig {
@@ -14,6 +14,8 @@ interface FaderConfig {
   threshold: number;
   radioCommand: RadioCommand;
   enabled: boolean;
+  muteCommand?: RadioCommand;
+  muteEnabled?: boolean;
 }
 
 const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
@@ -23,6 +25,7 @@ export const useMixer = (config: MixerConfig) => {
   const [mixerValidated, setMixerValidated] = useState(false);
   const [mixerStatusMessage, setMixerStatusMessage] = useState('');
   const [faderValues, setFaderValues] = useState<Record<number, number>>({});
+  const [muteStates, setMuteStates] = useState<Record<number, boolean>>({});
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
   const [radioService] = useState(() => new RadioSoftwareService());
   const [faderConfigs, setFaderConfigs] = useState<FaderConfig[]>([]);
@@ -68,10 +71,22 @@ export const useMixer = (config: MixerConfig) => {
       checkFaderTrigger(data);
     });
 
+    // Subscribe to mute updates
+    const unsubscribeMute = xairMixer.onMuteUpdate((data: MuteData) => {
+      setMuteStates(prev => ({
+        ...prev,
+        [data.channel]: data.muted
+      }));
+
+      // Check if this mute should trigger a radio command
+      checkMuteTrigger(data);
+    });
+
     return () => {
       unsubscribeStatus();
       unsubscribeMixerStatus();
       unsubscribeFader();
+      unsubscribeMute();
       xairMixer.disconnect();
     };
   }, [config.ip, config.port, config.model]);
@@ -88,6 +103,24 @@ export const useMixer = (config: MixerConfig) => {
       const command: RadioCommand = {
         software: faderConfig.radioCommand.software,
         command: faderConfig.radioCommand.command,
+        host: 'localhost'
+      };
+      
+      radioService.sendCommand(command);
+    }
+  }, [faderConfigs, radioService]);
+
+  const checkMuteTrigger = useCallback((data: MuteData) => {
+    const faderConfig = faderConfigs.find(config => 
+      config.channel === data.channel && config.muteEnabled
+    );
+
+    if (faderConfig && faderConfig.muteCommand) {
+      console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} triggered radio command:`, faderConfig.muteCommand);
+      
+      const command: RadioCommand = {
+        software: faderConfig.muteCommand.software,
+        command: faderConfig.muteCommand.command,
         host: 'localhost'
       };
       
@@ -134,7 +167,13 @@ export const useMixer = (config: MixerConfig) => {
         software: config.radioSoftware === 'mairlist' ? 'mAirList' : 'RadioDJ',
         command: config.command,
         host: 'localhost'
-      }
+      },
+      muteEnabled: config.muteEnabled || false,
+      muteCommand: config.muteCommand ? {
+        software: config.muteRadioSoftware === 'mairlist' ? 'mAirList' : 'RadioDJ',
+        command: config.muteCommand,
+        host: 'localhost'
+      } : undefined
     }));
     
     console.log('🔧 Updated fader configurations:', convertedConfigs);
@@ -162,6 +201,7 @@ export const useMixer = (config: MixerConfig) => {
     mixerValidated,
     mixerStatusMessage,
     faderValues,
+    muteStates,
     connect,
     disconnect,
     validateMixer,
