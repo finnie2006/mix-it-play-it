@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { Info } from 'lucide-react';
+import { RadioSoftwareService } from '@/services/radioSoftware';
 
 interface RadioSoftwareConfigProps {
   testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number, username?: string, password?: string) => Promise<boolean>;
@@ -27,6 +27,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
   });
 
   const { toast } = useToast();
+  const radioService = new RadioSoftwareService();
 
   // Load saved configurations on mount
   useEffect(() => {
@@ -90,7 +91,8 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     });
     
     try {
-      const result = await testRadioConnection(
+      // Use the RadioSoftwareService directly instead of going through the hook
+      const result = await radioService.testConnection(
         'mAirList', 
         mairlistConfig.host, 
         mairlistConfig.port, 
