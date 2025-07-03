@@ -6,14 +6,14 @@
       "channel": 1,
       "enabled": true,
       "threshold": 50,
-      "action": "play",
+      "action": "start",
       "radioSoftware": "mAirList",
-      "command": "PLAYER 1 PLAY",
+      "command": "PLAYER 1-1 START",
       "description": "Main Jingle Player",
       "muteEnabled": false,
       "muteAction": "stop",
       "muteRadioSoftware": "mAirList",
-      "muteCommand": "PLAYER 1 STOP"
+      "muteCommand": "PLAYER 1-1 STOP"
     },
     {
       "id": "2",
@@ -22,18 +22,18 @@
       "threshold": 60,
       "action": "stop",
       "radioSoftware": "mAirList",
-      "command": "PLAYER 2 STOP",
+      "command": "PLAYER 1-2 STOP",
       "description": "Music Stop",
       "muteEnabled": false,
       "muteAction": "stop",
       "muteRadioSoftware": "mAirList",
-      "muteCommand": "PLAYER 2 STOP"
+      "muteCommand": "PLAYER 1-2 STOP"
     }
   ],
   "radioSoftware": {
     "mairlist": {
       "enabled": true,
-      "host": "192.168.0.194",
+      "host": "localhost",
       "port": 9300,
       "username": "finn",
       "password": "finn",

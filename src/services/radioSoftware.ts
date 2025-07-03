@@ -1,4 +1,3 @@
-
 export interface RadioCommand {
   software: 'mAirList' | 'RadioDJ';
   command: string;
@@ -82,14 +81,14 @@ export class RadioSoftwareService {
   }
 
   private convertToMairListCommand(radioDjCommand: string): string {
-    // Convert common RadioDJ commands to mAirList equivalents
+    // Convert common RadioDJ commands to mAirList equivalents using correct format
     const commandMap: Record<string, string> = {
-      'PLAYER 1 PLAY': 'PLAYER 1 PLAY',
-      'PLAYER 1 STOP': 'PLAYER 1 STOP',
-      'PLAYER 2 PLAY': 'PLAYER 2 PLAY',
-      'PLAYER 2 STOP': 'PLAYER 2 STOP',
-      'PLAYER 1 PAUSE': 'PLAYER 1 PAUSE',
-      'PLAYER 2 PAUSE': 'PLAYER 2 PAUSE',
+      'PLAYER 1 PLAY': 'PLAYER 1-1 START',
+      'PLAYER 1 STOP': 'PLAYER 1-1 STOP',
+      'PLAYER 2 PLAY': 'PLAYER 1-2 START',
+      'PLAYER 2 STOP': 'PLAYER 1-2 STOP',
+      'PLAYER 1 PAUSE': 'PLAYER 1-1 PAUSE',
+      'PLAYER 2 PAUSE': 'PLAYER 1-2 PAUSE',
       'PLAYLIST NEXT': 'PLAYLIST NEXT',
       'PLAYLIST PREVIOUS': 'PLAYLIST PREVIOUS'
     };

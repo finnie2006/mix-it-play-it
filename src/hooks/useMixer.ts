@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
+import { SettingsService, FaderMappingConfig } from '@/services/settingsService';
 
 interface MixerConfig {
   ip: string;
@@ -24,8 +25,6 @@ interface FaderTriggerState {
   };
 }
 
-const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
-
 export const useMixer = (config: MixerConfig) => {
   const [isConnected, setIsConnected] = useState(false);
   const [mixerValidated, setMixerValidated] = useState(false);
@@ -36,20 +35,46 @@ export const useMixer = (config: MixerConfig) => {
   const [radioService] = useState(() => new RadioSoftwareService());
   const [faderConfigs, setFaderConfigs] = useState<FaderConfig[]>([]);
   const [faderTriggerStates, setFaderTriggerStates] = useState<FaderTriggerState>({});
+  const settingsService = SettingsService.getInstance();
 
-  // Load saved fader configurations on mount
+  // Load settings on mount
   useEffect(() => {
-    const savedConfigs = localStorage.getItem(FADER_CONFIG_STORAGE_KEY);
-    if (savedConfigs) {
-      try {
-        const parsedConfigs = JSON.parse(savedConfigs);
-        console.log('🔧 Loaded saved fader configurations:', parsedConfigs);
-        setFaderConfigs(parsedConfigs);
-      } catch (error) {
-        console.error('Failed to load saved fader configurations:', error);
+    const loadSettings = () => {
+      // Load fader mappings
+      const savedMappings = settingsService.getFaderMappings();
+      console.log('🔧 Loading fader mappings from settings:', savedMappings);
+      
+      if (savedMappings.length > 0) {
+        const convertedConfigs: FaderConfig[] = savedMappings.map(mapping => ({
+          channel: mapping.channel,
+          threshold: mapping.threshold,
+          enabled: mapping.enabled,
+          radioCommand: {
+            software: mapping.radioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
+            command: mapping.command,
+            host: 'localhost'
+          },
+          muteEnabled: mapping.muteEnabled || false,
+          muteCommand: mapping.muteCommand ? {
+            software: mapping.muteRadioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
+            command: mapping.muteCommand,
+            host: 'localhost'
+          } : undefined
+        }));
+        
+        setFaderConfigs(convertedConfigs);
       }
-    }
-  }, []);
+
+      // Load radio software config and set credentials
+      const radioConfig = settingsService.getRadioSoftwareConfig();
+      if (radioConfig.mairlist && radioConfig.mairlist.username && radioConfig.mairlist.password) {
+        console.log('🔧 Loading mAirList credentials on startup');
+        radioService.setMairListCredentials(radioConfig.mairlist.username, radioConfig.mairlist.password);
+      }
+    };
+
+    loadSettings();
+  }, [radioService, settingsService]);
 
   // Initialize mixer connection
   useEffect(() => {
@@ -107,23 +132,16 @@ export const useMixer = (config: MixerConfig) => {
 
     const currentState = faderTriggerStates[data.channel] || { triggered: false, lastValue: 0 };
     
-    // Check if we're crossing the threshold from below to above
-    const crossedThreshold = currentState.lastValue < faderConfig.threshold && data.value >= faderConfig.threshold;
+    // Check if we're crossing the threshold from below to above (with 2% hysteresis)
+    const crossedThreshold = currentState.lastValue < (faderConfig.threshold - 2) && data.value >= faderConfig.threshold;
     
-    // Check if we've fallen back below threshold (with small hysteresis to prevent flicker)
-    const fellBelowThreshold = currentState.lastValue >= (faderConfig.threshold - 5) && data.value < (faderConfig.threshold - 5);
+    // Check if we've fallen back below threshold (with hysteresis to prevent flicker)
+    const fellBelowThreshold = currentState.lastValue >= faderConfig.threshold && data.value < (faderConfig.threshold - 5);
     
     if (crossedThreshold && !currentState.triggered) {
       console.log(`🎚️ Fader ${data.channel} crossed threshold ${faderConfig.threshold}% -> Sending ${faderConfig.radioCommand.software} command:`, faderConfig.radioCommand.command);
       
-      // Use the software selection from the dropdown properly
-      const command: RadioCommand = {
-        software: faderConfig.radioCommand.software === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
-        command: faderConfig.radioCommand.command,
-        host: 'localhost'
-      };
-      
-      radioService.sendCommand(command);
+      radioService.sendCommand(faderConfig.radioCommand);
       
       // Update trigger state
       setFaderTriggerStates(prev => ({
@@ -132,6 +150,7 @@ export const useMixer = (config: MixerConfig) => {
       }));
     } else if (fellBelowThreshold && currentState.triggered) {
       // Reset trigger state when falling below threshold
+      console.log(`🎚️ Fader ${data.channel} fell below threshold, resetting trigger state`);
       setFaderTriggerStates(prev => ({
         ...prev,
         [data.channel]: { triggered: false, lastValue: data.value }
@@ -153,14 +172,7 @@ export const useMixer = (config: MixerConfig) => {
     if (faderConfig && faderConfig.muteCommand) {
       console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} -> Sending ${faderConfig.muteCommand.software} command:`, faderConfig.muteCommand.command);
       
-      // Use the software selection from the dropdown properly  
-      const command: RadioCommand = {
-        software: faderConfig.muteCommand.software === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
-        command: faderConfig.muteCommand.command,
-        host: 'localhost'
-      };
-      
-      radioService.sendCommand(command);
+      radioService.sendCommand(faderConfig.muteCommand);
     }
   }, [faderConfigs, radioService]);
 
@@ -212,19 +224,11 @@ export const useMixer = (config: MixerConfig) => {
       } : undefined
     }));
     
-    console.log('🔧 Updated fader configurations with proper software selection:', convertedConfigs);
+    console.log('🔧 Updated fader configurations:', convertedConfigs);
     setFaderConfigs(convertedConfigs);
     
     // Reset trigger states when config changes
     setFaderTriggerStates({});
-    
-    // Save to localStorage
-    try {
-      localStorage.setItem(FADER_CONFIG_STORAGE_KEY, JSON.stringify(convertedConfigs));
-      console.log('💾 Fader configurations saved to localStorage');
-    } catch (error) {
-      console.error('Failed to save fader configurations:', error);
-    }
   }, []);
 
   const testRadioConnection = useCallback(async (
