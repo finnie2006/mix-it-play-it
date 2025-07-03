@@ -18,8 +18,7 @@ const Index = () => {
     connect, 
     disconnect, 
     validateMixer,
-    configureBridge,
-    testRadioConnection 
+    configureBridge
   } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
 
   return (
@@ -53,9 +52,7 @@ const Index = () => {
             isConnected={isConnected && mixerValidated} 
             faderValues={faderValues}
             muteStates={muteStates}
-            testRadioConnection={testRadioConnection}
             mixerModel={mixerModel}
-            faderConfigs={[]}
           />
         </div>
       </div>
