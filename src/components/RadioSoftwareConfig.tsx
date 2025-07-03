@@ -22,7 +22,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     host: '192.168.0.194',
     port: 9300,
     username: 'finn',
-    password: '',
+    password: 'finn',
     apiEndpoint: '/execute'
   });
 
@@ -80,6 +80,13 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
     toast({
       title: "Testing mAirList Connection",
       description: "Attempting to connect with credentials...",
+    });
+    
+    console.log('🧪 Testing connection with credentials:', {
+      username: mairlistConfig.username,
+      password: mairlistConfig.password,
+      host: mairlistConfig.host,
+      port: mairlistConfig.port
     });
     
     try {
