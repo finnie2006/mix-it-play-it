@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Wifi, WifiOff, Settings, AlertTriangle, Server } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { OSCBridgeInfo } from '@/components/OSCBridgeInfo';
 
@@ -39,6 +39,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
   onBridgeConfigured
 }) => {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showBridgeInfo, setShowBridgeInfo] = useState(false);
   const { toast } = useToast();
 
@@ -78,6 +79,40 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       setShowBridgeInfo(true);
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    
+    try {
+      toast({
+        title: "Refreshing Connection",
+        description: "Reconnecting to mixer...",
+      });
+
+      // Disconnect and reconnect
+      onDisconnectMixer();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Small delay
+      
+      const success = await onConnectMixer();
+      if (success) {
+        onConnect(true);
+        toast({
+          title: "Connection Refreshed",
+          description: `Successfully reconnected to ${mixerModel}`,
+        });
+      } else {
+        throw new Error('Refresh failed');
+      }
+    } catch (error) {
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh connection. Try disconnecting and reconnecting manually.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -161,6 +196,18 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
               >
                 <Settings size={16} className="mr-2" />
                 Validate Mixer
+              </Button>
+            )}
+            
+            {isConnected && (
+              <Button
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                variant="outline"
+                className="border-blue-600 text-blue-400 hover:bg-blue-600/10"
+              >
+                <RefreshCw size={16} className={`mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                {isRefreshing ? 'Refreshing...' : 'Refresh'}
               </Button>
             )}
             
