@@ -53,7 +53,6 @@ export class RadioSoftwareService {
     
     try {
       // Create Authorization header for HTTP Basic Auth
-      // Make sure we're encoding the credentials correctly
       const credentials = `${username}:${password}`;
       const encodedCredentials = btoa(credentials);
       const authHeader = `Basic ${encodedCredentials}`;
@@ -104,6 +103,8 @@ export class RadioSoftwareService {
     }
     
     const testPort = port || 9300;
+    
+    console.log(`🧪 testConnection called with: host=${host}, port=${testPort}, username=${username}, password=${password}`);
     
     try {
       const result = await this.sendToMAirListWithAuth({
