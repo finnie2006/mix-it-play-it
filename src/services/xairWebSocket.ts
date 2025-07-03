@@ -43,6 +43,7 @@ export class XAirWebSocket {
   private integratedBridge: IntegratedOSCBridge | null = null;
   private isConnectedState = false;
   private bridgeConfig: { host: string; port: number } = { host: 'localhost', port: 8080 };
+  private lastFaderLog: Record<number, number> = {};
 
   constructor(
     private ip: string, 
@@ -122,7 +123,7 @@ export class XAirWebSocket {
 
   private handleBridgeMessage(message: XAirMessage) {
     if (message.type === 'status') {
-      console.log('📊 Bridge status:', message);
+      // Only log status changes, not regular status updates
       return;
     }
     
@@ -156,7 +157,15 @@ export class XAirWebSocket {
             timestamp: message.timestamp || Date.now()
           };
           
-          console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}% (raw: ${rawValue})`);
+          // Only log significant fader changes (reduce console spam)
+          const lastValue = this.lastFaderLog[channel] || 0;
+          const significantChange = Math.abs(value - lastValue) >= 5; // Log every 5% change
+          
+          if (significantChange) {
+            console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}%`);
+            this.lastFaderLog[channel] = value;
+          }
+          
           this.notifySubscribers(faderData);
         }
       }

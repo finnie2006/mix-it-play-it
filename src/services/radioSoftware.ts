@@ -63,8 +63,14 @@ export class RadioSoftwareService {
         case 'mAirList':
           return await this.sendToMAirList(config);
         case 'RadioDJ':
-          console.log('RadioDJ support temporarily disabled - focusing on mAirList');
-          return false;
+          console.log('RadioDJ support temporarily disabled - converting to mAirList command');
+          // Convert RadioDJ command to mAirList equivalent
+          const convertedConfig: RadioCommand = {
+            ...config,
+            software: 'mAirList',
+            command: this.convertToMairListCommand(config.command)
+          };
+          return await this.sendToMAirList(convertedConfig);
         default:
           console.error('Unsupported radio software:', config.software);
           return false;
@@ -73,6 +79,22 @@ export class RadioSoftwareService {
       console.error(`Error sending command to ${config.software}:`, error);
       return false;
     }
+  }
+
+  private convertToMairListCommand(radioDjCommand: string): string {
+    // Convert common RadioDJ commands to mAirList equivalents
+    const commandMap: Record<string, string> = {
+      'PLAYER 1 PLAY': 'PLAYER 1 PLAY',
+      'PLAYER 1 STOP': 'PLAYER 1 STOP',
+      'PLAYER 2 PLAY': 'PLAYER 2 PLAY',
+      'PLAYER 2 STOP': 'PLAYER 2 STOP',
+      'PLAYER 1 PAUSE': 'PLAYER 1 PAUSE',
+      'PLAYER 2 PAUSE': 'PLAYER 2 PAUSE',
+      'PLAYLIST NEXT': 'PLAYLIST NEXT',
+      'PLAYLIST PREVIOUS': 'PLAYLIST PREVIOUS'
+    };
+    
+    return commandMap[radioDjCommand] || radioDjCommand;
   }
 
   private async sendToMAirList(config: RadioCommand): Promise<boolean> {
@@ -96,7 +118,11 @@ export class RadioSoftwareService {
           const message = JSON.parse(event.data);
           if (message.type === 'mairlist_response' && message.requestId === requestId) {
             this.bridgeWs?.removeEventListener('message', handleResponse);
-            console.log(`📻 mAirList response: ${message.success ? 'Success' : 'Failed'}`);
+            if (message.success) {
+              console.log(`✅ mAirList command executed: ${config.command}`);
+            } else {
+              console.log(`❌ mAirList command failed: ${config.command}`);
+            }
             resolve(message.success);
           }
         } catch (error) {
@@ -204,4 +230,3 @@ export class RadioSoftwareService {
     }
   }
 }
-

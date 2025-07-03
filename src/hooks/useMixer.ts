@@ -18,6 +18,13 @@ interface FaderConfig {
   muteEnabled?: boolean;
 }
 
+interface FaderTriggerState {
+  [channel: number]: {
+    triggered: boolean;
+    lastValue: number;
+  };
+}
+
 const FADER_CONFIG_STORAGE_KEY = 'xair-fader-configurations';
 
 export const useMixer = (config: MixerConfig) => {
@@ -29,6 +36,7 @@ export const useMixer = (config: MixerConfig) => {
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
   const [radioService] = useState(() => new RadioSoftwareService());
   const [faderConfigs, setFaderConfigs] = useState<FaderConfig[]>([]);
+  const [faderTriggerStates, setFaderTriggerStates] = useState<FaderTriggerState>({});
 
   // Load saved fader configurations on mount
   useEffect(() => {
@@ -96,19 +104,46 @@ export const useMixer = (config: MixerConfig) => {
       config.channel === data.channel && config.enabled
     );
 
-    if (faderConfig && data.value >= faderConfig.threshold) {
-      console.log(`🎚️ Fader ${data.channel} at ${data.value.toFixed(1)}% triggered radio command (threshold: ${faderConfig.threshold}%):`, faderConfig.radioCommand);
+    if (!faderConfig) return;
+
+    const currentState = faderTriggerStates[data.channel] || { triggered: false, lastValue: 0 };
+    
+    // Check if we're crossing the threshold from below to above
+    const crossedThreshold = currentState.lastValue < faderConfig.threshold && data.value >= faderConfig.threshold;
+    
+    // Check if we've fallen back below threshold (with small hysteresis to prevent flicker)
+    const fellBelowThreshold = currentState.lastValue >= (faderConfig.threshold - 5) && data.value < (faderConfig.threshold - 5);
+    
+    if (crossedThreshold && !currentState.triggered) {
+      console.log(`🎚️ Fader ${data.channel} crossed threshold ${faderConfig.threshold}% -> Sending mAirList command:`, faderConfig.radioCommand.command);
       
-      // Use the radio command directly since it's already in the correct format
       const command: RadioCommand = {
-        software: faderConfig.radioCommand.software,
+        software: 'mAirList',
         command: faderConfig.radioCommand.command,
         host: 'localhost'
       };
       
       radioService.sendCommand(command);
+      
+      // Update trigger state
+      setFaderTriggerStates(prev => ({
+        ...prev,
+        [data.channel]: { triggered: true, lastValue: data.value }
+      }));
+    } else if (fellBelowThreshold && currentState.triggered) {
+      // Reset trigger state when falling below threshold
+      setFaderTriggerStates(prev => ({
+        ...prev,
+        [data.channel]: { triggered: false, lastValue: data.value }
+      }));
+    } else {
+      // Just update the last value without changing trigger state
+      setFaderTriggerStates(prev => ({
+        ...prev,
+        [data.channel]: { ...currentState, lastValue: data.value }
+      }));
     }
-  }, [faderConfigs, radioService]);
+  }, [faderConfigs, radioService, faderTriggerStates]);
 
   const checkMuteTrigger = useCallback((data: MuteData) => {
     const faderConfig = faderConfigs.find(config => 
@@ -116,10 +151,10 @@ export const useMixer = (config: MixerConfig) => {
     );
 
     if (faderConfig && faderConfig.muteCommand) {
-      console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} triggered radio command:`, faderConfig.muteCommand);
+      console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} -> Sending mAirList command:`, faderConfig.muteCommand.command);
       
       const command: RadioCommand = {
-        software: faderConfig.muteCommand.software,
+        software: 'mAirList',
         command: faderConfig.muteCommand.command,
         host: 'localhost'
       };
@@ -164,20 +199,23 @@ export const useMixer = (config: MixerConfig) => {
       threshold: config.threshold,
       enabled: config.enabled,
       radioCommand: {
-        software: config.radioSoftware === 'mairlist' ? 'mAirList' : 'RadioDJ',
+        software: 'mAirList', // Force to mAirList since RadioDJ is disabled
         command: config.command,
         host: 'localhost'
       },
       muteEnabled: config.muteEnabled || false,
       muteCommand: config.muteCommand ? {
-        software: config.muteRadioSoftware === 'mairlist' ? 'mAirList' : 'RadioDJ',
+        software: 'mAirList', // Force to mAirList since RadioDJ is disabled
         command: config.muteCommand,
         host: 'localhost'
       } : undefined
     }));
     
-    console.log('🔧 Updated fader configurations:', convertedConfigs);
+    console.log('🔧 Updated fader configurations for mAirList:', convertedConfigs);
     setFaderConfigs(convertedConfigs);
+    
+    // Reset trigger states when config changes
+    setFaderTriggerStates({});
     
     // Save to localStorage
     try {
