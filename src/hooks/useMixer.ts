@@ -83,7 +83,15 @@ export const useMixer = (config: MixerConfig) => {
 
     if (faderConfig && data.value >= faderConfig.threshold) {
       console.log(`🎚️ Fader ${data.channel} at ${data.value.toFixed(1)}% triggered radio command (threshold: ${faderConfig.threshold}%):`, faderConfig.radioCommand);
-      radioService.sendCommand(faderConfig.radioCommand);
+      
+      // Convert the radio command to the correct format
+      const command: RadioCommand = {
+        software: faderConfig.radioCommand.software === 'mairlist' ? 'mAirList' : 'RadioDJ',
+        command: faderConfig.radioCommand.command,
+        host: 'localhost'
+      };
+      
+      radioService.sendCommand(command);
     }
   }, [faderConfigs, radioService]);
 

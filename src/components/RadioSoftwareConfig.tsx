@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,8 @@ import { useToast } from '@/hooks/use-toast';
 interface RadioSoftwareConfigProps {
   testRadioConnection: (software: 'mAirList' | 'RadioDJ', host?: string, port?: number) => Promise<boolean>;
 }
+
+const RADIO_CONFIG_STORAGE_KEY = 'xair-radio-software-config';
 
 export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRadioConnection }) => {
   const [mairlistConfig, setMairlistConfig] = useState({
@@ -34,7 +37,36 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
 
   const { toast } = useToast();
 
+  // Load saved configurations on mount
+  useEffect(() => {
+    const savedConfig = localStorage.getItem(RADIO_CONFIG_STORAGE_KEY);
+    if (savedConfig) {
+      try {
+        const parsed = JSON.parse(savedConfig);
+        if (parsed.mairlist) setMairlistConfig(parsed.mairlist);
+        if (parsed.radiodj) setRadiodjConfig(parsed.radiodj);
+        console.log('📻 Loaded radio software configurations:', parsed);
+      } catch (error) {
+        console.error('Failed to load radio software configurations:', error);
+      }
+    }
+  }, []);
+
+  const saveConfigurations = () => {
+    const config = {
+      mairlist: mairlistConfig,
+      radiodj: radiodjConfig
+    };
+    try {
+      localStorage.setItem(RADIO_CONFIG_STORAGE_KEY, JSON.stringify(config));
+      console.log('💾 Radio software configurations saved:', config);
+    } catch (error) {
+      console.error('Failed to save radio software configurations:', error);
+    }
+  };
+
   const handleSaveMairList = () => {
+    saveConfigurations();
     toast({
       title: "mAirList Configuration Saved",
       description: "Connection settings have been updated.",
@@ -42,6 +74,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
   };
 
   const handleSaveRadioDJ = () => {
+    saveConfigurations();
     toast({
       title: "RadioDJ Configuration Saved",
       description: "Connection settings have been updated.",
@@ -75,11 +108,17 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
   return (
     <div className="space-y-8">
       {/* mAirList Configuration */}
-      <Card className="p-6 bg-slate-900/50 border-slate-600">
+      <Card className={`p-6 border-slate-600 transition-all duration-300 ${
+        mairlistConfig.enabled 
+          ? 'bg-slate-800/70 border-green-500/50 shadow-lg shadow-green-500/10' 
+          : 'bg-slate-900/30 border-slate-700'
+      }`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <h3 className="text-xl font-semibold text-white">mAirList Configuration</h3>
-            <Badge variant={mairlistConfig.enabled ? 'default' : 'secondary'}>
+            <Badge variant={mairlistConfig.enabled ? 'default' : 'secondary'} className={
+              mairlistConfig.enabled ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
+            }>
               {mairlistConfig.enabled ? 'ENABLED' : 'DISABLED'}
             </Badge>
           </div>
@@ -168,11 +207,17 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ testRa
       </Card>
 
       {/* RadioDJ Configuration */}
-      <Card className="p-6 bg-slate-900/50 border-slate-600">
+      <Card className={`p-6 border-slate-600 transition-all duration-300 ${
+        radiodjConfig.enabled 
+          ? 'bg-slate-800/70 border-blue-500/50 shadow-lg shadow-blue-500/10' 
+          : 'bg-slate-900/30 border-slate-700'
+      }`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <h3 className="text-xl font-semibold text-white">RadioDJ Configuration</h3>
-            <Badge variant={radiodjConfig.enabled ? 'default' : 'secondary'}>
+            <Badge variant={radiodjConfig.enabled ? 'default' : 'secondary'} className={
+              radiodjConfig.enabled ? 'bg-blue-600 text-white' : 'bg-slate-600 text-slate-300'
+            }>
               {radiodjConfig.enabled ? 'ENABLED' : 'DISABLED'}
             </Badge>
           </div>

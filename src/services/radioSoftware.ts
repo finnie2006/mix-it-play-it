@@ -32,6 +32,8 @@ export class RadioSoftwareService {
     const host = config.host || 'localhost';
     const port = config.port || 9300;
     
+    console.log(`📻 Sending mAirList command: ${config.command} to ${host}:${port}`);
+    
     try {
       // mAirList typically uses TCP socket connection
       const response = await fetch(`http://${host}:${port}/execute`, {
@@ -42,8 +44,10 @@ export class RadioSoftwareService {
         body: `command=${encodeURIComponent(config.command)}`,
       });
       
+      console.log(`✅ mAirList HTTP response: ${response.status}`);
       return response.ok;
     } catch (error) {
+      console.log('❌ HTTP failed, trying WebSocket fallback');
       // Fallback to WebSocket if HTTP fails
       return this.sendViaWebSocket(config, host, port);
     }
@@ -52,6 +56,8 @@ export class RadioSoftwareService {
   private async sendToRadioDJ(config: RadioCommand): Promise<boolean> {
     const host = config.host || 'localhost';
     const port = config.port || 18123;
+    
+    console.log(`📻 Sending RadioDJ command: ${config.command} to ${host}:${port}`);
     
     try {
       // RadioDJ uses its own API format
@@ -65,8 +71,10 @@ export class RadioSoftwareService {
         }),
       });
       
+      console.log(`✅ RadioDJ HTTP response: ${response.status}`);
       return response.ok;
     } catch (error) {
+      console.log('❌ HTTP failed, trying WebSocket fallback');
       return this.sendViaWebSocket(config, host, port);
     }
   }
@@ -81,11 +89,13 @@ export class RadioSoftwareService {
         this.connections.set(key, ws);
         
         ws.onopen = () => {
+          console.log(`🔌 WebSocket connected to ${host}:${port}`);
           ws!.send(config.command);
           resolve(true);
         };
         
-        ws.onerror = () => {
+        ws.onerror = (error) => {
+          console.error(`❌ WebSocket error:`, error);
           resolve(false);
         };
       } else {
