@@ -40,9 +40,11 @@ export const useMixer = (config: MixerConfig) => {
   // Load settings on mount
   useEffect(() => {
     const loadSettings = () => {
-      // Load fader mappings
+      console.log('🔧 Loading settings on mixer startup...');
+      
+      // Load fader mappings from settings service
       const savedMappings = settingsService.getFaderMappings();
-      console.log('🔧 Loading fader mappings from settings:', savedMappings);
+      console.log('🔧 Loaded fader mappings:', savedMappings);
       
       if (savedMappings.length > 0) {
         const convertedConfigs: FaderConfig[] = savedMappings.map(mapping => ({
@@ -62,13 +64,16 @@ export const useMixer = (config: MixerConfig) => {
           } : undefined
         }));
         
+        console.log('🔧 Converted fader configs for mixer:', convertedConfigs);
         setFaderConfigs(convertedConfigs);
       }
 
-      // Load radio software config and set credentials
+      // Load radio software config and set credentials immediately
       const radioConfig = settingsService.getRadioSoftwareConfig();
+      console.log('🔧 Loaded radio config:', radioConfig);
+      
       if (radioConfig.mairlist && radioConfig.mairlist.username && radioConfig.mairlist.password) {
-        console.log('🔧 Loading mAirList credentials on startup');
+        console.log('🔧 Setting mAirList credentials on startup');
         radioService.setMairListCredentials(radioConfig.mairlist.username, radioConfig.mairlist.password);
       }
     };
@@ -131,19 +136,22 @@ export const useMixer = (config: MixerConfig) => {
     if (!faderConfig) return;
 
     const currentState = faderTriggerStates[data.channel] || { triggered: false, lastValue: 0 };
+    const threshold = faderConfig.threshold;
     
-    // Check if we're crossing the threshold from below to above (with 2% hysteresis)
-    const crossedThreshold = currentState.lastValue < (faderConfig.threshold - 2) && data.value >= faderConfig.threshold;
+    console.log(`🎚️ Checking fader ${data.channel}: ${data.value.toFixed(1)}% (threshold: ${threshold}%, triggered: ${currentState.triggered})`);
     
-    // Check if we've fallen back below threshold (with hysteresis to prevent flicker)
-    const fellBelowThreshold = currentState.lastValue >= faderConfig.threshold && data.value < (faderConfig.threshold - 5);
+    // Check if we're crossing the threshold from below to above
+    const crossedThreshold = currentState.lastValue < threshold && data.value >= threshold;
+    
+    // Check if we've fallen back below threshold (with 5% hysteresis to prevent flicker)
+    const fellBelowThreshold = currentState.lastValue >= threshold && data.value < (threshold - 5);
     
     if (crossedThreshold && !currentState.triggered) {
-      console.log(`🎚️ Fader ${data.channel} crossed threshold ${faderConfig.threshold}% -> Sending ${faderConfig.radioCommand.software} command:`, faderConfig.radioCommand.command);
+      console.log(`🎚️ Fader ${data.channel} crossed threshold ${threshold}% -> Sending ${faderConfig.radioCommand.software} command:`, faderConfig.radioCommand.command);
       
       radioService.sendCommand(faderConfig.radioCommand);
       
-      // Update trigger state
+      // Update trigger state to prevent repeated triggers
       setFaderTriggerStates(prev => ({
         ...prev,
         [data.channel]: { triggered: true, lastValue: data.value }

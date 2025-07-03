@@ -43,6 +43,7 @@ export class RadioSoftwareService {
 
   setMairListCredentials(username: string, password: string) {
     this.mairlistCredentials = { username, password };
+    console.log('🔧 mAirList credentials updated');
     
     // Update bridge server with credentials
     if (this.bridgeConnected && this.bridgeWs) {
@@ -53,6 +54,7 @@ export class RadioSoftwareService {
         username,
         password
       }));
+      console.log('🌉 Sent credentials to bridge server');
     }
   }
 
@@ -62,12 +64,11 @@ export class RadioSoftwareService {
         case 'mAirList':
           return await this.sendToMAirList(config);
         case 'RadioDJ':
-          console.log('RadioDJ support temporarily disabled - converting to mAirList command');
-          // Convert RadioDJ command to mAirList equivalent
+          // Convert RadioDJ to mAirList for compatibility
           const convertedConfig: RadioCommand = {
             ...config,
             software: 'mAirList',
-            command: this.convertToMairListCommand(config.command)
+            command: this.convertRadioDJToMairList(config.command)
           };
           return await this.sendToMAirList(convertedConfig);
         default:
@@ -80,17 +81,15 @@ export class RadioSoftwareService {
     }
   }
 
-  private convertToMairListCommand(radioDjCommand: string): string {
-    // Convert common RadioDJ commands to mAirList equivalents using correct format
+  private convertRadioDJToMairList(radioDjCommand: string): string {
+    // Convert common RadioDJ commands to mAirList equivalents
     const commandMap: Record<string, string> = {
       'PLAYER 1 PLAY': 'PLAYER 1-1 START',
       'PLAYER 1 STOP': 'PLAYER 1-1 STOP',
       'PLAYER 2 PLAY': 'PLAYER 1-2 START',
       'PLAYER 2 STOP': 'PLAYER 1-2 STOP',
       'PLAYER 1 PAUSE': 'PLAYER 1-1 PAUSE',
-      'PLAYER 2 PAUSE': 'PLAYER 1-2 PAUSE',
-      'PLAYLIST NEXT': 'PLAYLIST NEXT',
-      'PLAYLIST PREVIOUS': 'PLAYLIST PREVIOUS'
+      'PLAYER 2 PAUSE': 'PLAYER 1-2 PAUSE'
     };
     
     return commandMap[radioDjCommand] || radioDjCommand;
