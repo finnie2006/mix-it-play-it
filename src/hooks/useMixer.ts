@@ -1,28 +1,12 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
-import { RadioSoftwareService, RadioCommand } from '@/services/radioSoftware';
-import { SettingsService, FaderMappingConfig } from '@/services/settingsService';
+import { RadioSoftwareService } from '@/services/radioSoftware';
 
 interface MixerConfig {
   ip: string;
   port?: number;
   model: 'X-Air 16' | 'X-Air 18';
-}
-
-interface FaderConfig {
-  channel: number;
-  threshold: number;
-  radioCommand: RadioCommand;
-  enabled: boolean;
-  muteCommand?: RadioCommand;
-  muteEnabled?: boolean;
-}
-
-interface FaderTriggerState {
-  [channel: number]: {
-    triggered: boolean;
-    lastValue: number;
-  };
 }
 
 export const useMixer = (config: MixerConfig) => {
@@ -33,53 +17,6 @@ export const useMixer = (config: MixerConfig) => {
   const [muteStates, setMuteStates] = useState<Record<number, boolean>>({});
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
   const [radioService] = useState(() => new RadioSoftwareService());
-  const [faderConfigs, setFaderConfigs] = useState<FaderConfig[]>([]);
-  const [faderTriggerStates, setFaderTriggerStates] = useState<FaderTriggerState>({});
-  const settingsService = SettingsService.getInstance();
-
-  // Load settings on mount
-  useEffect(() => {
-    const loadSettings = () => {
-      console.log('🔧 Loading settings on mixer startup...');
-      
-      // Load fader mappings from settings service
-      const savedMappings = settingsService.getFaderMappings();
-      console.log('🔧 Loaded fader mappings:', savedMappings);
-      
-      if (savedMappings.length > 0) {
-        const convertedConfigs: FaderConfig[] = savedMappings.map(mapping => ({
-          channel: mapping.channel,
-          threshold: mapping.threshold,
-          enabled: mapping.enabled,
-          radioCommand: {
-            software: mapping.radioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
-            command: mapping.command,
-            host: 'localhost'
-          },
-          muteEnabled: mapping.muteEnabled || false,
-          muteCommand: mapping.muteCommand ? {
-            software: mapping.muteRadioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
-            command: mapping.muteCommand,
-            host: 'localhost'
-          } : undefined
-        }));
-        
-        console.log('🔧 Converted fader configs for mixer:', convertedConfigs);
-        setFaderConfigs(convertedConfigs);
-      }
-
-      // Load radio software config and set credentials immediately
-      const radioConfig = settingsService.getRadioSoftwareConfig();
-      console.log('🔧 Loaded radio config:', radioConfig);
-      
-      if (radioConfig.mairlist && radioConfig.mairlist.username && radioConfig.mairlist.password) {
-        console.log('🔧 Setting mAirList credentials on startup');
-        radioService.setMairListCredentials(radioConfig.mairlist.username, radioConfig.mairlist.password);
-      }
-    };
-
-    loadSettings();
-  }, [radioService, settingsService]);
 
   // Initialize mixer connection
   useEffect(() => {
@@ -103,9 +40,6 @@ export const useMixer = (config: MixerConfig) => {
         ...prev,
         [data.channel]: data.value
       }));
-
-      // Check if this fader should trigger a radio command
-      checkFaderTrigger(data);
     });
 
     // Subscribe to mute updates
@@ -114,9 +48,6 @@ export const useMixer = (config: MixerConfig) => {
         ...prev,
         [data.channel]: data.muted
       }));
-
-      // Check if this mute should trigger a radio command
-      checkMuteTrigger(data);
     });
 
     return () => {
@@ -127,62 +58,6 @@ export const useMixer = (config: MixerConfig) => {
       xairMixer.disconnect();
     };
   }, [config.ip, config.port, config.model]);
-
-  const checkFaderTrigger = useCallback((data: FaderData) => {
-    const faderConfig = faderConfigs.find(config => 
-      config.channel === data.channel && config.enabled
-    );
-
-    if (!faderConfig) return;
-
-    const currentState = faderTriggerStates[data.channel] || { triggered: false, lastValue: 0 };
-    const threshold = faderConfig.threshold;
-    
-    console.log(`🎚️ Checking fader ${data.channel}: ${data.value.toFixed(1)}% (threshold: ${threshold}%, triggered: ${currentState.triggered})`);
-    
-    // Check if we're crossing the threshold from below to above
-    const crossedThreshold = currentState.lastValue < threshold && data.value >= threshold;
-    
-    // Check if we've fallen back below threshold (with 5% hysteresis to prevent flicker)
-    const fellBelowThreshold = currentState.lastValue >= threshold && data.value < (threshold - 5);
-    
-    if (crossedThreshold && !currentState.triggered) {
-      console.log(`🎚️ Fader ${data.channel} crossed threshold ${threshold}% -> Sending ${faderConfig.radioCommand.software} command:`, faderConfig.radioCommand.command);
-      
-      radioService.sendCommand(faderConfig.radioCommand);
-      
-      // Update trigger state to prevent repeated triggers
-      setFaderTriggerStates(prev => ({
-        ...prev,
-        [data.channel]: { triggered: true, lastValue: data.value }
-      }));
-    } else if (fellBelowThreshold && currentState.triggered) {
-      // Reset trigger state when falling below threshold
-      console.log(`🎚️ Fader ${data.channel} fell below threshold, resetting trigger state`);
-      setFaderTriggerStates(prev => ({
-        ...prev,
-        [data.channel]: { triggered: false, lastValue: data.value }
-      }));
-    } else {
-      // Just update the last value without changing trigger state
-      setFaderTriggerStates(prev => ({
-        ...prev,
-        [data.channel]: { ...currentState, lastValue: data.value }
-      }));
-    }
-  }, [faderConfigs, radioService, faderTriggerStates]);
-
-  const checkMuteTrigger = useCallback((data: MuteData) => {
-    const faderConfig = faderConfigs.find(config => 
-      config.channel === data.channel && config.muteEnabled
-    );
-
-    if (faderConfig && faderConfig.muteCommand) {
-      console.log(`🔇 Channel ${data.channel} ${data.muted ? 'MUTED' : 'UNMUTED'} -> Sending ${faderConfig.muteCommand.software} command:`, faderConfig.muteCommand.command);
-      
-      radioService.sendCommand(faderConfig.muteCommand);
-    }
-  }, [faderConfigs, radioService]);
 
   const connect = useCallback(async () => {
     if (!mixer) return false;
@@ -213,32 +88,6 @@ export const useMixer = (config: MixerConfig) => {
     }
   }, [mixer, config.ip, config.port]);
 
-  const updateFaderConfig = useCallback((configs: any[]) => {
-    // Convert the configuration format to match our FaderConfig interface
-    const convertedConfigs: FaderConfig[] = configs.map(config => ({
-      channel: config.channel,
-      threshold: config.threshold,
-      enabled: config.enabled,
-      radioCommand: {
-        software: config.radioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
-        command: config.command,
-        host: 'localhost'
-      },
-      muteEnabled: config.muteEnabled || false,
-      muteCommand: config.muteCommand ? {
-        software: config.muteRadioSoftware === 'RadioDJ' ? 'RadioDJ' : 'mAirList',
-        command: config.muteCommand,
-        host: 'localhost'
-      } : undefined
-    }));
-    
-    console.log('🔧 Updated fader configurations:', convertedConfigs);
-    setFaderConfigs(convertedConfigs);
-    
-    // Reset trigger states when config changes
-    setFaderTriggerStates({});
-  }, []);
-
   const testRadioConnection = useCallback(async (
     software: 'mAirList' | 'RadioDJ', 
     host: string = 'localhost', 
@@ -257,7 +106,6 @@ export const useMixer = (config: MixerConfig) => {
     disconnect,
     validateMixer,
     configureBridge,
-    updateFaderConfig,
     testRadioConnection,
     radioService
   };
