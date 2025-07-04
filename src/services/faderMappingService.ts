@@ -1,3 +1,4 @@
+
 import { FaderMapping, SettingsService } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
@@ -122,11 +123,22 @@ export class FaderMappingService {
     let commandExecuted = false;
 
     for (const mapping of relevantMappings) {
-      const shouldTrigger = this.shouldTriggerMapping(mapping, channel, value, previousValue);
+      // Check for fade up trigger
+      const shouldTriggerFadeUp = this.shouldTriggerFadeUp(mapping, channel, value, previousValue);
+      
+      // Check for fade down trigger
+      const shouldTriggerFadeDown = this.shouldTriggerFadeDown(mapping, channel, value, previousValue);
 
-      if (shouldTrigger) {
-        console.log(`🎚️ Triggering mapping for channel ${channel}: ${mapping.command}`);
-        this.executeCommand(mapping);
+      if (shouldTriggerFadeUp) {
+        console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
+        this.executeCommand(mapping.command);
+        commandExecuted = true;
+        currentState.lastTriggered = Date.now();
+      }
+
+      if (shouldTriggerFadeDown && mapping.fadeDownCommand) {
+        console.log(`🎚️ Triggering fade DOWN mapping for channel ${channel}: ${mapping.fadeDownCommand}`);
+        this.executeCommand(mapping.fadeDownCommand);
         commandExecuted = true;
         currentState.lastTriggered = Date.now();
       }
@@ -147,7 +159,7 @@ export class FaderMappingService {
     }
   }
 
-  private shouldTriggerMapping(mapping: FaderMapping, channel: number, currentValue: number, previousValue: number): boolean {
+  private shouldTriggerFadeUp(mapping: FaderMapping, channel: number, currentValue: number, previousValue: number): boolean {
     // Only trigger when crossing the threshold upwards
     const wasAboveThreshold = previousValue >= mapping.threshold;
     const isAboveThreshold = currentValue >= mapping.threshold;
@@ -156,7 +168,20 @@ export class FaderMappingService {
     return !wasAboveThreshold && isAboveThreshold;
   }
 
-  private async executeCommand(mapping: FaderMapping) {
+  private shouldTriggerFadeDown(mapping: FaderMapping, channel: number, currentValue: number, previousValue: number): boolean {
+    if (!mapping.fadeDownThreshold || !mapping.fadeDownCommand) {
+      return false;
+    }
+
+    // Only trigger when crossing the fade down threshold downwards
+    const wasAboveFadeDownThreshold = previousValue >= mapping.fadeDownThreshold;
+    const isBelowFadeDownThreshold = currentValue < mapping.fadeDownThreshold;
+
+    // Trigger when going from above fade down threshold to below fade down threshold
+    return wasAboveFadeDownThreshold && isBelowFadeDownThreshold;
+  }
+
+  private async executeCommand(command: string) {
     if (!this.radioConfig) {
       console.warn('⚠️ Radio software not configured, cannot execute command');
       return;
@@ -168,10 +193,10 @@ export class FaderMappingService {
     }
 
     try {
-      console.log(`📻 Executing ${this.radioConfig.type} command: ${mapping.command}`);
+      console.log(`📻 Executing ${this.radioConfig.type} command: ${command}`);
       console.log(`📻 Target: ${this.radioConfig.host}:${this.radioConfig.port}`);
 
-      await this.sendRadioCommandThroughBridge(mapping.command);
+      await this.sendRadioCommandThroughBridge(command);
 
     } catch (error) {
       console.error('❌ Failed to execute radio command:', error);

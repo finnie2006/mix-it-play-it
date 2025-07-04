@@ -1,4 +1,3 @@
-
 export interface FaderMapping {
   id: string;
   channel: number;
@@ -7,6 +6,8 @@ export interface FaderMapping {
   command: string;
   enabled: boolean;
   description: string;
+  fadeDownThreshold?: number;
+  fadeDownCommand?: string;
 }
 
 export interface RadioSoftwareConfig {

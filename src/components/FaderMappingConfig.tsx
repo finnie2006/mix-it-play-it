@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -261,7 +262,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-slate-200">Threshold (%)</Label>
+                  <Label className="text-slate-200">Fade Up Threshold (%)</Label>
                   <Input
                     type="number"
                     min="1"
@@ -292,7 +293,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-slate-200">Command</Label>
+                <Label className="text-slate-200">Fade Up Command</Label>
                 <Textarea
                   value={editingMapping.command || ''}
                   onChange={(e) => setEditingMapping(prev => ({ ...prev, command: e.target.value }))}
@@ -300,6 +301,31 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                   rows={2}
                   className="bg-slate-700 border-slate-600 text-white"
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Fade Down Threshold (%) - Optional</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editingMapping.fadeDownThreshold || ''}
+                    onChange={(e) => setEditingMapping(prev => ({ ...prev, fadeDownThreshold: e.target.value ? parseInt(e.target.value) : undefined }))}
+                    placeholder="e.g., 5"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Fade Down Command - Optional</Label>
+                  <Textarea
+                    value={editingMapping.fadeDownCommand || ''}
+                    onChange={(e) => setEditingMapping(prev => ({ ...prev, fadeDownCommand: e.target.value || undefined }))}
+                    placeholder="e.g., PLAYER 1 STOP"
+                    rows={2}
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
               </div>
 
               <div className="flex gap-2">
