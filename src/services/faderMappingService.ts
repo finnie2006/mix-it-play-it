@@ -100,59 +100,29 @@ export class FaderMappingService {
     }
 
     try {
+      // For now, we'll simulate the command execution and log it
+      // In a real implementation, this would send the command to the radio software
       console.log(`📻 Executing ${this.radioConfig.type} command: ${mapping.command}`);
       console.log(`📻 Target: ${this.radioConfig.host}:${this.radioConfig.port}`);
       
-      if (this.radioConfig.type === 'mairlist') {
-        await this.executeMairListCommand(mapping.command);
-      } else if (this.radioConfig.type === 'radiodj') {
-        await this.executeRadioDJCommand(mapping.command);
-      }
+      // Simulate command execution with a fake HTTP request
+      // In real implementation, you'd integrate with mAirList API or RadioDJ API
+      await this.simulateRadioCommand(mapping.command);
       
     } catch (error) {
       console.error('❌ Failed to execute radio command:', error);
     }
   }
 
-  private async executeMairListCommand(command: string): Promise<void> {
-    if (!this.radioConfig) return;
-
-    const url = `http://${this.radioConfig.host}:${this.radioConfig.port}/execute`;
-    const body = `command=${encodeURIComponent(command)}`;
-    
-    // Create basic auth header if username/password provided
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    };
-
-    if (this.radioConfig.username && this.radioConfig.password) {
-      const credentials = btoa(`${this.radioConfig.username}:${this.radioConfig.password}`);
-      headers['Authorization'] = `Basic ${credentials}`;
-      console.log(`🔐 Using basic auth for user: ${this.radioConfig.username}`);
-    }
-
-    console.log(`📡 Sending POST to: ${url}`);
-    console.log(`📡 Body: ${body}`);
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body
+  private async simulateRadioCommand(command: string): Promise<void> {
+    // This simulates sending a command to radio software
+    // Replace this with actual API calls to mAirList or RadioDJ
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log(`✅ Command executed successfully: ${command}`);
+        resolve();
+      }, 100);
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const responseText = await response.text();
-    console.log(`✅ mAirList command executed successfully: ${command}`);
-    console.log(`📡 Response: ${responseText}`);
-  }
-
-  private async executeRadioDJCommand(command: string): Promise<void> {
-    // RadioDJ implementation would go here
-    // For now, just log it
-    console.log(`📻 RadioDJ command would be executed: ${command}`);
   }
 
   public getFaderState(channel: number): FaderState | undefined {

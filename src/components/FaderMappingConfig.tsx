@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { FaderMapping, SettingsService } from '@/services/settingsService';
-import { faderMappingService } from '@/services/faderMappingService';
 import { Plus, Trash2, Volume2, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,11 +27,9 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
 
   const handleSaveMappings = () => {
     SettingsService.updateFaderMappings(mappings);
-    // Force reload the mapping service with new settings
-    faderMappingService.reloadSettings();
     toast({
       title: "Settings Saved",
-      description: "Fader mappings have been saved and reloaded successfully.",
+      description: "Fader mappings have been saved successfully.",
     });
   };
 
@@ -118,7 +117,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
           Fader Mappings
         </CardTitle>
         <CardDescription className="text-slate-300">
-          Configure which faders trigger radio software commands when crossing the threshold
+          Configure which faders trigger radio software commands
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -260,13 +259,10 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                 <Textarea
                   value={editingMapping.command || ''}
                   onChange={(e) => setEditingMapping(prev => ({ ...prev, command: e.target.value }))}
-                  placeholder="PLAYER 1-1 START/FADEOUT"
+                  placeholder="e.g., PLAYER 1 PLAY"
                   rows={2}
                   className="bg-slate-700 border-slate-600 text-white"
                 />
-                <div className="text-xs text-slate-400">
-                  Enter the exact command to send to your radio software (e.g., "PLAYER 1-1 START/FADEOUT" for mAirList)
-                </div>
               </div>
 
               <div className="flex gap-2">

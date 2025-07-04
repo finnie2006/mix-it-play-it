@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -72,7 +71,7 @@ export const RadioSoftwareConfig: React.FC = () => {
                 <Input
                   value={config.host}
                   onChange={(e) => handleConfigChange('host', e.target.value)}
-                  placeholder="192.168.0.194"
+                  placeholder="localhost"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
@@ -88,32 +87,53 @@ export const RadioSoftwareConfig: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-slate-200">Username</Label>
-                <Input
-                  value={config.username || ''}
-                  onChange={(e) => handleConfigChange('username', e.target.value)}
-                  placeholder="finn"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
+            {config.type === 'radiodj' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Username (Optional)</Label>
+                  <Input
+                    value={config.username || ''}
+                    onChange={(e) => handleConfigChange('username', e.target.value)}
+                    placeholder="username"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Password (Optional)</Label>
+                  <Input
+                    type="password"
+                    value={config.password || ''}
+                    onChange={(e) => handleConfigChange('password', e.target.value)}
+                    placeholder="password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label className="text-slate-200">Password</Label>
-                <Input
-                  type="password"
-                  value={config.password || ''}
-                  onChange={(e) => handleConfigChange('password', e.target.value)}
-                  placeholder="password"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-            </div>
+            )}
 
-            <div className="text-sm text-slate-400 bg-slate-900/50 p-3 rounded">
-              <strong>For mAirList:</strong> Use HTTP Basic Authentication with username/password.<br/>
-              <strong>Example command:</strong> PLAYER 1-1 START/FADEOUT
-            </div>
+            {config.type === 'mairlist' && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Username (Optional)</Label>
+                  <Input
+                    value={config.username || ''}
+                    onChange={(e) => handleConfigChange('username', e.target.value)}
+                    placeholder="username"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Password (Optional)</Label>
+                  <Input
+                    type="password"
+                    value={config.password || ''}
+                    onChange={(e) => handleConfigChange('password', e.target.value)}
+                    placeholder="password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
+              </div>
+            )}
 
             <Button onClick={handleSave} className="w-full bg-blue-600 hover:bg-blue-700">
               <Settings size={16} className="mr-2" />
