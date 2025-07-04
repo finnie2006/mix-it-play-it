@@ -1,4 +1,3 @@
-
 const osc = require('osc');
 const WebSocket = require('ws');
 const http = require('http');
@@ -19,14 +18,6 @@ let mixerConnected = false;
 let lastMixerResponse = null;
 let validationTimer = null;
 
-// mAirList configuration
-let mairlistConfig = {
-  host: 'localhost',
-  port: 9300,
-  username: '',
-  password: ''
-};
-
 // Create OSC UDP port with initial configuration
 let oscPort = new osc.UDPPort({
     localAddress: '0.0.0.0',
@@ -44,54 +35,6 @@ const wss = new WebSocket.Server({
 
 // Track connected clients
 const clients = new Set();
-
-// Function to send mAirList HTTP request (bypassing CORS)
-async function sendMairListCommand(command) {
-    if (!mairlistConfig.username || !mairlistConfig.password) {
-        console.error('❌ mAirList credentials not configured');
-        return { success: false, error: 'Missing credentials' };
-    }
-
-    const credentials = `${mairlistConfig.username}:${mairlistConfig.password}`;
-    const encodedCredentials = Buffer.from(credentials).toString('base64');
-    
-    return new Promise((resolve) => {
-        const postData = `command=${encodeURIComponent(command)}`;
-        
-        const options = {
-            hostname: mairlistConfig.host,
-            port: mairlistConfig.port,
-            path: '/execute',
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Authorization': `Basic ${encodedCredentials}`,
-                'Content-Length': Buffer.byteLength(postData)
-            }
-        };
-
-        const req = http.request(options, (res) => {
-            let data = '';
-            res.on('data', (chunk) => data += chunk);
-            res.on('end', () => {
-                console.log(`📻 mAirList response: ${res.statusCode} - ${command}`);
-                resolve({ 
-                    success: res.statusCode === 200, 
-                    status: res.statusCode,
-                    data: data 
-                });
-            });
-        });
-
-        req.on('error', (error) => {
-            console.error('❌ mAirList request failed:', error.message);
-            resolve({ success: false, error: error.message });
-        });
-
-        req.write(postData);
-        req.end();
-    });
-}
 
 // Function to update mixer IP and restart OSC connection
 function updateMixerIP(newIP) {
@@ -295,39 +238,7 @@ wss.on('connection', (ws) => {
             } else if (message.type === 'update_mixer_ip' && message.mixerIP) {
                 // Handle mixer IP update from client
                 updateMixerIP(message.mixerIP);
-            } else if (message.type === 'mairlist_config') {
-                // Update mAirList configuration
-                mairlistConfig = {
-                    host: message.host || 'localhost',
-                    port: message.port || 9300,
-                    username: message.username || '',
-                    password: message.password || ''
-                };
-                console.log('🔧 mAirList config updated:', { 
-                    host: mairlistConfig.host, 
-                    port: mairlistConfig.port,
-                    username: mairlistConfig.username ? '***' : '(empty)'
-                });
-                
-                // Acknowledge configuration update
-                ws.send(JSON.stringify({
-                    type: 'mairlist_config_ack',
-                    success: true
-                }));
-            } else if (message.type === 'mairlist_command') {
-                // Execute mAirList command via proxy
-                const result = await sendMairListCommand(message.command);
-                
-                // Send result back to client
-                ws.send(JSON.stringify({
-                    type: 'mairlist_response',
-                    command: message.command,
-                    success: result.success,
-                    status: result.status,
-                    error: result.error,
-                    requestId: message.requestId
-                }));
-            }
+            } 
         } catch (error) {
             console.error('❌ Error parsing WebSocket message:', error);
         }
@@ -347,6 +258,5 @@ wss.on('connection', (ws) => {
 console.log('🚀 Bridge server ready!');
 console.log('📋 Features:');
 console.log('  • X-Air OSC bridge');
-console.log('  • mAirList HTTP proxy (bypasses CORS)'); 
 console.log('  • WebSocket API on localhost:8080');
 
