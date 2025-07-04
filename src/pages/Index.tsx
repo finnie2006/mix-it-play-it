@@ -17,11 +17,20 @@ const Index = () => {
     mixerStatusMessage,
     faderValues,
     muteStates,
+    faderStates,
     connect, 
     disconnect, 
     validateMixer,
-    configureBridge
+    configureBridge,
+    reloadMappings
   } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
+
+  // Reload mappings when tab changes to dashboard (to pick up any new settings)
+  const handleTabChange = (value: string) => {
+    if (value === 'dashboard') {
+      reloadMappings();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -50,7 +59,7 @@ const Index = () => {
         />
 
         <div className="mt-8">
-          <Tabs defaultValue="dashboard" className="w-full">
+          <Tabs defaultValue="dashboard" className="w-full" onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="dashboard" className="flex items-center gap-2">
                 <Volume2 size={16} />
@@ -67,6 +76,7 @@ const Index = () => {
                 isConnected={isConnected && mixerValidated} 
                 faderValues={faderValues}
                 muteStates={muteStates}
+                faderStates={faderStates}
                 mixerModel={mixerModel}
               />
             </TabsContent>

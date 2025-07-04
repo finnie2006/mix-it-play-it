@@ -3,25 +3,15 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Play, Square, Volume2, VolumeX, Settings } from 'lucide-react';
+import { Volume2, VolumeX, Settings, Play, Pause } from 'lucide-react';
+import { faderMappingService } from '@/services/faderMappingService';
 
 interface FaderChannelProps {
   channel: number;
   value: number;
   isActive: boolean;
   isMuted?: boolean;
-  config?: {
-    action: string;
-    radioSoftware: string;
-    playerCommand: string;
-    threshold: number;
-    enabled: boolean;
-    description: string;
-    muteEnabled?: boolean;
-    muteAction?: string;
-    muteRadioSoftware?: string;
-    muteCommand?: string;
-  };
+  commandExecuted?: boolean;
 }
 
 export const FaderChannel: React.FC<FaderChannelProps> = ({ 
@@ -29,14 +19,36 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
   value, 
   isActive,
   isMuted = false,
-  config
+  commandExecuted = false
 }) => {
-  const hasConfig = config && config.enabled;
-  const hasMuteConfig = config && config.muteEnabled;
+  const mapping = faderMappingService.getMappingForChannel(channel);
+  const hasMapping = mapping !== undefined;
+  const faderState = faderMappingService.getFaderState(channel);
+  
+  // Determine if this channel should show as active based on mapping threshold
+  const isAboveThreshold = hasMapping && value >= mapping.threshold;
+  const showAsActive = hasMapping ? isAboveThreshold : isActive;
+  
+  // Determine status based on command content
+  const getCommandStatus = () => {
+    if (!hasMapping || !mapping.command) return null;
+    
+    const command = mapping.command.toLowerCase();
+    if (command.includes('play')) {
+      return showAsActive ? 'PLAYING' : 'STOPPED';
+    } else if (command.includes('pause')) {
+      return showAsActive ? 'PAUSED' : 'READY';
+    } else if (command.includes('stop')) {
+      return showAsActive ? 'STOPPED' : 'READY';
+    }
+    return showAsActive ? 'ACTIVE' : 'IDLE';
+  };
+
+  const commandStatus = getCommandStatus();
   
   return (
     <Card className={`p-4 transition-all duration-300 ${
-      isActive 
+      showAsActive 
         ? 'bg-slate-700/80 border-green-500/50 shadow-lg shadow-green-500/20' 
         : 'bg-slate-800/50 border-slate-700'
     }`}>
@@ -45,16 +57,24 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
           {isMuted ? (
             <VolumeX size={16} className="text-red-400" />
           ) : (
-            <Volume2 size={16} className={isActive ? 'text-green-400' : 'text-slate-400'} />
+            <Volume2 size={16} className={showAsActive ? 'text-green-400' : 'text-slate-400'} />
           )}
-          <span className="font-semibold text-white">Ch {channel}</span>
+          <span className="font-semibold text-white">
+            Ch {channel}
+            {mapping?.isStereo && channel === mapping.channel && " (L)"}
+            {mapping?.isStereo && channel === mapping.channel + 1 && " (R)"}
+          </span>
         </div>
         <div className="flex gap-2">
-          <Badge variant={isActive ? 'default' : 'secondary'} className={
-            isActive ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
-          }>
-            {isActive ? 'ACTIVE' : 'IDLE'}
-          </Badge>
+          {commandStatus && (
+            <Badge variant={showAsActive ? 'default' : 'secondary'} className={
+              showAsActive ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
+            }>
+              {commandStatus === 'PLAYING' && <Play size={12} className="mr-1" />}
+              {commandStatus === 'PAUSED' && <Pause size={12} className="mr-1" />}
+              {commandStatus}
+            </Badge>
+          )}
           {isMuted && (
             <Badge variant="destructive" className="bg-red-600 text-white">
               MUTED
@@ -73,46 +93,37 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
             value={value} 
             className="h-2"
           />
-          <div className="text-xs text-slate-500 mt-1">
-            Shows physical fader position, not input level
-          </div>
+          {hasMapping && (
+            <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <span>Threshold: {mapping.threshold}%</span>
+              <span className={value >= mapping.threshold ? 'text-green-400' : 'text-slate-500'}>
+                {value >= mapping.threshold ? '✓ Above' : '✗ Below'}
+              </span>
+            </div>
+          )}
         </div>
 
-        {hasConfig || hasMuteConfig ? (
+        {hasMapping ? (
           <div className="space-y-3 text-sm">
-            <div className="text-slate-300 font-medium">{config.description}</div>
+            <div className="text-slate-300 font-medium">{mapping.description}</div>
             
-            {hasConfig && (
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Volume2 size={14} className="text-blue-400" />
-                  <span className="text-slate-300">Fader: {config.action}</span>
-                </div>
-                <div className="text-slate-500">
-                  Target: {config.radioSoftware} @ {config.threshold}%
-                </div>
-                <div className="text-xs font-mono text-slate-600 bg-slate-900/50 p-1 rounded">
-                  {config.playerCommand}
-                </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Volume2 size={14} className="text-blue-400" />
+                <span className="text-slate-300">
+                  Trigger at {mapping.threshold}%
+                  {mapping.isStereo && " (Stereo)"}
+                </span>
               </div>
-            )}
-
-            {hasMuteConfig && (
-              <div className="space-y-1 border-t border-slate-700 pt-2">
-                <div className="flex items-center gap-2">
-                  <VolumeX size={14} className="text-red-400" />
-                  <span className="text-slate-300">Mute: {config.muteAction}</span>
-                </div>
-                <div className="text-slate-500">
-                  Target: {config.muteRadioSoftware}
-                </div>
-                {config.muteCommand && (
-                  <div className="text-xs font-mono text-slate-600 bg-slate-900/50 p-1 rounded">
-                    {config.muteCommand}
-                  </div>
-                )}
+              <div className="text-xs font-mono text-slate-600 bg-slate-900/50 p-2 rounded">
+                {mapping.command}
               </div>
-            )}
+              {faderState?.lastTriggered && (
+                <div className="text-xs text-green-400">
+                  Last triggered: {new Date(faderState.lastTriggered).toLocaleTimeString()}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-2 text-sm">

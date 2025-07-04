@@ -7,6 +7,7 @@ interface MixerDashboardProps {
   isConnected: boolean;
   faderValues?: Record<number, number>;
   muteStates?: Record<number, boolean>;
+  faderStates?: Record<number, { isActive: boolean; commandExecuted: boolean }>;
   mixerModel?: 'X-Air 16' | 'X-Air 18';
 }
 
@@ -14,6 +15,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
   isConnected, 
   faderValues, 
   muteStates = {},
+  faderStates = {},
   mixerModel
 }) => {
   // Set channel count based on mixer model
@@ -38,7 +40,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
           {mixerModel} Channels ({maxChannels} channels)
         </h3>
         <p className="text-sm text-slate-400">
-          The percentage bars show the current fader positions (0-100%), not input levels.
+          The percentage bars show the current fader positions. Mapped faders will trigger radio commands at their threshold.
         </p>
       </div>
       
@@ -47,7 +49,9 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
           const channel = i + 1;
           const value = faderValues[channel] || 0;
           const isMuted = muteStates[channel] || false;
-          const isActive = value > 5; // Consider active if fader is above 5%
+          const faderState = faderStates[channel];
+          const isActive = faderState?.isActive || value > 5;
+          const commandExecuted = faderState?.commandExecuted || false;
 
           return (
             <FaderChannel
@@ -56,6 +60,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
               value={value}
               isActive={isActive}
               isMuted={isMuted}
+              commandExecuted={commandExecuted}
             />
           );
         })}

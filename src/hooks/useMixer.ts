@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
+import { faderMappingService } from '@/services/faderMappingService';
 
 interface MixerConfig {
   ip: string;
@@ -14,6 +15,7 @@ export const useMixer = (config: MixerConfig) => {
   const [mixerStatusMessage, setMixerStatusMessage] = useState('');
   const [faderValues, setFaderValues] = useState<Record<number, number>>({});
   const [muteStates, setMuteStates] = useState<Record<number, boolean>>({});
+  const [faderStates, setFaderStates] = useState<Record<number, { isActive: boolean; commandExecuted: boolean }>>({});
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
 
   // Initialize mixer connection
@@ -38,6 +40,9 @@ export const useMixer = (config: MixerConfig) => {
         ...prev,
         [data.channel]: data.value
       }));
+
+      // Process fader update through mapping service
+      faderMappingService.processFaderUpdate(data.channel, data.value);
     });
 
     // Subscribe to mute updates
@@ -56,6 +61,16 @@ export const useMixer = (config: MixerConfig) => {
       xairMixer.disconnect();
     };
   }, [config.ip, config.port, config.model]);
+
+  // Subscribe to fader mapping status updates
+  useEffect(() => {
+    faderMappingService.onStatusUpdate((channel, isActive, commandExecuted) => {
+      setFaderStates(prev => ({
+        ...prev,
+        [channel]: { isActive, commandExecuted }
+      }));
+    });
+  }, []);
 
   const connect = useCallback(async () => {
     if (!mixer) return false;
@@ -86,15 +101,21 @@ export const useMixer = (config: MixerConfig) => {
     }
   }, [mixer, config.ip, config.port]);
 
+  const reloadMappings = useCallback(() => {
+    faderMappingService.reloadSettings();
+  }, []);
+
   return {
     isConnected,
     mixerValidated,
     mixerStatusMessage,
     faderValues,
     muteStates,
+    faderStates,
     connect,
     disconnect,
     validateMixer,
-    configureBridge
+    configureBridge,
+    reloadMappings
   };
 };
