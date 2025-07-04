@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioSoftwareConfig } from '@/components/RadioSoftwareConfig';
@@ -8,9 +6,13 @@ import { Settings, Radio, Volume2 } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
+  onSettingsUpdate?: () => void;
 }
 
-export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ mixerModel }) => {
+export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
+  mixerModel,
+  onSettingsUpdate
+}) => {
   return (
     <div className="space-y-6">
       <div className="mb-6">
@@ -32,13 +34,13 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ mixerMod
             Fader Mappings
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="radio" className="mt-6">
-          <RadioSoftwareConfig />
+          <RadioSoftwareConfig onSettingsUpdate={onSettingsUpdate} />
         </TabsContent>
-        
+
         <TabsContent value="faders" className="mt-6">
-          <FaderMappingConfig mixerModel={mixerModel} />
+          <FaderMappingConfig mixerModel={mixerModel} onSettingsUpdate={onSettingsUpdate} />
         </TabsContent>
       </Tabs>
     </div>

@@ -9,14 +9,24 @@ import { RadioSoftwareConfig as RadioConfig, SettingsService } from '@/services/
 import { Radio, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-export const RadioSoftwareConfig: React.FC = () => {
-  const [config, setConfig] = useState<RadioConfig>(() => 
+interface RadioSoftwareConfigProps {
+  onSettingsUpdate?: () => void;
+}
+
+export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSettingsUpdate }) => {
+  const [config, setConfig] = useState<RadioConfig>(() =>
     SettingsService.loadSettings().radioSoftware
   );
   const { toast } = useToast();
 
   const handleSave = () => {
     SettingsService.updateRadioSoftware(config);
+
+    // Trigger settings reload in fader mapping service
+    if (onSettingsUpdate) {
+      onSettingsUpdate();
+    }
+
     toast({
       title: "Settings Saved",
       description: `Radio software configuration for ${config.type} has been saved successfully.`,

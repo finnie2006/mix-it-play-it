@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,10 +12,14 @@ import { useToast } from '@/hooks/use-toast';
 
 interface FaderMappingConfigProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
+  onSettingsUpdate?: () => void;
 }
 
-export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerModel }) => {
-  const [mappings, setMappings] = useState<FaderMapping[]>(() => 
+export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
+  mixerModel,
+  onSettingsUpdate
+}) => {
+  const [mappings, setMappings] = useState<FaderMapping[]>(() =>
     SettingsService.loadSettings().faderMappings
   );
   const [editingMapping, setEditingMapping] = useState<Partial<FaderMapping> | null>(null);
@@ -27,6 +29,12 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
 
   const handleSaveMappings = () => {
     SettingsService.updateFaderMappings(mappings);
+
+    // Trigger settings reload in fader mapping service
+    if (onSettingsUpdate) {
+      onSettingsUpdate();
+    }
+
     toast({
       title: "Settings Saved",
       description: "Fader mappings have been saved successfully.",
@@ -47,19 +55,30 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
   const handleSaveMapping = () => {
     if (!editingMapping) return;
 
+    let updatedMappings: FaderMapping[];
+
     if (editingMapping.id) {
       // Update existing
-      const updatedMappings = mappings.map(m => 
+      updatedMappings = mappings.map(m =>
         m.id === editingMapping.id ? { ...m, ...editingMapping } as FaderMapping : m
       );
-      setMappings(updatedMappings);
     } else {
       // Add new
       const newMapping: FaderMapping = {
         ...editingMapping as Omit<FaderMapping, 'id'>,
         id: `fader-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       };
-      setMappings([...mappings, newMapping]);
+      updatedMappings = [...mappings, newMapping];
+    }
+
+    setMappings(updatedMappings);
+
+    // Save to persistent storage immediately
+    SettingsService.updateFaderMappings(updatedMappings);
+
+    // Trigger settings reload in fader mapping service
+    if (onSettingsUpdate) {
+      onSettingsUpdate();
     }
 
     setEditingMapping(null);
@@ -74,7 +93,17 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
   };
 
   const handleDeleteMapping = (id: string) => {
-    setMappings(mappings.filter(m => m.id !== id));
+    const updatedMappings = mappings.filter(m => m.id !== id);
+    setMappings(updatedMappings);
+
+    // Save to persistent storage immediately
+    SettingsService.updateFaderMappings(updatedMappings);
+
+    // Trigger settings reload in fader mapping service
+    if (onSettingsUpdate) {
+      onSettingsUpdate();
+    }
+
     toast({
       title: "Mapping Deleted",
       description: "Fader mapping has been removed.",
@@ -83,17 +112,25 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
   };
 
   const handleToggleMapping = (id: string, enabled: boolean) => {
-    const updatedMappings = mappings.map(m => 
+    const updatedMappings = mappings.map(m =>
       m.id === id ? { ...m, enabled } : m
     );
     setMappings(updatedMappings);
+
+    // Save to persistent storage immediately
+    SettingsService.updateFaderMappings(updatedMappings);
+
+    // Trigger settings reload in fader mapping service
+    if (onSettingsUpdate) {
+      onSettingsUpdate();
+    }
   };
 
   // Check if channel is already used
   const isChannelUsed = (channel: number, isStereo: boolean, excludeId?: string) => {
     return mappings.some(m => {
       if (excludeId && m.id === excludeId) return false;
-      
+
       if (m.isStereo) {
         // Stereo mapping uses current channel and next
         return channel === m.channel || channel === m.channel + 1 ||
@@ -207,10 +244,10 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                         const channel = i + 1;
                         const wouldBeUsed = isChannelUsed(channel, editingMapping.isStereo || false, editingMapping.id);
                         const isLastChannel = editingMapping.isStereo && channel === maxChannels;
-                        
+
                         return (
-                          <SelectItem 
-                            key={channel} 
+                          <SelectItem
+                            key={channel}
                             value={channel.toString()}
                             disabled={wouldBeUsed || isLastChannel}
                             className="text-white hover:bg-slate-600"

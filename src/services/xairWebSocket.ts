@@ -46,8 +46,8 @@ export class XAirWebSocket {
   private lastFaderLog: Record<number, number> = {};
 
   constructor(
-    private ip: string, 
-    private port: number = 10024, 
+    private ip: string,
+    private port: number = 10024,
     private model: 'X-Air 16' | 'X-Air 18' = 'X-Air 18'
   ) {
     this.maxChannels = model === 'X-Air 16' ? 12 : 16;
@@ -56,7 +56,7 @@ export class XAirWebSocket {
 
   setBridgeConfig(config: OSCBridgeConfig) {
     this.bridgeConfig = { host: config.bridgeHost, port: config.bridgePort };
-    
+
     // If we have an active bridge and the mixer IP changed, update it
     if (this.integratedBridge && this.ip !== config.mixerIP) {
       console.log(`🔄 Mixer IP changed from ${this.ip} to ${config.mixerIP}`);
@@ -64,7 +64,7 @@ export class XAirWebSocket {
       this.port = config.mixerPort;
       this.integratedBridge.updateMixerIP(this.ip);
     }
-    
+
     console.log(`🌉 OSC Bridge configured: ${config.bridgeHost}:${config.bridgePort} -> ${config.mixerIP}:${config.mixerPort}`);
   }
 
@@ -74,17 +74,17 @@ export class XAirWebSocket {
     }
 
     this.isConnecting = true;
-    
+
     return new Promise(async (resolve) => {
       try {
         console.log('🔧 Starting OSC bridge connection...');
         this.integratedBridge = new IntegratedOSCBridge(
-          this.ip, 
-          this.port, 
-          this.bridgeConfig.host, 
+          this.ip,
+          this.port,
+          this.bridgeConfig.host,
           this.bridgeConfig.port
         );
-        
+
         // Set up message handler
         const unsubscribe = this.integratedBridge.onMessage((message) => {
           this.handleBridgeMessage(message);
@@ -97,7 +97,7 @@ export class XAirWebSocket {
         });
 
         const bridgeStarted = await this.integratedBridge.start();
-        
+
         if (bridgeStarted) {
           console.log('✅ OSC bridge connected successfully');
           this.isConnecting = false;
@@ -126,79 +126,79 @@ export class XAirWebSocket {
       // Only log status changes, not regular status updates
       return;
     }
-    
+
     if (message.type === 'osc' && message.address) {
       // Handle fader updates - improved parsing
       if (message.address.includes('/mix/fader')) {
         const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/fader$/);
         if (channelMatch && message.args && message.args.length > 0) {
           const channel = parseInt(channelMatch[1]);
-          
+
           // Get the raw fader value (0.0 to 1.0)
           let rawValue = message.args[0];
-          
+
           // Handle different argument formats
           if (typeof rawValue === 'object' && rawValue.value !== undefined) {
             rawValue = rawValue.value;
           }
-          
+
           // Ensure we have a valid number
           if (typeof rawValue !== 'number' || isNaN(rawValue)) {
             console.warn(`Invalid fader value for channel ${channel}:`, rawValue);
             return;
           }
-          
+
           // Convert 0-1 to 0-100 and ensure it's within bounds
           const value = Math.max(0, Math.min(100, rawValue * 100));
-          
+
           const faderData: FaderData = {
             channel,
             value,
             timestamp: message.timestamp || Date.now()
           };
-          
+
           // Only log significant fader changes (reduce console spam)
           const lastValue = this.lastFaderLog[channel] || 0;
           const significantChange = Math.abs(value - lastValue) >= 5; // Log every 5% change
-          
+
           if (significantChange) {
             console.log(`🎚️ Fader ${channel}: ${value.toFixed(1)}%`);
             this.lastFaderLog[channel] = value;
           }
-          
+
           this.notifySubscribers(faderData);
         }
       }
-      
+
       // Handle mute updates
       if (message.address.includes('/mix/on')) {
         const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/on$/);
         if (channelMatch && message.args && message.args.length > 0) {
           const channel = parseInt(channelMatch[1]);
-          
+
           // Get the mute value (1 = unmuted, 0 = muted)
           let rawValue = message.args[0];
-          
+
           // Handle different argument formats
           if (typeof rawValue === 'object' && rawValue.value !== undefined) {
             rawValue = rawValue.value;
           }
-          
+
           // Ensure we have a valid number/boolean
           if (typeof rawValue !== 'number' && typeof rawValue !== 'boolean') {
             console.warn(`Invalid mute value for channel ${channel}:`, rawValue);
             return;
           }
-          
+
           // Convert to boolean (1 = unmuted/false, 0 = muted/true)
           const muted = rawValue === 0 || rawValue === false;
-          
+
           const muteData: MuteData = {
             channel,
             muted,
             timestamp: message.timestamp || Date.now()
           };
-          
+
           console.log(`🔇 Channel ${channel}: ${muted ? 'MUTED' : 'UNMUTED'}`);
           this.notifyMuteSubscribers(muteData);
         }
@@ -208,9 +208,9 @@ export class XAirWebSocket {
 
   private subscribeFaderUpdates() {
     if (!this.integratedBridge?.isActive()) return;
-    
+
     console.log(`🎚️ Subscribing to ${this.maxChannels} fader channels and mute states`);
-    
+
     // Subscribe to channel faders and mute states
     for (let i = 1; i <= this.maxChannels; i++) {
       const channel = i.toString().padStart(2, '0');
@@ -273,16 +273,34 @@ export class XAirWebSocket {
   }
 
   disconnect() {
+    console.log('🔌 Disconnecting from mixer and cleaning up...');
+
+    // Reset connecting state
+    this.isConnecting = false;
+
+    // Stop and clean up the integrated bridge
     if (this.integratedBridge) {
       this.integratedBridge.stop();
       this.integratedBridge = null;
     }
 
+    // Reset connection state
     this.isConnectedState = false;
+    this.reconnectAttempts = 0;
+
+    // Clear all subscription sets
     this.subscribers.clear();
+    this.muteSubscribers.clear();
     this.statusSubscribers.clear();
     this.mixerStatusSubscribers.clear();
+
+    // Reset fader log state
+    this.lastFaderLog = {};
+
+    // Notify all status subscribers that we're disconnected
     this.notifyStatusSubscribers(false);
+
+    console.log('✅ Mixer disconnect completed');
   }
 
   isConnected(): boolean {

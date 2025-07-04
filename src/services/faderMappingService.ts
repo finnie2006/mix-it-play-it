@@ -1,4 +1,3 @@
-
 import { FaderMapping, SettingsService } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
@@ -15,9 +14,69 @@ export class FaderMappingService {
   private mappings: FaderMapping[] = [];
   private radioConfig: RadioSoftwareConfig | null = null;
   private statusUpdateCallback?: (channel: number, isActive: boolean, commandExecuted: boolean) => void;
+  private bridgeConnection: WebSocket | null = null;
+  private radioConfigSent = false;
 
   constructor() {
     this.loadSettings();
+    this.connectToBridge();
+  }
+
+  private connectToBridge() {
+    try {
+      this.bridgeConnection = new WebSocket('ws://localhost:8080');
+
+      this.bridgeConnection.onopen = () => {
+        console.log('📻 Connected to bridge for radio commands');
+        this.sendRadioConfigToBridge();
+      };
+
+      this.bridgeConnection.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+
+          if (message.type === 'radio_command_result') {
+            if (message.success) {
+              console.log(`✅ Radio command executed successfully: ${message.command}`);
+              console.log(`📋 Response (${message.statusCode}): ${message.response}`);
+            } else {
+              console.error(`❌ Radio command failed: ${message.command} - ${message.error}`);
+            }
+          } else if (message.type === 'radio_config_updated') {
+            console.log('📻 Radio configuration updated on bridge server');
+            this.radioConfigSent = true;
+          }
+        } catch (error) {
+          console.error('❌ Error parsing bridge message:', error);
+        }
+      };
+
+      this.bridgeConnection.onclose = () => {
+        console.log('❌ Bridge connection closed, attempting to reconnect...');
+        this.radioConfigSent = false;
+        setTimeout(() => this.connectToBridge(), 3000);
+      };
+
+      this.bridgeConnection.onerror = (error) => {
+        console.error('❌ Bridge connection error:', error);
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to connect to bridge:', error);
+      setTimeout(() => this.connectToBridge(), 3000);
+    }
+  }
+
+  private sendRadioConfigToBridge() {
+    if (this.bridgeConnection?.readyState === WebSocket.OPEN && this.radioConfig && !this.radioConfigSent) {
+      const message = {
+        type: 'radio_config',
+        config: this.radioConfig
+      };
+
+      this.bridgeConnection.send(JSON.stringify(message));
+      console.log('📻 Sent radio config to bridge server');
+    }
   }
 
   private loadSettings() {
@@ -25,6 +84,10 @@ export class FaderMappingService {
     this.mappings = settings.faderMappings.filter(m => m.enabled);
     this.radioConfig = settings.radioSoftware.enabled ? settings.radioSoftware : null;
     console.log(`🎚️ Loaded ${this.mappings.length} active fader mappings`);
+
+    // Send updated config to bridge if connected
+    this.radioConfigSent = false;
+    this.sendRadioConfigToBridge();
   }
 
   public reloadSettings() {
@@ -60,7 +123,7 @@ export class FaderMappingService {
 
     for (const mapping of relevantMappings) {
       const shouldTrigger = this.shouldTriggerMapping(mapping, channel, value, previousValue);
-      
+
       if (shouldTrigger) {
         console.log(`🎚️ Triggering mapping for channel ${channel}: ${mapping.command}`);
         this.executeCommand(mapping);
@@ -88,7 +151,7 @@ export class FaderMappingService {
     // Only trigger when crossing the threshold upwards
     const wasAboveThreshold = previousValue >= mapping.threshold;
     const isAboveThreshold = currentValue >= mapping.threshold;
-    
+
     // Trigger when going from below threshold to above threshold
     return !wasAboveThreshold && isAboveThreshold;
   }
@@ -99,30 +162,34 @@ export class FaderMappingService {
       return;
     }
 
+    if (!this.bridgeConnection || this.bridgeConnection.readyState !== WebSocket.OPEN) {
+      console.error('❌ Bridge connection not available for radio command');
+      return;
+    }
+
     try {
-      // For now, we'll simulate the command execution and log it
-      // In a real implementation, this would send the command to the radio software
       console.log(`📻 Executing ${this.radioConfig.type} command: ${mapping.command}`);
       console.log(`📻 Target: ${this.radioConfig.host}:${this.radioConfig.port}`);
-      
-      // Simulate command execution with a fake HTTP request
-      // In real implementation, you'd integrate with mAirList API or RadioDJ API
-      await this.simulateRadioCommand(mapping.command);
-      
+
+      await this.sendRadioCommandThroughBridge(mapping.command);
+
     } catch (error) {
       console.error('❌ Failed to execute radio command:', error);
     }
   }
 
-  private async simulateRadioCommand(command: string): Promise<void> {
-    // This simulates sending a command to radio software
-    // Replace this with actual API calls to mAirList or RadioDJ
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log(`✅ Command executed successfully: ${command}`);
-        resolve();
-      }, 100);
-    });
+  private async sendRadioCommandThroughBridge(command: string): Promise<void> {
+    if (!this.bridgeConnection || this.bridgeConnection.readyState !== WebSocket.OPEN) {
+      throw new Error('Bridge connection not available');
+    }
+
+    const message = {
+      type: 'radio_command',
+      command: command
+    };
+
+    this.bridgeConnection.send(JSON.stringify(message));
+    console.log(`🌐 Sent command to bridge: ${command}`);
   }
 
   public getFaderState(channel: number): FaderState | undefined {
