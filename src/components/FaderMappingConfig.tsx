@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { FaderMapping, SettingsService } from '@/services/settingsService';
 import { Plus, Trash2, Volume2, Settings } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface FaderMappingConfigProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
@@ -19,11 +21,16 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
     SettingsService.loadSettings().faderMappings
   );
   const [editingMapping, setEditingMapping] = useState<Partial<FaderMapping> | null>(null);
+  const { toast } = useToast();
 
   const maxChannels = mixerModel === 'X-Air 16' ? 12 : 16;
 
   const handleSaveMappings = () => {
     SettingsService.updateFaderMappings(mappings);
+    toast({
+      title: "Settings Saved",
+      description: "Fader mappings have been saved successfully.",
+    });
   };
 
   const handleAddMapping = () => {
@@ -56,6 +63,10 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
     }
 
     setEditingMapping(null);
+    toast({
+      title: "Mapping Saved",
+      description: "Fader mapping has been configured successfully.",
+    });
   };
 
   const handleEditMapping = (mapping: FaderMapping) => {
@@ -64,6 +75,11 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
 
   const handleDeleteMapping = (id: string) => {
     setMappings(mappings.filter(m => m.id !== id));
+    toast({
+      title: "Mapping Deleted",
+      description: "Fader mapping has been removed.",
+      variant: "destructive",
+    });
   };
 
   const handleToggleMapping = (id: string, enabled: boolean) => {
@@ -94,13 +110,13 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
   };
 
   return (
-    <Card>
+    <Card className="bg-slate-800/50 border-slate-700">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-white">
           <Volume2 className="text-green-400" size={20} />
           Fader Mappings
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-slate-300">
           Configure which faders trigger radio software commands
         </CardDescription>
       </CardHeader>
@@ -109,7 +125,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
           <span className="text-sm text-slate-400">
             {mappings.length} mapping(s) configured
           </span>
-          <Button onClick={handleAddMapping} size="sm">
+          <Button onClick={handleAddMapping} size="sm" className="bg-green-600 hover:bg-green-700">
             <Plus size={16} className="mr-2" />
             Add Mapping
           </Button>
@@ -118,7 +134,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
         {/* Existing Mappings */}
         <div className="space-y-3">
           {mappings.map((mapping) => (
-            <Card key={mapping.id} className="bg-slate-800/50">
+            <Card key={mapping.id} className="bg-slate-700/50 border-slate-600">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
@@ -128,19 +144,19 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                           checked={mapping.enabled}
                           onCheckedChange={(checked) => handleToggleMapping(mapping.id, checked)}
                         />
-                        <span className="font-medium">
+                        <span className="font-medium text-white">
                           CH {getChannelDisplay(mapping)}
                           {mapping.isStereo && " (Stereo)"}
                         </span>
                       </div>
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-slate-300">
                         Threshold: {mapping.threshold}%
                       </div>
-                      <div className="text-sm text-slate-400">
+                      <div className="text-sm text-slate-300">
                         {mapping.description}
                       </div>
                     </div>
-                    <div className="text-xs text-slate-500 mt-1 font-mono">
+                    <div className="text-xs text-slate-400 mt-1 font-mono">
                       {mapping.command}
                     </div>
                   </div>
@@ -149,6 +165,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                       onClick={() => handleEditMapping(mapping)}
                       size="sm"
                       variant="outline"
+                      className="border-slate-600 text-slate-300 hover:bg-slate-600"
                     >
                       Edit
                     </Button>
@@ -168,24 +185,24 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
 
         {/* Edit/Add Mapping Form */}
         {editingMapping && (
-          <Card className="bg-blue-900/20 border-blue-500/50">
+          <Card className="bg-blue-900/30 border-blue-600/50">
             <CardHeader>
-              <CardTitle className="text-lg">
+              <CardTitle className="text-lg text-white">
                 {editingMapping.id ? 'Edit' : 'Add'} Fader Mapping
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Channel</Label>
+                  <Label className="text-slate-200">Channel</Label>
                   <Select
                     value={editingMapping.channel?.toString()}
                     onValueChange={(value) => setEditingMapping(prev => ({ ...prev, channel: parseInt(value) }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-slate-700 border-slate-600">
                       {Array.from({ length: maxChannels }, (_, i) => {
                         const channel = i + 1;
                         const wouldBeUsed = isChannelUsed(channel, editingMapping.isStereo || false, editingMapping.id);
@@ -196,6 +213,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                             key={channel} 
                             value={channel.toString()}
                             disabled={wouldBeUsed || isLastChannel}
+                            className="text-white hover:bg-slate-600"
                           >
                             Channel {channel} {wouldBeUsed && "(Used)"} {isLastChannel && "(Can't be stereo)"}
                           </SelectItem>
@@ -206,13 +224,14 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Threshold (%)</Label>
+                  <Label className="text-slate-200">Threshold (%)</Label>
                   <Input
                     type="number"
                     min="1"
                     max="100"
                     value={editingMapping.threshold || 10}
                     onChange={(e) => setEditingMapping(prev => ({ ...prev, threshold: parseInt(e.target.value) }))}
+                    className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
               </div>
@@ -222,33 +241,35 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                   checked={editingMapping.isStereo || false}
                   onCheckedChange={(checked) => setEditingMapping(prev => ({ ...prev, isStereo: checked }))}
                 />
-                <Label>Stereo (uses this channel + next channel)</Label>
+                <Label className="text-slate-200">Stereo (uses this channel + next channel)</Label>
               </div>
 
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label className="text-slate-200">Description</Label>
                 <Input
                   value={editingMapping.description || ''}
                   onChange={(e) => setEditingMapping(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="e.g., Main Music Player"
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label>Command</Label>
+                <Label className="text-slate-200">Command</Label>
                 <Textarea
                   value={editingMapping.command || ''}
                   onChange={(e) => setEditingMapping(prev => ({ ...prev, command: e.target.value }))}
                   placeholder="e.g., PLAYER 1 PLAY"
                   rows={2}
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
 
               <div className="flex gap-2">
-                <Button onClick={handleSaveMapping}>
+                <Button onClick={handleSaveMapping} className="bg-green-600 hover:bg-green-700">
                   Save Mapping
                 </Button>
-                <Button onClick={() => setEditingMapping(null)} variant="outline">
+                <Button onClick={() => setEditingMapping(null)} variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-600">
                   Cancel
                 </Button>
               </div>
@@ -257,7 +278,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
         )}
 
         {mappings.length > 0 && (
-          <Button onClick={handleSaveMappings} className="w-full">
+          <Button onClick={handleSaveMappings} className="w-full bg-blue-600 hover:bg-blue-700">
             <Settings size={16} className="mr-2" />
             Save All Mappings
           </Button>

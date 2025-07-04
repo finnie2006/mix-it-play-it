@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioSoftwareConfig } from '@/components/RadioSoftwareConfig';
@@ -21,12 +22,12 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({ mixerMod
       </div>
 
       <Tabs defaultValue="radio" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="radio" className="flex items-center gap-2">
+        <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border-slate-700">
+          <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
             Radio Software
           </TabsTrigger>
-          <TabsTrigger value="faders" className="flex items-center gap-2">
+          <TabsTrigger value="faders" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Volume2 size={16} />
             Fader Mappings
           </TabsTrigger>
