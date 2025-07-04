@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -126,7 +127,6 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
                         <Switch
                           checked={mapping.enabled}
                           onCheckedChange={(checked) => handleToggleMapping(mapping.id, checked)}
-                          size="sm"
                         />
                         <span className="font-medium">
                           CH {getChannelDisplay(mapping)}
