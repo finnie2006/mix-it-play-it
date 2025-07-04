@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { FaderMapping, SettingsService } from '@/services/settingsService';
+import { faderMappingService } from '@/services/faderMappingService';
 import { Plus, Trash2, Volume2, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,9 +27,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({ mixerMod
   const handleSaveMappings = () => {
     SettingsService.updateFaderMappings(mappings);
     // Force reload the mapping service with new settings
-    if (window.faderMappingService) {
-      window.faderMappingService.reloadSettings();
-    }
+    faderMappingService.reloadSettings();
     toast({
       title: "Settings Saved",
       description: "Fader mappings have been saved and reloaded successfully.",
