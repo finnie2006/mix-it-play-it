@@ -113,7 +113,7 @@ export class FaderMappingService {
     // Find mappings for this channel
     const relevantMappings = this.mappings.filter(mapping => {
       if (mapping.isStereo) {
-        return channel === mapping.channel || channel === mapping.channel + 1;
+        return channel === mapping.channel; // Only consider the primary channel for stereo mappings
       }
       return channel === mapping.channel;
     });
