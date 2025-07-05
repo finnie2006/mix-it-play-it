@@ -33,7 +33,9 @@ export const MetersDashboard: React.FC<MetersDashboardProps> = ({
       setMeterData(data);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+    };
   }, [isConnected]);
 
   // Get master/program level (typically the last channel in meters)
@@ -102,7 +104,7 @@ export const MetersDashboard: React.FC<MetersDashboardProps> = ({
         {mappedChannelLevels.map(({ channel, level, mapping }) => (
           <div key={channel} className="lg:col-span-1">
             <VUMeter 
-              label={mapping?.label || `CH ${channel}`}
+              label={mapping?.description || `CH ${channel}`}
               level={level}
             />
           </div>
