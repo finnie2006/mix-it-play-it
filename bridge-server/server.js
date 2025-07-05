@@ -534,17 +534,31 @@ function setupMeterOSC() {
       const address = oscMessage.address;
       if (!address || !address.startsWith('/meters/1')) return;
 
-      // Extract blob data from OSC message
+      // Handle different possible OSC message formats
       if (oscMessage.args && oscMessage.args.length > 0) {
-        const blobArg = oscMessage.args[0];
-        let buffer;
+        let buffer = null;
+        const arg = oscMessage.args[0];
         
-        if (blobArg && blobArg.buffer) {
-          buffer = blobArg.buffer;
-        } else if (Buffer.isBuffer(blobArg)) {
-          buffer = blobArg;
-        } else {
-          console.warn('⚠ Invalid meter data format');
+        // Try different ways to extract the buffer data
+        if (arg && typeof arg === 'object') {
+          if (arg.buffer && Buffer.isBuffer(arg.buffer)) {
+            buffer = arg.buffer;
+          } else if (arg.value && Buffer.isBuffer(arg.value)) {
+            buffer = arg.value;
+          } else if (Buffer.isBuffer(arg)) {
+            buffer = arg;
+          }
+        } else if (Buffer.isBuffer(arg)) {
+          buffer = arg;
+        }
+
+        if (!buffer || buffer.length === 0) {
+          // Don't spam console with warnings, just return silently
+          return;
+        }
+
+        // Ensure buffer length is even (since we're reading 16-bit values)
+        if (buffer.length % 2 !== 0) {
           return;
         }
 
@@ -554,20 +568,34 @@ function setupMeterOSC() {
         // Parse meter values according to X-Air protocol
         // Values are signed integer 16 bit, resolution 1/256 dB
         for (let i = 0; i < count; i++) {
-          const val = buffer.readInt16BE(i * 2);
-          meters.push(val / 256); // Convert to dB
+          try {
+            const val = buffer.readInt16BE(i * 2);
+            meters.push(val / 256); // Convert to dB
+          } catch (readError) {
+            // Skip invalid readings
+            continue;
+          }
         }
 
-        // According to X-Air docs, /meters/1 returns:
-        // 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
-        if (meters.length >= 40) {
-          // Extract program levels (L/R stereo output - positions 36 and 37 in the array)
-          const programLeft = meters[36] || -60; // Main L
-          const programRight = meters[37] || -60; // Main R
+        // We need at least some meter data
+        if (meters.length >= 16) {
+          // Extract program levels - try different positions as mixers may vary
+          let programLeft = -60;
+          let programRight = -60;
+
+          // Try standard positions for main L/R output
+          if (meters.length >= 38) {
+            programLeft = meters[36] || -60; // Main L
+            programRight = meters[37] || -60; // Main R
+          } else if (meters.length >= 18) {
+            // Fallback to last two channels if we have at least 18 values
+            programLeft = meters[meters.length - 2] || -60;
+            programRight = meters[meters.length - 1] || -60;
+          }
 
           // Update cache
           meterDataCache = {
-            channels: meters.slice(0, 16), // First 16 are mono channels
+            channels: meters.slice(0, Math.min(16, meters.length)), // First 16 or available channels
             program: {
               left: programLeft,
               right: programRight
