@@ -1,13 +1,13 @@
-
 import React from 'react';
 
 interface VUMeterProps {
   level: number;
   label: string;
   className?: string;
+  height?: 'normal' | 'tall' | 'extra-tall';
 }
 
-export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '' }) => {
+export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', height = 'normal' }) => {
   // Convert dB level to percentage for display
   // Typical range is -60dB to 0dB, so we'll map this to 0-100%
   const normalizeLevel = (db: number) => {
@@ -26,16 +26,30 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '' }
     return 'bg-green-500'; // Safe zone
   };
 
+  // Get height and segment count based on height prop
+  const getHeightConfig = () => {
+    switch (height) {
+      case 'tall':
+        return { segments: 30, heightClass: 'h-72', segmentHeight: 'h-2' };
+      case 'extra-tall':
+        return { segments: 40, heightClass: 'h-96', segmentHeight: 'h-2' };
+      default:
+        return { segments: 20, heightClass: 'h-48', segmentHeight: 'h-2' };
+    }
+  };
+
+  const { segments: segmentCount, heightClass, segmentHeight } = getHeightConfig();
+
   // Create meter segments
-  const segments = Array.from({ length: 20 }, (_, index) => {
-    const segmentPosition = (index + 1) * 5; // Each segment represents 5%
+  const segments = Array.from({ length: segmentCount }, (_, index) => {
+    const segmentPosition = ((index + 1) / segmentCount) * 100; // Each segment represents a percentage
     const isActive = percentage >= segmentPosition;
     const colorClass = isActive ? getBarColor(segmentPosition) : 'bg-slate-700';
     
     return (
       <div
         key={index}
-        className={`h-2 w-full mb-1 rounded-sm transition-colors duration-75 ${colorClass}`}
+        className={`${segmentHeight} w-full mb-1 rounded-sm transition-colors duration-75 ${colorClass}`}
       />
     );
   });
@@ -46,23 +60,25 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '' }
         {label}
       </div>
       
-      <div className="flex flex-col-reverse space-y-reverse space-y-1 h-48 w-6 p-1 bg-slate-800 rounded border border-slate-600">
-        {segments}
+      <div className="relative flex justify-center">
+        <div className={`flex flex-col-reverse space-y-reverse space-y-1 ${heightClass} w-6 p-1 bg-slate-800 rounded border border-slate-600`}>
+          {segments}
+        </div>
+        
+        {/* dB scale markers - positioned to the left of the meter */}
+        <div className={`absolute -left-8 top-0 ${heightClass} w-6 pointer-events-none`}>
+          <div className="relative h-full text-xs text-slate-500">
+            <div className="absolute top-0 left-0">0</div>
+            <div className="absolute top-1/4 left-0">-15</div>
+            <div className="absolute top-2/4 left-0">-30</div>
+            <div className="absolute top-3/4 left-0">-45</div>
+            <div className="absolute bottom-0 left-0">-60</div>
+          </div>
+        </div>
       </div>
       
       <div className="text-xs font-mono text-slate-400 text-center">
         {level > -60 ? `${level.toFixed(1)}` : '-∞'}
-      </div>
-      
-      {/* dB scale markers */}
-      <div className="absolute left-0 top-0 h-48 w-8 pointer-events-none">
-        <div className="relative h-full">
-          <div className="absolute top-0 left-0 text-xs text-slate-500">0</div>
-          <div className="absolute top-1/4 left-0 text-xs text-slate-500">-15</div>
-          <div className="absolute top-2/4 left-0 text-xs text-slate-500">-30</div>
-          <div className="absolute top-3/4 left-0 text-xs text-slate-500">-45</div>
-          <div className="absolute bottom-0 left-0 text-xs text-slate-500">-60</div>
-        </div>
       </div>
     </div>
   );

@@ -84,9 +84,33 @@ let radioConfig = config.radioSoftware.enabled ? config.radioSoftware : null;
 let faderStates = new Map();
 let activeMappings = config.faderMappings.filter(m => m.enabled);
 
-// VU meter state - REMOVED BACKEND FUNCTIONALITY
+// VU meter state - IMPLEMENT BACKEND FUNCTIONALITY
 let metersSubscribed = false;
-let lastMeterData = {};
+let lastMeterData = {
+    channels: Array(40).fill(-90), // Initialize with -90dB (silence)
+    timestamp: Date.now()
+};
+
+// Parse meter blob for /meters/1 based on debug findings
+function parseMeterBlob(blob) {
+    const buffer = Buffer.from(blob);
+    if (buffer.length < 4) return null;
+
+    // First 4 bytes = count of meter values (big-endian)
+    const count = buffer.readInt32BE(0);
+    
+    const values = [];
+    for (let i = 0; i < count; i++) {
+        const offset = 4 + i * 2; // Each meter value is 2 bytes
+        if (offset + 2 > buffer.length) break;
+        
+        // Read 16-bit value as little-endian and treat as signed
+        const val = buffer.readInt16LE(offset);
+        values.push(val / 256.0); // Convert to dB (adjusted for 16-bit values)
+    }
+
+    return values;
+}
 
 // Fader mapping processing function
 function processFaderUpdate(channel, value) {
@@ -210,16 +234,51 @@ function broadcastFaderUpdate(channel, isActive, commandExecuted) {
   });
 }
 
-// Broadcast VU meter update to all clients - DISABLED
+// Broadcast VU meter update to all clients - IMPLEMENT
 function broadcastMeterUpdate(meterData) {
-  console.log('📊 VU meter backend not implemented - broadcast disabled');
-  // Backend functionality removed
+    const updateMessage = JSON.stringify({
+        type: 'vu_meters',
+        data: meterData,
+        timestamp: Date.now()
+    });
+
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try {
+                client.send(updateMessage);
+            } catch (error) {
+                console.error('Error sending meter update to client:', error);
+            }
+        }
+    });
 }
 
-// Subscribe to VU meters - DISABLED
+// Subscribe to VU meters - IMPLEMENT
 function subscribeToMeters() {
-  console.log('📊 VU meter backend not implemented - subscription disabled');
-  // Backend functionality removed
+    if (!oscPort || !oscPort.socket) {
+        console.log('📊 Cannot subscribe to meters - OSC port not ready');
+        return;
+    }
+
+    console.log('📊 Subscribing to VU meters (/meters/1)');
+    
+    // Send meter subscription message
+    oscPort.send({
+        address: '/meters',
+        args: [{ type: 's', value: '/meters/1' }]
+    });
+
+    metersSubscribed = true;
+
+    // Re-subscribe every 5 seconds to maintain connection
+    setInterval(() => {
+        if (oscPort && oscPort.socket && mixerConnected) {
+            oscPort.send({
+                address: '/meters',
+                args: [{ type: 's', value: '/meters/1' }]
+            });
+        }
+    }, 5000);
 }
 
 // Function to send HTTP request to radio software
@@ -455,9 +514,46 @@ function setupOSCHandlers() {
                 clearTimeout(validationTimer);
                 validationTimer = null;
             }
+
+            // Auto-subscribe to meters when connection is established
+            setTimeout(() => subscribeToMeters(), 1000);
         }
 
-        // VU METER HANDLING REMOVED - No longer processing /meters/1 messages
+        // VU METER HANDLING - IMPLEMENT BASED ON DEBUG FINDINGS
+        if (oscMessage.address === '/meters/1') {
+            try {
+                const blob = oscMessage.args.find(arg => arg.type === 'b')?.value;
+                if (blob) {
+                    const values = parseMeterBlob(blob);
+                    if (values && values.length >= 38) {
+                        // Update meter data with parsed values
+                        // For now, focus on main LR (positions 36, 37) and first few channels
+                        const channels = Array(40).fill(-90);
+                        
+                        // Copy channel data (first 16 are mono channels)
+                        for (let i = 0; i < Math.min(16, values.length); i++) {
+                            channels[i] = values[i] < -90 ? -90 : values[i];
+                        }
+                        
+                        // Main LR post-fader at positions 36, 37
+                        if (values.length >= 38) {
+                            channels[36] = values[36] < -90 ? -90 : values[36]; // Main L
+                            channels[37] = values[37] < -90 ? -90 : values[37]; // Main R
+                        }
+
+                        lastMeterData = {
+                            channels: channels,
+                            timestamp: Date.now()
+                        };
+
+                        // Broadcast to clients
+                        broadcastMeterUpdate(lastMeterData);
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error parsing meter data:', error);
+            }
+        }
 
         // Process fader updates for mappings (e.g., /ch/01/mix/fader)
         if (oscMessage.address && oscMessage.address.includes('/fader') && oscMessage.args && oscMessage.args.length > 0) {
