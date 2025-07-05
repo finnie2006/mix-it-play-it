@@ -529,74 +529,72 @@ function setupMeterOSC() {
   });
 
   // Handle incoming meter data according to X-Air protocol
-  meterOSCPort.socket.on('message', (buffer) => {
+  meterOSCPort.on('message', (oscMessage) => {
     try {
-      const addressEnd = buffer.indexOf(0);
-      const address = buffer.toString('ascii', 0, addressEnd);
+      const address = oscMessage.address;
+      if (!address || !address.startsWith('/meters/1')) return;
 
-      if (!address.startsWith('/meters/1')) return;
+      // Extract blob data from OSC message
+      if (oscMessage.args && oscMessage.args.length > 0) {
+        const blobArg = oscMessage.args[0];
+        let buffer;
+        
+        if (blobArg && blobArg.buffer) {
+          buffer = blobArg.buffer;
+        } else if (Buffer.isBuffer(blobArg)) {
+          buffer = blobArg;
+        } else {
+          console.warn('⚠ Invalid meter data format');
+          return;
+        }
 
-      // Find binary blob type tag (",b")
-      const tagStart = buffer.indexOf(',b');
-      if (tagStart === -1) return;
+        const meters = [];
+        const count = buffer.length / 2;
 
-      // OSC blobs must be 4-byte aligned
-      const blobSizeOffset = (tagStart + 4 + 3) & ~0x03;
-      const blobSize = buffer.readInt32BE(blobSizeOffset);
-      const blobStart = blobSizeOffset + 4;
+        // Parse meter values according to X-Air protocol
+        // Values are signed integer 16 bit, resolution 1/256 dB
+        for (let i = 0; i < count; i++) {
+          const val = buffer.readInt16BE(i * 2);
+          meters.push(val / 256); // Convert to dB
+        }
 
-      if (blobStart + blobSize > buffer.length) {
-        console.warn('⚠ Blob size exceeds packet length, skipping.');
-        return;
-      }
+        // According to X-Air docs, /meters/1 returns:
+        // 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
+        if (meters.length >= 40) {
+          // Extract program levels (L/R stereo output - positions 36 and 37 in the array)
+          const programLeft = meters[36] || -60; // Main L
+          const programRight = meters[37] || -60; // Main R
 
-      const meters = [];
-      const count = blobSize / 2;
+          // Update cache
+          meterDataCache = {
+            channels: meters.slice(0, 16), // First 16 are mono channels
+            program: {
+              left: programLeft,
+              right: programRight
+            },
+            timestamp: Date.now()
+          };
 
-      // Parse meter values according to X-Air protocol
-      // Values are signed integer 16 bit, resolution 1/256 dB
-      for (let i = 0; i < count; i++) {
-        const val = buffer.readInt16BE(blobStart + i * 2);
-        meters.push(val / 256); // Convert to dB
-      }
+          // Broadcast meter data to subscribers
+          const meterData = {
+            type: 'meters_data',
+            channels: meterDataCache.channels,
+            program: meterDataCache.program,
+            timestamp: meterDataCache.timestamp
+          };
 
-      // According to X-Air docs, /meters/1 returns:
-      // 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
-      if (meters.length >= 40) {
-        // Extract program levels (L/R stereo output - last 2 values in the stream)
-        const programLeft = meters[meters.length - 4] || -60; // Main L
-        const programRight = meters[meters.length - 3] || -60; // Main R
-
-        // Update cache
-        meterDataCache = {
-          channels: meters.slice(0, 16), // First 16 are mono channels
-          program: {
-            left: programLeft,
-            right: programRight
-          },
-          timestamp: Date.now()
-        };
-
-        // Broadcast meter data to subscribers
-        const meterData = {
-          type: 'meters_data',
-          channels: meterDataCache.channels,
-          program: meterDataCache.program,
-          timestamp: meterDataCache.timestamp
-        };
-
-        meterSubscribers.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            try {
-              client.send(JSON.stringify(meterData));
-            } catch (error) {
-              console.error('Error sending meter data to client:', error);
-              meterSubscribers.delete(client);
+          meterSubscribers.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(JSON.stringify(meterData));
+              } catch (error) {
+                console.error('Error sending meter data to client:', error);
+                meterSubscribers.delete(client);
+              }
             }
-          }
-        });
+          });
+        }
       }
-
     } catch (err) {
       console.error('❌ Error parsing meter OSC message:', err.message);
     }
