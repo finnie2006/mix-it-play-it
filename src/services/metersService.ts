@@ -56,7 +56,7 @@ export class MetersService {
 
     } catch (error) {
       console.error('❌ Failed to connect to meters bridge:', error);
-      if (this.reconnectAttempts < this.maxReconnectAttemuts) {
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
         setTimeout(() => this.connectToBridge(), 3000);
       }
