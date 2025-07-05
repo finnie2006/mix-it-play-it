@@ -474,163 +474,6 @@ function setupOSCHandlers() {
     });
 }
 
-// Meter subscription state
-let meterSubscribers = new Set();
-let meterOSCPort = null;
-let meterDataCache = {
-  channels: [],
-  program: { left: -60, right: -60 },
-  timestamp: Date.now()
-};
-
-// Create separate OSC port for meter data to avoid conflicts
-function setupMeterOSC() {
-  if (meterOSCPort) {
-    try {
-      meterOSCPort.close();
-    } catch (error) {
-      console.log('OSC port already closed');
-    }
-  }
-
-  meterOSCPort = new osc.UDPPort({
-    localAddress: '0.0.0.0',
-    localPort: 10025, // Different port for meters
-    remoteAddress: MIXER_IP,
-    remotePort: MIXER_PORT,
-    metadata: true
-  });
-
-  meterOSCPort.on('ready', () => {
-    console.log('✅ OSC UDP port ready for meter data');
-    
-    // Subscribe to /meters/1 for all channels according to X-Air protocol
-    // This returns 40 values: 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
-    const meterMsg = {
-      address: '/meters',
-      args: [
-        {
-          type: 's',
-          value: '/meters/1'
-        },
-        {
-          type: 'i', 
-          value: 1
-        }
-      ]
-    };
-    
-    meterOSCPort.send(meterMsg);
-    console.log('📡 Subscribed to /meters/1 (all channels)');
-  });
-
-  meterOSCPort.on('error', (error) => {
-    console.error('❌ Meter OSC Error:', error);
-  });
-
-  // Handle incoming meter data according to X-Air protocol
-  meterOSCPort.on('message', (oscMessage) => {
-    try {
-      const address = oscMessage.address;
-      if (!address || !address.startsWith('/meters/1')) return;
-
-      // Handle different possible OSC message formats
-      if (oscMessage.args && oscMessage.args.length > 0) {
-        let buffer = null;
-        const arg = oscMessage.args[0];
-        
-        // Try different ways to extract the buffer data
-        if (arg && typeof arg === 'object') {
-          if (arg.buffer && Buffer.isBuffer(arg.buffer)) {
-            buffer = arg.buffer;
-          } else if (arg.value && Buffer.isBuffer(arg.value)) {
-            buffer = arg.value;
-          } else if (Buffer.isBuffer(arg)) {
-            buffer = arg;
-          }
-        } else if (Buffer.isBuffer(arg)) {
-          buffer = arg;
-        }
-
-        if (!buffer || buffer.length === 0) {
-          // Don't spam console with warnings, just return silently
-          return;
-        }
-
-        // Ensure buffer length is even (since we're reading 16-bit values)
-        if (buffer.length % 2 !== 0) {
-          return;
-        }
-
-        const meters = [];
-        const count = buffer.length / 2;
-
-        // Parse meter values according to X-Air protocol
-        // Values are signed integer 16 bit, resolution 1/256 dB
-        for (let i = 0; i < count; i++) {
-          try {
-            const val = buffer.readInt16BE(i * 2);
-            meters.push(val / 256); // Convert to dB
-          } catch (readError) {
-            // Skip invalid readings
-            continue;
-          }
-        }
-
-        // We need at least some meter data
-        if (meters.length >= 16) {
-          // Extract program levels - try different positions as mixers may vary
-          let programLeft = -60;
-          let programRight = -60;
-
-          // Try standard positions for main L/R output
-          if (meters.length >= 38) {
-            programLeft = meters[36] || -60; // Main L
-            programRight = meters[37] || -60; // Main R
-          } else if (meters.length >= 18) {
-            // Fallback to last two channels if we have at least 18 values
-            programLeft = meters[meters.length - 2] || -60;
-            programRight = meters[meters.length - 1] || -60;
-          }
-
-          // Update cache
-          meterDataCache = {
-            channels: meters.slice(0, Math.min(16, meters.length)), // First 16 or available channels
-            program: {
-              left: programLeft,
-              right: programRight
-            },
-            timestamp: Date.now()
-          };
-
-          // Broadcast meter data to subscribers
-          const meterData = {
-            type: 'meters_data',
-            channels: meterDataCache.channels,
-            program: meterDataCache.program,
-            timestamp: meterDataCache.timestamp
-          };
-
-          meterSubscribers.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              try {
-                client.send(JSON.stringify(meterData));
-              } catch (error) {
-                console.error('Error sending meter data to client:', error);
-                meterSubscribers.delete(client);
-              }
-            }
-          });
-        }
-      }
-    } catch (err) {
-      console.error('❌ Error parsing meter OSC message:', err.message);
-    }
-  });
-
-  meterOSCPort.open();
-}
-
 // Open initial OSC port
 setupOSCHandlers();
 oscPort.open();
@@ -662,7 +505,6 @@ wss.on('connection', (ws) => {
     ws.on('message', async (data) => {
         try {
             const message = JSON.parse(data.toString());
-            console.log('📨 Received message:', message.type);
 
             if (message.type === 'osc' && message.address) {
                 // Send OSC message to mixer
@@ -680,31 +522,6 @@ wss.on('connection', (ws) => {
                         args: []
                     });
                 }
-            } else if (message.type === 'subscribe_meters') {
-                // Handle meter subscription
-                console.log('📊 Client subscribed to meters');
-                meterSubscribers.add(ws);
-                
-                // Setup meter OSC if not already done
-                if (!meterOSCPort) {
-                    setupMeterOSC();
-                }
-
-                // Send current cached meter data immediately if available
-                if (meterDataCache.channels.length > 0) {
-                    const meterData = {
-                        type: 'meters_data',
-                        channels: meterDataCache.channels,
-                        program: meterDataCache.program,
-                        timestamp: meterDataCache.timestamp
-                    };
-                    
-                    try {
-                        ws.send(JSON.stringify(meterData));
-                    } catch (error) {
-                        console.error('Error sending cached meter data:', error);
-                    }
-                }
             } else if (message.type === 'validate_mixer') {
                 // Manual mixer validation request
                 validateMixerConnection();
@@ -714,7 +531,7 @@ wss.on('connection', (ws) => {
             } else if (message.type === 'radio_config' && message.config) {
                 // Update radio software configuration
                 radioConfig = message.config;
-                console.log(`📻 Radio config updated for ${radioConfig.type}`);
+                console.log(`📻 Radio config updated: ${radioConfig.host}:${radioConfig.port} (${radioConfig.type})`);
 
                 // Send confirmation back to client
                 ws.send(JSON.stringify({
@@ -786,8 +603,6 @@ wss.on('connection', (ws) => {
                         timestamp: Date.now()
                     }));
                 }
-            } else {
-                console.log('❓ Unknown message type:', message.type);
             }
         } catch (error) {
             console.error('❌ Error parsing WebSocket message:', error);
@@ -797,13 +612,11 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log('❌ WebSocket client disconnected');
         clients.delete(ws);
-        meterSubscribers.delete(ws);
     });
 
     ws.on('error', (error) => {
         console.error('❌ WebSocket error:', error);
         clients.delete(ws);
-        meterSubscribers.delete(ws);
     });
 });
 
@@ -811,7 +624,6 @@ console.log('🚀 Bridge server ready!');
 console.log('📋 Features:');
 console.log('  • X-Air OSC bridge');
 console.log('  • WebSocket API on localhost:8080');
-console.log('  • OSC Meter Data');
 if (radioConfig) {
     console.log(`  • Radio software integration (${radioConfig.type})`);
 }
