@@ -84,7 +84,7 @@ let radioConfig = config.radioSoftware.enabled ? config.radioSoftware : null;
 let faderStates = new Map();
 let activeMappings = config.faderMappings.filter(m => m.enabled);
 
-// VU meter state
+// VU meter state - REMOVED BACKEND FUNCTIONALITY
 let metersSubscribed = false;
 let lastMeterData = {};
 
@@ -210,42 +210,16 @@ function broadcastFaderUpdate(channel, isActive, commandExecuted) {
   });
 }
 
-// Broadcast VU meter update to all clients
+// Broadcast VU meter update to all clients - DISABLED
 function broadcastMeterUpdate(meterData) {
-  const updateMessage = JSON.stringify({
-    type: 'vu_meters',
-    data: meterData,
-    timestamp: Date.now()
-  });
-
-  clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(updateMessage);
-      } catch (error) {
-        console.error('Error sending meter update to client:', error);
-      }
-    }
-  });
+  console.log('📊 VU meter backend not implemented - broadcast disabled');
+  // Backend functionality removed
 }
 
-// Subscribe to VU meters
+// Subscribe to VU meters - DISABLED
 function subscribeToMeters() {
-  if (metersSubscribed || !oscPort || !oscPort.socket) return;
-
-  console.log('📊 Subscribing to VU meters...');
-  
-  const msg = {
-    address: "/meters",
-    args: [
-      { type: "s", value: "/meters/1" },
-      { type: "i", value: 1 },
-    ],
-  };
-
-  oscPort.send(msg);
-  metersSubscribed = true;
-  console.log('📡 Subscribed to /meters/1');
+  console.log('📊 VU meter backend not implemented - subscription disabled');
+  // Backend functionality removed
 }
 
 // Function to send HTTP request to radio software
@@ -481,38 +455,9 @@ function setupOSCHandlers() {
                 clearTimeout(validationTimer);
                 validationTimer = null;
             }
-
-            // Subscribe to meters once connected
-            subscribeToMeters();
         }
 
-        // Handle VU meter data from /meters/1
-        if (oscMessage.address && oscMessage.address.startsWith('/meters/1')) {
-            try {
-                // Process meter data similar to debug-meters.js
-                if (oscMessage.args && oscMessage.args.length > 0 && oscMessage.args[0].type === 'b') {
-                    const blobData = oscMessage.args[0].value;
-                    const meters = [];
-                    const count = blobData.length / 2;
-
-                    for (let i = 0; i < count; i++) {
-                        const val = blobData.readInt16BE(i * 2);
-                        const dbValue = val / 256;
-                        meters.push(parseFloat(dbValue.toFixed(2)));
-                    }
-
-                    lastMeterData = {
-                        channels: meters,
-                        timestamp: Date.now()
-                    };
-
-                    // Broadcast meter data to clients
-                    broadcastMeterUpdate(lastMeterData);
-                }
-            } catch (error) {
-                console.error('❌ Error parsing meter data:', error);
-            }
-        }
+        // VU METER HANDLING REMOVED - No longer processing /meters/1 messages
 
         // Process fader updates for mappings (e.g., /ch/01/mix/fader)
         if (oscMessage.address && oscMessage.address.includes('/fader') && oscMessage.args && oscMessage.args.length > 0) {
