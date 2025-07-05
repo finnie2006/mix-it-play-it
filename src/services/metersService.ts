@@ -28,6 +28,7 @@ export class MetersService {
 
   private connect() {
     try {
+      // Connect to the bridge server on port 8080
       this.ws = new WebSocket('ws://localhost:8080');
 
       this.ws.onopen = () => {
