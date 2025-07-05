@@ -1,3 +1,4 @@
+
 import { FaderMapping, SettingsService } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
@@ -180,34 +181,6 @@ export class FaderMappingService {
     return wasAboveFadeDownThreshold && isBelowFadeDownThreshold;
   }
 
-  private formatRadioDJCommand(command: string): string {
-    if (!this.radioConfig || this.radioConfig.type !== 'radiodj') {
-      return command;
-    }
-
-    // Format RadioDJ command as HTTP GET URL
-    // Structure: http://[URL/IP]:[PORT]/opt?auth=[password]&command=[command]&arg=[argument]
-    const baseUrl = `http://${this.radioConfig.host}:${this.radioConfig.port}/opt`;
-    const password = this.radioConfig.password || '';
-    
-    // Parse command to extract command and argument
-    const parts = command.trim().split(' ');
-    const cmd = parts[0];
-    const arg = parts.slice(1).join(' ');
-    
-    let url = `${baseUrl}?command=${encodeURIComponent(cmd)}`;
-    
-    if (password) {
-      url += `&auth=${encodeURIComponent(password)}`;
-    }
-    
-    if (arg) {
-      url += `&arg=${encodeURIComponent(arg)}`;
-    }
-    
-    return url;
-  }
-
   private async executeCommand(command: string) {
     if (!this.radioConfig) {
       console.warn('⚠️ Radio software not configured, cannot execute command');
@@ -220,19 +193,10 @@ export class FaderMappingService {
     }
 
     try {
-      let formattedCommand = command;
-      
-      // Format command based on radio software type
-      if (this.radioConfig.type === 'radiodj') {
-        formattedCommand = this.formatRadioDJCommand(command);
-        console.log(`📻 Executing RadioDJ HTTP command: ${formattedCommand}`);
-      } else {
-        console.log(`📻 Executing ${this.radioConfig.type} command: ${command}`);
-      }
-      
+      console.log(`📻 Executing ${this.radioConfig.type} command: ${command}`);
       console.log(`📻 Target: ${this.radioConfig.host}:${this.radioConfig.port}`);
 
-      await this.sendRadioCommandThroughBridge(formattedCommand);
+      await this.sendRadioCommandThroughBridge(command);
 
     } catch (error) {
       console.error('❌ Failed to execute radio command:', error);

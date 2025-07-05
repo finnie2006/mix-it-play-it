@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -92,22 +91,33 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
                   type="number"
                   value={config.port}
                   onChange={(e) => handleConfigChange('port', parseInt(e.target.value))}
-                  placeholder={config.type === 'radiodj' ? '9090' : '9300'}
+                  placeholder="9300"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
             </div>
 
             {config.type === 'radiodj' && (
-              <div className="space-y-2">
-                <Label className="text-slate-200">Password (Optional)</Label>
-                <Input
-                  type="password"
-                  value={config.password || ''}
-                  onChange={(e) => handleConfigChange('password', e.target.value)}
-                  placeholder="password"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Username (Optional)</Label>
+                  <Input
+                    value={config.username || ''}
+                    onChange={(e) => handleConfigChange('username', e.target.value)}
+                    placeholder="username"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-slate-200">Password (Optional)</Label>
+                  <Input
+                    type="password"
+                    value={config.password || ''}
+                    onChange={(e) => handleConfigChange('password', e.target.value)}
+                    placeholder="password"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
               </div>
             )}
 
