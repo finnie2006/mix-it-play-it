@@ -18,6 +18,7 @@ export class MetersService {
 
   private connectToBridge() {
     try {
+      // Connect to bridge server on port 8080
       this.bridgeConnection = new WebSocket('ws://localhost:8080');
 
       this.bridgeConnection.onopen = () => {
@@ -55,7 +56,7 @@ export class MetersService {
 
     } catch (error) {
       console.error('❌ Failed to connect to meters bridge:', error);
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      if (this.reconnectAttempts < this.maxReconnectAttemuts) {
         this.reconnectAttempts++;
         setTimeout(() => this.connectToBridge(), 3000);
       }
@@ -65,8 +66,7 @@ export class MetersService {
   private subscribeToMeters() {
     if (this.bridgeConnection?.readyState === WebSocket.OPEN) {
       const message = {
-        type: 'subscribe_meters',
-        endpoint: '/meters/1'
+        type: 'subscribe_meters'
       };
       
       this.bridgeConnection.send(JSON.stringify(message));

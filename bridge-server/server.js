@@ -1,4 +1,3 @@
-
 const WebSocket = require('ws');
 const osc = require('node-osc');
 const axios = require('axios');
@@ -163,6 +162,32 @@ wss.on('connection', (ws) => {
 
         case 'osc_connect':
           createOSCClient(data.ip, data.port);
+          break;
+
+        case 'update_mixer_ip':
+          // Handle mixer IP updates from integrated bridge service
+          if (data.mixerIP) {
+            console.log(`🔄 Updating mixer IP to: ${data.mixerIP}`);
+            createOSCClient(data.mixerIP, 10024);
+          }
+          break;
+
+        case 'subscribe':
+          // Handle OSC subscription requests from integrated bridge service
+          if (data.address && oscClient) {
+            console.log(`📡 OSC subscription request: ${data.address}`);
+            // For now, we mainly handle meter subscriptions which are handled above
+          }
+          break;
+
+        case 'validate_mixer':
+          // Handle mixer validation requests
+          console.log('🔍 Mixer validation requested');
+          ws.send(JSON.stringify({
+            type: 'mixer_status',
+            connected: oscClient !== null,
+            message: oscClient ? 'OSC client connected' : 'OSC client not connected'
+          }));
           break;
 
         default:
