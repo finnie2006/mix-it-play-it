@@ -1,9 +1,12 @@
 {
-  "name": "xair-osc-bridge",
-  "description": "OSC Bridge for Behringer X-Air mixers with radio automation software integration",
+  "name": "xair-radio-mode",
+  "description": "X-Air Radio Mode - Professional mixer control for radio broadcasting",
+  "author": "Mix It Play It",
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.js",
+  "homepage": "./",
   "scripts": {
     "dev": "vite",
     "dev:all": "node start-dev.js",
@@ -12,7 +15,12 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && electron .\"",
+    "clean": "rimraf dist dist-electron",
+    "electron:build": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder",
+    "electron:dist": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder --publish=never"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -65,7 +73,9 @@
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.3",
-    "zod": "^3.23.8"
+    "wait-on": "^8.0.1",
+    "zod": "^3.23.8",
+    "rimraf": "^6.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",
@@ -75,6 +85,8 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
@@ -85,5 +97,39 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",
     "vite": "^5.4.1"
+  },
+  "build": {
+    "appId": "com.mixitplayit.xair-radio-mode",
+    "productName": "X-Air Radio Mode",
+    "directories": {
+      "output": "dist-electron",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "bridge-server/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "bridge-server",
+        "to": "bridge-server"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }

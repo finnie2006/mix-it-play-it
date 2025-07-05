@@ -1,12 +1,13 @@
-
 import React, { useState } from 'react';
 import { MixerDashboard } from '@/components/MixerDashboard';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { VUMeterDashboard } from '@/components/VUMeterDashboard';
+import { HelpModal } from '@/components/HelpModal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Radio, Volume2, Settings, Activity } from 'lucide-react';
 import { useMixer } from '@/hooks/useMixer';
+import { FullscreenButton } from '@/components/FullscreenButton';
 
 const Index = () => {
   const [mixerIP, setMixerIP] = useState('192.168.1.10');
@@ -36,12 +37,18 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <div className="container mx-auto p-6">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-            <Radio className="text-green-400" size={36} />
-            X-Air Radio Controller
-          </h1>
-          <p className="text-slate-300">Behringer X-Air 16/18 Radio Automation Interface</p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
+              <Radio className="text-green-400" size={36} />
+              X-Air Radio Mode
+            </h1>
+            <p className="text-slate-300">Professional X-Air 16/18 Control for Radio Broadcasting</p>
+          </div>
+          <div className="flex gap-2">
+            <FullscreenButton />
+            <HelpModal />
+          </div>
         </div>
 
         <ConnectionStatus 
