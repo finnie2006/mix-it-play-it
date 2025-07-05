@@ -13,7 +13,7 @@ export interface ProgramLevel {
 
 export class MetersService {
   private ws: WebSocket | null = null;
-  private reconnectTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: number | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 3000;
@@ -109,11 +109,11 @@ export class MetersService {
 
   private scheduleReconnect() {
     if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
+      window.clearTimeout(this.reconnectTimer);
     }
 
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = window.setTimeout(() => {
         this.reconnectAttempts++;
         console.log(`🔄 Reconnecting to meters service (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
         this.connect();
@@ -160,7 +160,7 @@ export class MetersService {
 
   public disconnect() {
     if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
+      window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
 
