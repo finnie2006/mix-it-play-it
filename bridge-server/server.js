@@ -474,6 +474,118 @@ function setupOSCHandlers() {
     });
 }
 
+// Meter subscription state
+let meterSubscribers = new Set();
+let meterOSCPort = null;
+
+// Create separate OSC port for meter data to avoid conflicts
+function setupMeterOSC() {
+  if (meterOSCPort) {
+    try {
+      meterOSCPort.close();
+    } catch (error) {
+      console.log('OSC port already closed');
+    }
+  }
+
+  meterOSCPort = new osc.UDPPort({
+    localAddress: '0.0.0.0',
+    localPort: 10025, // Different port for meters
+    remoteAddress: MIXER_IP,
+    remotePort: MIXER_PORT,
+    metadata: true
+  });
+
+  meterOSCPort.on('ready', () => {
+    console.log('✅ OSC UDP port ready for meter data');
+    
+    // Subscribe to /meters/1 for all channels
+    const meterMsg = {
+      address: '/meters',
+      args: [
+        {
+          type: 's',
+          value: '/meters/1'
+        },
+        {
+          type: 'i', 
+          value: 1
+        }
+      ]
+    };
+    
+    meterOSCPort.send(meterMsg);
+    console.log('📡 Subscribed to /meters/1');
+  });
+
+  meterOSCPort.on('error', (error) => {
+    console.error('❌ Meter OSC Error:', error);
+  });
+
+  // Handle incoming meter data
+  meterOSCPort.socket.on('message', (buffer) => {
+    try {
+      const addressEnd = buffer.indexOf(0);
+      const address = buffer.toString('ascii', 0, addressEnd);
+
+      if (!address.startsWith('/meters/1')) return;
+
+      // Find binary blob type tag (",b")
+      const tagStart = buffer.indexOf(',b');
+      if (tagStart === -1) return;
+
+      // OSC blobs must be 4-byte aligned
+      const blobSizeOffset = (tagStart + 4 + 3) & ~0x03;
+      const blobSize = buffer.readInt32BE(blobSizeOffset);
+      const blobStart = blobSizeOffset + 4;
+
+      if (blobStart + blobSize > buffer.length) {
+        console.warn('⚠ Blob size exceeds packet length, skipping.');
+        return;
+      }
+
+      const meters = [];
+      const count = blobSize / 2;
+
+      for (let i = 0; i < count; i++) {
+        const val = buffer.readInt16BE(blobStart + i * 2);
+        meters.push(val / 256); // Convert to dB
+      }
+
+      // Extract program levels (typically last 2 channels for LR mix)
+      const programLeft = meters[meters.length - 2] || -60;
+      const programRight = meters[meters.length - 1] || -60;
+
+      // Broadcast meter data to subscribers
+      const meterData = {
+        type: 'meters_data',
+        channels: meters,
+        program: {
+          left: programLeft,
+          right: programRight
+        },
+        timestamp: Date.now()
+      };
+
+      meterSubscribers.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          try {
+            client.send(JSON.stringify(meterData));
+          } catch (error) {
+            console.error('Error sending meter data to client:', error);
+            meterSubscribers.delete(client);
+          }
+        }
+      });
+
+    } catch (err) {
+      console.error('❌ Error parsing meter OSC message:', err.message);
+    }
+  });
+
+  meterOSCPort.open();
+}
+
 // Open initial OSC port
 setupOSCHandlers();
 oscPort.open();
@@ -505,6 +617,7 @@ wss.on('connection', (ws) => {
     ws.on('message', async (data) => {
         try {
             const message = JSON.parse(data.toString());
+            console.log('📨 Received message:', message.type);
 
             if (message.type === 'osc' && message.address) {
                 // Send OSC message to mixer
@@ -522,6 +635,15 @@ wss.on('connection', (ws) => {
                         args: []
                     });
                 }
+            } else if (message.type === 'subscribe_meters') {
+                // Handle meter subscription
+                console.log('📊 Client subscribed to meters');
+                meterSubscribers.add(ws);
+                
+                // Setup meter OSC if not already done
+                if (!meterOSCPort) {
+                    setupMeterOSC();
+                }
             } else if (message.type === 'validate_mixer') {
                 // Manual mixer validation request
                 validateMixerConnection();
@@ -531,7 +653,7 @@ wss.on('connection', (ws) => {
             } else if (message.type === 'radio_config' && message.config) {
                 // Update radio software configuration
                 radioConfig = message.config;
-                console.log(`📻 Radio config updated: ${radioConfig.host}:${radioConfig.port} (${radioConfig.type})`);
+                console.log(`📻 Radio config updated for ${radioConfig.type}`);
 
                 // Send confirmation back to client
                 ws.send(JSON.stringify({
@@ -603,6 +725,8 @@ wss.on('connection', (ws) => {
                         timestamp: Date.now()
                     }));
                 }
+            } else {
+                console.log('❓ Unknown message type:', message.type);
             }
         } catch (error) {
             console.error('❌ Error parsing WebSocket message:', error);
@@ -612,11 +736,13 @@ wss.on('connection', (ws) => {
     ws.on('close', () => {
         console.log('❌ WebSocket client disconnected');
         clients.delete(ws);
+        meterSubscribers.delete(ws);
     });
 
     ws.on('error', (error) => {
         console.error('❌ WebSocket error:', error);
         clients.delete(ws);
+        meterSubscribers.delete(ws);
     });
 });
 
@@ -624,6 +750,7 @@ console.log('🚀 Bridge server ready!');
 console.log('📋 Features:');
 console.log('  • X-Air OSC bridge');
 console.log('  • WebSocket API on localhost:8080');
+console.log('  • OSC Meter Data');
 if (radioConfig) {
     console.log(`  • Radio software integration (${radioConfig.type})`);
 }
