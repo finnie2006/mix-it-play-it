@@ -109,19 +109,19 @@ function processFaderUpdate(channel, value) {
 
   for (const mapping of relevantMappings) {
     // Check for fade up trigger
-    const shouldTriggerFadeUp = shouldTriggerFadeUp(mapping, channel, value, previousValue);
+    const shouldFadeUp = shouldTriggerFadeUp(mapping, channel, value, previousValue);
 
     // Check for fade down trigger
-    const shouldTriggerFadeDown = shouldTriggerFadeDown(mapping, channel, value, previousValue);
+    const shouldFadeDown = shouldTriggerFadeDown(mapping, channel, value, previousValue);
 
-    if (shouldTriggerFadeUp) {
+    if (shouldFadeUp) {
       console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
       executeRadioCommand(mapping.command);
       commandExecuted = true;
       currentState.lastTriggered = Date.now();
     }
 
-    if (shouldTriggerFadeDown && mapping.fadeDownCommand) {
+    if (shouldFadeDown && mapping.fadeDownCommand) {
       console.log(`🎚️ Triggering fade DOWN mapping for channel ${channel}: ${mapping.fadeDownCommand}`);
       executeRadioCommand(mapping.fadeDownCommand);
       commandExecuted = true;
