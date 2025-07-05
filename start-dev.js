@@ -1,4 +1,3 @@
-
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,7 +15,8 @@ const bridgeProcess = spawn('node', ['server.js'], {
 
 // Start the web development server
 const webProcess = spawn('npm', ['run', 'dev'], {
-  stdio: 'inherit'
+  stdio: 'inherit',
+  shell: true
 });
 
 // Handle process cleanup

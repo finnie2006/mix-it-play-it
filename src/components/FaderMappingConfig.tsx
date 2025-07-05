@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,8 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { FaderMapping, SettingsService } from '@/services/settingsService';
-import { Plus, Trash2, Volume2, Settings } from 'lucide-react';
+import { Plus, Trash2, Volume2, Settings, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface FaderMappingConfigProps {
@@ -24,9 +24,11 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
     SettingsService.loadSettings().faderMappings
   );
   const [editingMapping, setEditingMapping] = useState<Partial<FaderMapping> | null>(null);
+  const [showCommandExamples, setShowCommandExamples] = useState(false);
   const { toast } = useToast();
 
   const maxChannels = mixerModel === 'X-Air 16' ? 12 : 16;
+  const radioSoftwareType = SettingsService.loadSettings().radioSoftware.type;
 
   const handleSaveMappings = () => {
     SettingsService.updateFaderMappings(mappings);
@@ -283,22 +285,133 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-slate-200">Description</Label>
-                <Input
-                  value={editingMapping.description || ''}
-                  onChange={(e) => setEditingMapping(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="e.g., Main Music Player"
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-slate-200">Fade Up Command</Label>
+                <div className="flex items-center gap-2">
+                  <Label className="text-slate-200">Fade Up Command</Label>
+                  <Dialog open={showCommandExamples} onOpenChange={setShowCommandExamples}>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10 h-6 px-2"
+                      >
+                        <HelpCircle size={14} className="mr-1" />
+                        Examples
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-white">Command Examples</DialogTitle>
+                        <DialogDescription className="text-slate-300">
+                          Example commands for {radioSoftwareType === 'radiodj' ? 'RadioDJ' : 'mAirList'} automation
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {radioSoftwareType === 'radiodj' ? (
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-semibold text-green-400 mb-2">Player Controls</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>PlayPlaylist</div>
+                                <div>StopPlayer</div>
+                                <div>PausePlayer</div>
+                                <div>RestartPlayer</div>
+                                <div>PlayFromIntro</div>
+                                <div>RemovePlaylist</div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-blue-400 mb-2">Playlist Management</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>ClearPlaylist</div>
+                                <div>Loop</div>
+                                <div>Record</div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-purple-400 mb-2">Automation</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>EnableAutomation</div>
+                                <div>DisableAutomation</div>
+                                <div>EnableAssisted</div>
+                                <div>DisableAssisted</div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-orange-400 mb-2">Cart Players</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>LoadCart 1,1234</div>
+                                <div>PlayCart 1</div>
+                                <div>StopCart 1</div>
+                                <div>PlayInstantCart 1234</div>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-semibold text-green-400 mb-2">Player Controls</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>PLAYER 1-1 START</div>
+                                <div>PLAYER 1-1 STOP</div>
+                                <div>PLAYER 1-1 PAUSE</div>
+                                <div>PLAYER 1-1 FADEOUT</div>
+                                <div>PLAYER 1-2 START</div>
+                                <div>ALL PLAYERS STOP</div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-blue-400 mb-2">Automation</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>AUTOMATION 1 ON</div>
+                                <div>AUTOMATION 1 OFF</div>
+                                <div>AUTOMATION 1 PLAY</div>
+                                <div>AUTOMATION 1 STOP</div>
+                                <div>AUTOMATION 1 BREAK</div>
+                                <div>AUTOMATION 1 NEXT</div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-purple-400 mb-2">Playlist Operations</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>PLAYLIST 1 LOAD C:\music\playlist.mlp</div>
+                                <div>PLAYLIST 1 CLEAR</div>
+                                <div>PLAYLIST 1 NEXT</div>
+                                <div>PLAYLIST 1 CURSOR DOWN</div>
+                              </div>
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-orange-400 mb-2">Cartwall & Audio</h4>
+                              <div className="space-y-1 text-sm font-mono bg-slate-900 p-3 rounded">
+                                <div>CARTWALL ALL CLICK</div>
+                                <div>PLAYER 1-1 VOLUME -6</div>
+                                <div>ON AIR</div>
+                                <div>OFF AIR</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="text-xs text-slate-400 border-t border-slate-600 pt-3">
+                          <p><strong>Tip:</strong> Commands are case-sensitive. Check your {radioSoftwareType === 'radiodj' ? 'RadioDJ' : 'mAirList'} documentation for complete command reference.</p>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <Textarea
                   value={editingMapping.command || ''}
                   onChange={(e) => setEditingMapping(prev => ({ ...prev, command: e.target.value }))}
                   placeholder="e.g., PLAYER 1 PLAY"
                   rows={2}
+                  className="bg-slate-700 border-slate-600 text-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-slate-200">Description</Label>
+                <Input
+                  value={editingMapping.description || ''}
+                  onChange={(e) => setEditingMapping(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="e.g., Main Music Player"
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>

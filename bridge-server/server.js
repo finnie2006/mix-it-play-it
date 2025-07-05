@@ -7,7 +7,7 @@ const https = require('https');
 const { URL } = require('url');
 
 // Configuration - Make MIXER_IP dynamic and allow runtime updates
-let MIXER_IP = process.env.MIXER_IP || '192.168.5.72';
+let MIXER_IP = process.env.MIXER_IP || '192.168.1.67';
 const MIXER_PORT = parseInt(process.env.MIXER_PORT) || 10024;
 const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT) || 8080;
 const LOCAL_OSC_PORT = 10023;
@@ -28,30 +28,55 @@ let radioConfig = null;
 // Function to send HTTP request to radio software
 async function sendRadioCommand(command, config) {
     return new Promise((resolve, reject) => {
-        const url = `http://${config.host}:${config.port}/execute`;
-        const postData = `command=${encodeURIComponent(command)}`;
+        let url, options, postData = null;
 
-        const options = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Content-Length': Buffer.byteLength(postData)
+        if (config.type === 'radiodj') {
+            // RadioDJ format: GET http://localhost:8090/opt?command=COMMANDFROMFADERMAPPING&auth=finn&arg=1
+            const queryParams = new URLSearchParams({
+                command: command,
+                arg: '1'
+            });
+
+            // Add auth parameter if password is provided
+            if (config.password) {
+                queryParams.append('auth', config.password);
             }
-        };
 
-        // Add basic auth if credentials are provided
-        if (config.username && config.password) {
-            const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
-            options.headers['Authorization'] = `Basic ${auth}`;
-            console.log(`🔐 Using basic auth for radio software: ${config.username}`);
+            url = `http://${config.host}:${config.port}/opt?${queryParams.toString()}`;
+
+            options = {
+                method: 'GET',
+                headers: {}
+            };
+
+            console.log(`📻 Sending RadioDJ command to ${url}`);
+        } else {
+            // mAirList format: POST with form data
+            url = `http://${config.host}:${config.port}/execute`;
+            postData = `command=${encodeURIComponent(command)}`;
+
+            options = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Length': Buffer.byteLength(postData)
+                }
+            };
+
+            // Add basic auth if credentials are provided for mAirList
+            if (config.username && config.password) {
+                const auth = Buffer.from(`${config.username}:${config.password}`).toString('base64');
+                options.headers['Authorization'] = `Basic ${auth}`;
+                console.log(`🔐 Using basic auth for mAirList: ${config.username}`);
+            }
+
+            console.log(`📻 Sending mAirList command to ${url}: ${command}`);
         }
-
-        console.log(`📻 Sending command to ${url}: ${command}`);
 
         const parsedUrl = new URL(url);
         options.hostname = parsedUrl.hostname;
         options.port = parsedUrl.port;
-        options.path = parsedUrl.pathname;
+        options.path = parsedUrl.pathname + parsedUrl.search;
 
         const req = http.request(options, (res) => {
             let data = '';
@@ -61,7 +86,7 @@ async function sendRadioCommand(command, config) {
             });
 
             res.on('end', () => {
-                console.log(`✅ Radio command executed successfully. Status: ${res.statusCode}`);
+                console.log(`✅ ${config.type} command executed successfully. Status: ${res.statusCode}`);
                 console.log(`📋 Response: ${data}`);
                 resolve({
                     success: true,
@@ -72,14 +97,18 @@ async function sendRadioCommand(command, config) {
         });
 
         req.on('error', (error) => {
-            console.error(`❌ Radio command failed: ${error.message}`);
+            console.error(`❌ ${config.type} command failed: ${error.message}`);
             reject({
                 success: false,
                 error: error.message
             });
         });
 
-        req.write(postData);
+        // Only write post data for mAirList
+        if (postData) {
+            req.write(postData);
+        }
+
         req.end();
     });
 }
