@@ -477,6 +477,11 @@ function setupOSCHandlers() {
 // Meter subscription state
 let meterSubscribers = new Set();
 let meterOSCPort = null;
+let meterDataCache = {
+  channels: [],
+  program: { left: -60, right: -60 },
+  timestamp: Date.now()
+};
 
 // Create separate OSC port for meter data to avoid conflicts
 function setupMeterOSC() {
@@ -499,7 +504,8 @@ function setupMeterOSC() {
   meterOSCPort.on('ready', () => {
     console.log('✅ OSC UDP port ready for meter data');
     
-    // Subscribe to /meters/1 for all channels
+    // Subscribe to /meters/1 for all channels according to X-Air protocol
+    // This returns 40 values: 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
     const meterMsg = {
       address: '/meters',
       args: [
@@ -515,14 +521,14 @@ function setupMeterOSC() {
     };
     
     meterOSCPort.send(meterMsg);
-    console.log('📡 Subscribed to /meters/1');
+    console.log('📡 Subscribed to /meters/1 (all channels)');
   });
 
   meterOSCPort.on('error', (error) => {
     console.error('❌ Meter OSC Error:', error);
   });
 
-  // Handle incoming meter data
+  // Handle incoming meter data according to X-Air protocol
   meterOSCPort.socket.on('message', (buffer) => {
     try {
       const addressEnd = buffer.indexOf(0);
@@ -547,36 +553,49 @@ function setupMeterOSC() {
       const meters = [];
       const count = blobSize / 2;
 
+      // Parse meter values according to X-Air protocol
+      // Values are signed integer 16 bit, resolution 1/256 dB
       for (let i = 0; i < count; i++) {
         const val = buffer.readInt16BE(blobStart + i * 2);
         meters.push(val / 256); // Convert to dB
       }
 
-      // Extract program levels (typically last 2 channels for LR mix)
-      const programLeft = meters[meters.length - 2] || -60;
-      const programRight = meters[meters.length - 1] || -60;
+      // According to X-Air docs, /meters/1 returns:
+      // 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
+      if (meters.length >= 40) {
+        // Extract program levels (L/R stereo output - last 2 values in the stream)
+        const programLeft = meters[meters.length - 4] || -60; // Main L
+        const programRight = meters[meters.length - 3] || -60; // Main R
 
-      // Broadcast meter data to subscribers
-      const meterData = {
-        type: 'meters_data',
-        channels: meters,
-        program: {
-          left: programLeft,
-          right: programRight
-        },
-        timestamp: Date.now()
-      };
+        // Update cache
+        meterDataCache = {
+          channels: meters.slice(0, 16), // First 16 are mono channels
+          program: {
+            left: programLeft,
+            right: programRight
+          },
+          timestamp: Date.now()
+        };
 
-      meterSubscribers.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          try {
-            client.send(JSON.stringify(meterData));
-          } catch (error) {
-            console.error('Error sending meter data to client:', error);
-            meterSubscribers.delete(client);
+        // Broadcast meter data to subscribers
+        const meterData = {
+          type: 'meters_data',
+          channels: meterDataCache.channels,
+          program: meterDataCache.program,
+          timestamp: meterDataCache.timestamp
+        };
+
+        meterSubscribers.forEach(client => {
+          if (client.readyState === WebSocket.OPEN) {
+            try {
+              client.send(JSON.stringify(meterData));
+            } catch (error) {
+              console.error('Error sending meter data to client:', error);
+              meterSubscribers.delete(client);
+            }
           }
-        }
-      });
+        });
+      }
 
     } catch (err) {
       console.error('❌ Error parsing meter OSC message:', err.message);
@@ -643,6 +662,22 @@ wss.on('connection', (ws) => {
                 // Setup meter OSC if not already done
                 if (!meterOSCPort) {
                     setupMeterOSC();
+                }
+
+                // Send current cached meter data immediately if available
+                if (meterDataCache.channels.length > 0) {
+                    const meterData = {
+                        type: 'meters_data',
+                        channels: meterDataCache.channels,
+                        program: meterDataCache.program,
+                        timestamp: meterDataCache.timestamp
+                    };
+                    
+                    try {
+                        ws.send(JSON.stringify(meterData));
+                    } catch (error) {
+                        console.error('Error sending cached meter data:', error);
+                    }
                 }
             } else if (message.type === 'validate_mixer') {
                 // Manual mixer validation request

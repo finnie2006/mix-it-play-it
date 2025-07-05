@@ -3,12 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Clock, BarChart3 } from 'lucide-react';
 import { faderMappingService } from '@/services/faderMappingService';
-
-interface MeterData {
-  channel: number;
-  level: number;
-  description?: string;
-}
+import { metersService, MeterLevel, ProgramLevel } from '@/services/metersService';
 
 interface MetersDashboardProps {
   isConnected: boolean;
@@ -16,8 +11,9 @@ interface MetersDashboardProps {
 
 export const MetersDashboard: React.FC<MetersDashboardProps> = ({ isConnected }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [meterData, setMeterData] = useState<MeterData[]>([]);
+  const [meterData, setMeterData] = useState<MeterLevel[]>([]);
   const [programLevel, setProgramLevel] = useState({ left: -60, right: -60 });
+  const [metersConnected, setMetersConnected] = useState(false);
 
   // Update clock every second
   useEffect(() => {
@@ -28,35 +24,50 @@ export const MetersDashboard: React.FC<MetersDashboardProps> = ({ isConnected })
     return () => clearInterval(timer);
   }, []);
 
-  // Mock meter data for now - will be replaced with actual OSC data
+  // Connect to meters service and subscribe to updates
   useEffect(() => {
-    if (!isConnected) return;
+    if (!isConnected) {
+      setMeterData([]);
+      setProgramLevel({ left: -60, right: -60 });
+      setMetersConnected(false);
+      return;
+    }
 
-    // Get mapped channels from fader mapping service
-    const mappedChannels = faderMappingService.getActiveMappings().map(mapping => ({
-      channel: mapping.channel,
-      level: Math.random() * -60, // Random level for demo
-      description: mapping.description
-    }));
-
-    setMeterData(mappedChannels);
-
-    // Mock program levels
-    const interval = setInterval(() => {
-      setProgramLevel({
-        left: Math.random() * -60,
-        right: Math.random() * -60
+    // Subscribe to meter updates
+    const unsubscribeMeter = metersService.onMeterUpdate((levels: MeterLevel[]) => {
+      // Get mapped channels from fader mapping service
+      const activeMappings = faderMappingService.getActiveMappings();
+      
+      // Filter meter data to only show mapped channels
+      const mappedMeterData = levels.filter(level => 
+        activeMappings.some(mapping => mapping.channel === level.channel)
+      ).map(level => {
+        const mapping = activeMappings.find(m => m.channel === level.channel);
+        return {
+          ...level,
+          description: mapping?.description
+        };
       });
+      
+      setMeterData(mappedMeterData);
+    });
 
-      // Update mapped channel levels
-      const updatedChannels = mappedChannels.map(ch => ({
-        ...ch,
-        level: Math.random() * -60
-      }));
-      setMeterData(updatedChannels);
-    }, 100);
+    // Subscribe to program level updates
+    const unsubscribeProgram = metersService.onProgramUpdate((level: ProgramLevel) => {
+      setProgramLevel(level);
+    });
 
-    return () => clearInterval(interval);
+    // Subscribe to connection status
+    const unsubscribeConnection = metersService.onConnectionChange((connected: boolean) => {
+      setMetersConnected(connected);
+      console.log(`📊 Meters service connection: ${connected ? 'Connected' : 'Disconnected'}`);
+    });
+
+    return () => {
+      unsubscribeMeter();
+      unsubscribeProgram();
+      unsubscribeConnection();
+    };
   }, [isConnected]);
 
   const formatTime = (date: Date) => {
@@ -103,6 +114,15 @@ export const MetersDashboard: React.FC<MetersDashboardProps> = ({ isConnected })
 
   return (
     <div className="space-y-6">
+      {/* Connection Status */}
+      {!metersConnected && (
+        <Card className="p-4 bg-yellow-900/20 border-yellow-500/30">
+          <div className="text-yellow-400 text-sm">
+            ⚠️ Connecting to meters service...
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Program Meters */}
         <Card className="p-6 bg-slate-800/50 border-slate-700">
@@ -170,7 +190,7 @@ export const MetersDashboard: React.FC<MetersDashboardProps> = ({ isConnected })
           <div className="space-y-3 max-h-48 overflow-y-auto">
             {meterData.length === 0 ? (
               <div className="text-slate-400 text-sm text-center py-8">
-                No fader mappings configured
+                {metersConnected ? 'No fader mappings configured' : 'Connecting to meters...'}
               </div>
             ) : (
               meterData.map((meter) => (
@@ -213,9 +233,9 @@ export const MetersDashboard: React.FC<MetersDashboardProps> = ({ isConnected })
                 <div className="text-xs text-slate-400 font-mono mb-1">
                   {meter.level.toFixed(1)}dB
                 </div>
-                {meter.description && (
-                  <div className="text-xs text-slate-500 truncate" title={meter.description}>
-                    {meter.description}
+                {(meter as any).description && (
+                  <div className="text-xs text-slate-500 truncate" title={(meter as any).description}>
+                    {(meter as any).description}
                   </div>
                 )}
               </div>

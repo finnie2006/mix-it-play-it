@@ -70,7 +70,7 @@ export class MetersService {
   private handleMessage(data: any) {
     switch (data.type) {
       case 'meters_data':
-        if (data.channels) {
+        if (data.channels && Array.isArray(data.channels)) {
           const meterLevels: MeterLevel[] = data.channels.map((level: number, index: number) => ({
             channel: index + 1,
             level: level,
