@@ -84,6 +84,10 @@ let radioConfig = config.radioSoftware.enabled ? config.radioSoftware : null;
 let faderStates = new Map();
 let activeMappings = config.faderMappings.filter(m => m.enabled);
 
+// VU meter state
+let metersSubscribed = false;
+let lastMeterData = {};
+
 // Fader mapping processing function
 function processFaderUpdate(channel, value) {
   const currentState = faderStates.get(channel) || {
@@ -204,6 +208,44 @@ function broadcastFaderUpdate(channel, isActive, commandExecuted) {
       }
     }
   });
+}
+
+// Broadcast VU meter update to all clients
+function broadcastMeterUpdate(meterData) {
+  const updateMessage = JSON.stringify({
+    type: 'vu_meters',
+    data: meterData,
+    timestamp: Date.now()
+  });
+
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(updateMessage);
+      } catch (error) {
+        console.error('Error sending meter update to client:', error);
+      }
+    }
+  });
+}
+
+// Subscribe to VU meters
+function subscribeToMeters() {
+  if (metersSubscribed || !oscPort || !oscPort.socket) return;
+
+  console.log('📊 Subscribing to VU meters...');
+  
+  const msg = {
+    address: "/meters",
+    args: [
+      { type: "s", value: "/meters/1" },
+      { type: "i", value: 1 },
+    ],
+  };
+
+  oscPort.send(msg);
+  metersSubscribed = true;
+  console.log('📡 Subscribed to /meters/1');
 }
 
 // Function to send HTTP request to radio software
@@ -336,6 +378,7 @@ function updateMixerIP(newIP) {
     // Reset connection state
     mixerConnected = false;
     lastMixerResponse = null;
+    metersSubscribed = false;
 
     // Set up OSC port handlers
     setupOSCHandlers();
@@ -438,6 +481,37 @@ function setupOSCHandlers() {
                 clearTimeout(validationTimer);
                 validationTimer = null;
             }
+
+            // Subscribe to meters once connected
+            subscribeToMeters();
+        }
+
+        // Handle VU meter data from /meters/1
+        if (oscMessage.address && oscMessage.address.startsWith('/meters/1')) {
+            try {
+                // Process meter data similar to debug-meters.js
+                if (oscMessage.args && oscMessage.args.length > 0 && oscMessage.args[0].type === 'b') {
+                    const blobData = oscMessage.args[0].value;
+                    const meters = [];
+                    const count = blobData.length / 2;
+
+                    for (let i = 0; i < count; i++) {
+                        const val = blobData.readInt16BE(i * 2);
+                        const dbValue = val / 256;
+                        meters.push(parseFloat(dbValue.toFixed(2)));
+                    }
+
+                    lastMeterData = {
+                        channels: meters,
+                        timestamp: Date.now()
+                    };
+
+                    // Broadcast meter data to clients
+                    broadcastMeterUpdate(lastMeterData);
+                }
+            } catch (error) {
+                console.error('❌ Error parsing meter data:', error);
+            }
         }
 
         // Process fader updates for mappings (e.g., /ch/01/mix/fader)
@@ -501,6 +575,15 @@ wss.on('connection', (ws) => {
         timestamp: Date.now()
     }));
 
+    // Send last meter data if available
+    if (lastMeterData.channels) {
+        ws.send(JSON.stringify({
+            type: 'vu_meters',
+            data: lastMeterData,
+            timestamp: Date.now()
+        }));
+    }
+
     // Handle messages from WebSocket client
     ws.on('message', async (data) => {
         try {
@@ -522,6 +605,9 @@ wss.on('connection', (ws) => {
                         args: []
                     });
                 }
+            } else if (message.type === 'subscribe_meters') {
+                // Handle VU meter subscription
+                subscribeToMeters();
             } else if (message.type === 'validate_mixer') {
                 // Manual mixer validation request
                 validateMixerConnection();
@@ -624,6 +710,7 @@ console.log('🚀 Bridge server ready!');
 console.log('📋 Features:');
 console.log('  • X-Air OSC bridge');
 console.log('  • WebSocket API on localhost:8080');
+console.log('  • VU meter monitoring');
 if (radioConfig) {
     console.log(`  • Radio software integration (${radioConfig.type})`);
 }

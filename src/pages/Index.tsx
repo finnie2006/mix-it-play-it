@@ -3,8 +3,9 @@ import React, { useState } from 'react';
 import { MixerDashboard } from '@/components/MixerDashboard';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
+import { VUMeterDashboard } from '@/components/VUMeterDashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Radio, Volume2, Settings } from 'lucide-react';
+import { Radio, Volume2, Settings, Activity } from 'lucide-react';
 import { useMixer } from '@/hooks/useMixer';
 
 const Index = () => {
@@ -60,10 +61,14 @@ const Index = () => {
 
         <div className="mt-8">
           <Tabs defaultValue="dashboard" className="w-full" onValueChange={handleTabChange}>
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="dashboard" className="flex items-center gap-2">
                 <Volume2 size={16} />
                 Mixer Dashboard
+              </TabsTrigger>
+              <TabsTrigger value="meters" className="flex items-center gap-2">
+                <Activity size={16} />
+                VU Meters & Clock
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center gap-2">
                 <Settings size={16} />
@@ -78,6 +83,12 @@ const Index = () => {
                 muteStates={muteStates}
                 faderStates={faderStates}
                 mixerModel={mixerModel}
+              />
+            </TabsContent>
+            
+            <TabsContent value="meters">
+              <VUMeterDashboard 
+                isConnected={isConnected && mixerValidated}
               />
             </TabsContent>
             
