@@ -713,6 +713,23 @@ wss.on('connection', (ws) => {
 
                     console.log(`⚙️ Settings reloaded: ${activeMappings.length} active mappings, radio ${radioConfig ? 'enabled' : 'disabled'}`);
 
+                    // Broadcast updated fader mappings to all clients
+                    const mappingUpdateMessage = JSON.stringify({
+                        type: 'fader_mappings',
+                        mappings: activeMappings,
+                        timestamp: Date.now()
+                    });
+
+                    clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            try {
+                                client.send(mappingUpdateMessage);
+                            } catch (error) {
+                                console.error('Error sending mapping update to client:', error);
+                            }
+                        }
+                    });
+
                     // Send confirmation back to client
                     ws.send(JSON.stringify({
                         type: 'settings_reloaded',
@@ -730,6 +747,13 @@ wss.on('connection', (ws) => {
                         timestamp: Date.now()
                     }));
                 }
+            } else if (message.type === 'get_fader_mappings') {
+                // Send current fader mappings to client
+                ws.send(JSON.stringify({
+                    type: 'fader_mappings',
+                    mappings: activeMappings,
+                    timestamp: Date.now()
+                }));
             }
         } catch (error) {
             console.error('❌ Error parsing WebSocket message:', error);
@@ -760,4 +784,5 @@ if (activeMappings.length > 0) {
 }
 console.log('💡 Tips:');
 console.log('  • Settings can be updated via the web interface');
+console.log('  • Use /reload_settings WebSocket message to refresh configuration');
 console.log('  • Use /reload_settings WebSocket message to refresh configuration');

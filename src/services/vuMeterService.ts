@@ -3,8 +3,18 @@ export interface VUMeterData {
   timestamp: number;
 }
 
+export interface FaderMapping {
+  channel: number;
+  description: string;
+  enabled: boolean;
+  isStereo?: boolean;
+  threshold?: number;
+  command?: string;
+}
+
 export class VUMeterService {
   private subscribers: Set<(data: VUMeterData) => void> = new Set();
+  private mappingSubscribers: Set<(mappings: FaderMapping[]) => void> = new Set();
   private ws: WebSocket | null = null;
   private connected: boolean = false;
   private reconnectTimeout: NodeJS.Timeout | null = null;
@@ -32,6 +42,11 @@ export class VUMeterService {
           this.ws?.send(JSON.stringify({
             type: 'subscribe_meters'
           }));
+
+          // Request fader mappings
+          this.ws?.send(JSON.stringify({
+            type: 'get_fader_mappings'
+          }));
           
           resolve(true);
         };
@@ -42,6 +57,8 @@ export class VUMeterService {
             
             if (message.type === 'vu_meters' && message.data) {
               this.notifySubscribers(message.data);
+            } else if (message.type === 'fader_mappings' && message.mappings) {
+              this.notifyMappingSubscribers(message.mappings);
             }
           } catch (error) {
             console.error('📊 Error parsing VU meter message:', error);
@@ -94,6 +111,16 @@ export class VUMeterService {
     this.subscribers.forEach(callback => callback(data));
   }
 
+  onMappingUpdate(callback: (mappings: FaderMapping[]) => void) {
+    this.mappingSubscribers.add(callback);
+    // Return cleanup function
+    return () => this.mappingSubscribers.delete(callback);
+  }
+
+  private notifyMappingSubscribers(mappings: FaderMapping[]) {
+    this.mappingSubscribers.forEach(callback => callback(mappings));
+  }
+
   disconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -107,6 +134,7 @@ export class VUMeterService {
     
     this.connected = false;
     this.subscribers.clear();
+    this.mappingSubscribers.clear();
   }
 
   isConnected(): boolean {

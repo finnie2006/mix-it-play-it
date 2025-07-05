@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { VUMeter } from '@/components/VUMeter';
 import { AnalogClock } from '@/components/AnalogClock';
-import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
-import { Activity, Clock, Maximize, Minimize } from 'lucide-react';
+import { vuMeterService, VUMeterData, FaderMapping } from '@/services/vuMeterService';
+import { Activity, Clock, Maximize, Minimize, Mic, Settings } from 'lucide-react';
 
 interface VUMeterDashboardProps {
   isConnected?: boolean;
@@ -13,6 +13,30 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [meterData, setMeterData] = useState<VUMeterData | null>(null);
   const [serviceConnected, setServiceConnected] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [faderMappings, setFaderMappings] = useState<FaderMapping[]>([]);
+  const [micChannels, setMicChannels] = useState<number[]>([]);
+  const [showMicSettings, setShowMicSettings] = useState(false);
+
+  // Handle fullscreen toggle - DEFINE EARLY
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen);
+  };
+
+  // Handle escape key to exit fullscreen - DEFINE EARLY
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isFullscreen) {
+        setIsFullscreen(false);
+      }
+      if (event.key === 'F11') {
+        event.preventDefault();
+        toggleFullscreen();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isFullscreen]);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -24,11 +48,20 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         
         if (connected) {
           // Subscribe to meter updates
-          const unsubscribe = vuMeterService.onMeterUpdate((data) => {
+          const unsubscribeMeter = vuMeterService.onMeterUpdate((data) => {
             setMeterData(data);
           });
 
-          return unsubscribe;
+          // Subscribe to fader mapping updates
+          const unsubscribeMapping = vuMeterService.onMappingUpdate((mappings) => {
+            console.log('📊 Received fader mappings update:', mappings);
+            setFaderMappings(mappings);
+          });
+
+          return () => {
+            unsubscribeMeter();
+            unsubscribeMapping();
+          };
         }
       } catch (error) {
         console.error('Failed to connect VU meter service:', error);
@@ -44,26 +77,162 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     };
   }, [isConnected]);
 
-  // Handle fullscreen toggle
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  // Load mic channels setting from localStorage
+  useEffect(() => {
+    const savedMicChannels = localStorage.getItem('vuMeter_micChannels');
+    if (savedMicChannels && savedMicChannels !== 'null') {
+      try {
+        const channels = JSON.parse(savedMicChannels);
+        if (Array.isArray(channels)) {
+          setMicChannels(channels);
+        }
+      } catch (error) {
+        console.warn('Error parsing saved mic channels:', error);
+        setMicChannels([]);
+      }
+    }
+  }, []);
+
+  // Save mic channels setting to localStorage
+  const updateMicChannels = (channels: number[]) => {
+    setMicChannels(channels);
+    localStorage.setItem('vuMeter_micChannels', JSON.stringify(channels));
   };
 
-  // Handle escape key to exit fullscreen
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
-      }
-      if (event.key === 'F11') {
-        event.preventDefault();
-        toggleFullscreen();
-      }
-    };
+  // Add function to refresh fader mappings
+  const refreshMappings = () => {
+    if (vuMeterService.isConnected()) {
+      console.log('🔄 Requesting fader mappings refresh...');
+      // Request fresh mappings from the bridge server
+      (vuMeterService as any).ws?.send(JSON.stringify({
+        type: 'get_fader_mappings'
+      }));
+    }
+  };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isFullscreen]);
+  // Add periodic refresh of mappings
+  useEffect(() => {
+    if (serviceConnected) {
+      // Refresh mappings every 10 seconds to catch setting changes
+      const refreshInterval = setInterval(refreshMappings, 10000);
+      return () => clearInterval(refreshInterval);
+    }
+  }, [serviceConnected]);
+
+  // Handle mic channel toggle
+  const toggleMicChannel = (channel: number) => {
+    const newChannels = micChannels.includes(channel)
+      ? micChannels.filter(c => c !== channel)
+      : [...micChannels, channel].sort((a, b) => a - b);
+    
+    updateMicChannels(newChannels);
+  };
+
+  // Get meter labels based on typical X-Air usage
+  const getMeterLabel = (index: number, mapping?: FaderMapping) => {
+    if (mapping) {
+      return mapping.description || `CH ${index + 1}`;
+    }
+    if (index < 16) return `CH ${index + 1}`;
+    if (index === 36) return 'MAIN L';
+    if (index === 37) return 'MAIN R';
+    if (index < 18) return `AUX ${index - 15}`;
+    if (index < 20) return `FX ${index - 17}`;
+    return `OUT ${index - 19}`;
+  };
+
+  // Get channels based on fader mappings
+  const getDisplayChannels = () => {
+    if (faderMappings.length === 0) {
+      // Fallback to first 4 channels if no mappings
+      return meterData?.channels.slice(0, 4).map((level, index) => ({
+        level,
+        channel: index,
+        label: getMeterLabel(index)
+      })) || [];
+    }
+
+    // Use first 4 fader mappings
+    return faderMappings.slice(0, 4).map(mapping => ({
+      level: meterData?.channels[mapping.channel - 1] || -90,
+      channel: mapping.channel - 1,
+      label: getMeterLabel(mapping.channel - 1, mapping)
+    }));
+  };
+
+  const displayChannels = getDisplayChannels();
+  const mainLR = meterData ? [meterData.channels[36] || -90, meterData.channels[37] || -90] : [-90, -90];
+
+  // Get mic levels for all selected channels
+  const micLevels = micChannels.map(channel => ({
+    channel,
+    level: meterData?.channels[channel - 1] || -90,
+    label: `MIC ${channel}`
+  }));
+
+  // Enhanced mic settings panel with multi-selection
+  const renderMicSettings = () => (
+    <div className="absolute top-full right-0 mt-2 p-4 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-20 min-w-[280px] max-h-96 overflow-y-auto">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-white font-semibold">Mic Channel Settings</h4>
+        <button
+          onClick={refreshMappings}
+          className="p-1 bg-slate-600 hover:bg-slate-500 text-white rounded text-xs"
+          title="Refresh mappings"
+        >
+          🔄
+        </button>
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">
+            Select Mic Channels (multiple allowed):
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 16 }, (_, i) => {
+              const channel = i + 1;
+              const isSelected = micChannels.includes(channel);
+              return (
+                <button
+                  key={channel}
+                  onClick={() => toggleMicChannel(channel)}
+                  className={`p-2 text-xs rounded border transition-colors ${
+                    isSelected
+                      ? 'bg-green-600 border-green-500 text-white'
+                      : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  CH {channel}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        
+        {micChannels.length > 0 && (
+          <div className="pt-2 border-t border-slate-600">
+            <span className="text-sm text-slate-400">
+              Selected: {micChannels.join(', ')}
+            </span>
+            <button
+              onClick={() => updateMicChannels([])}
+              className="ml-2 px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
+      </div>
+      
+      <button
+        onClick={() => setShowMicSettings(false)}
+        className="mt-3 w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded text-sm"
+      >
+        Close
+      </button>
+    </div>
+  );
 
   if (!isConnected) {
     return (
@@ -88,20 +257,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       </Card>
     );
   }
-
-  // Get meter labels based on typical X-Air usage
-  const getMeterLabel = (index: number) => {
-    if (index < 16) return `CH ${index + 1}`;
-    if (index === 36) return 'MAIN L';
-    if (index === 37) return 'MAIN R';
-    if (index < 18) return `AUX ${index - 15}`;
-    if (index < 20) return `FX ${index - 17}`;
-    return `OUT ${index - 19}`;
-  };
-
-  // Show main channels (first 4) and main LR output
-  const displayChannels = meterData?.channels.slice(0, 4) || [];
-  const mainLR = meterData ? [meterData.channels[36] || -90, meterData.channels[37] || -90] : [-90, -90];
 
   // Fullscreen wrapper
   if (isFullscreen) {
@@ -134,21 +289,21 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           </div>
 
           {/* Main content grid - optimized for fullscreen */}
-          <div className="flex-1 grid grid-cols-3 gap-8">
+          <div className={`flex-1 grid gap-8 ${micChannels.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {/* Input Channel VU Meters */}
             <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
               <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
                 <Activity size={24} />
-                Input Channels
+                {faderMappings.length > 0 ? 'Mapped Channels' : 'Input Channels'}
               </h3>
               
               <div className="flex-1 flex justify-center items-center">
                 <div className="flex justify-around items-end w-full max-w-md">
-                  {displayChannels.map((level, index) => (
+                  {displayChannels.map((channel, index) => (
                     <VUMeter
-                      key={index}
-                      level={level}
-                      label={getMeterLabel(index)}
+                      key={`input-${index}`}
+                      level={channel.level}
+                      label={channel.label}
                       height="extra-tall"
                       className="mx-3"
                     />
@@ -156,6 +311,30 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                 </div>
               </div>
             </Card>
+
+            {/* Mic Channels (if enabled) */}
+            {micChannels.length > 0 && (
+              <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
+                <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
+                  <Mic size={24} />
+                  Microphones ({micChannels.length})
+                </h3>
+                
+                <div className="flex-1 flex justify-center items-center">
+                  <div className="flex justify-around items-end w-full">
+                    {micLevels.slice(0, 4).map((mic, index) => (
+                      <VUMeter
+                        key={`mic-${index}`}
+                        level={mic.level}
+                        label={mic.label}
+                        height="extra-tall"
+                        className="mx-2"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
 
             {/* Analog Clock - larger in fullscreen */}
             <Card className="p-8 bg-slate-800/50 border-slate-700 flex items-center justify-center">
@@ -230,6 +409,18 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             </div>
           )}
           
+          <div className="relative">
+            <button
+              onClick={() => setShowMicSettings(!showMicSettings)}
+              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white transition-colors"
+              title="Mic Settings"
+            >
+              <Settings size={20} />
+            </button>
+            
+            {showMicSettings && renderMicSettings()}
+          </div>
+          
           <button
             onClick={toggleFullscreen}
             className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white transition-colors"
@@ -240,25 +431,52 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 gap-6 ${micChannels.length > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         {/* Input Channel VU Meters */}
         <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity size={20} />
-            Input Channels
+            {faderMappings.length > 0 ? 'Mapped Channels' : 'Input Channels'}
           </h3>
           
           <div className="flex justify-around items-end">
-            {displayChannels.map((level, index) => (
+            {displayChannels.map((channel, index) => (
               <VUMeter
-                key={index}
-                level={level}
-                label={getMeterLabel(index)}
+                key={`input-${index}`}
+                level={channel.level}
+                label={channel.label}
                 className="mx-1"
               />
             ))}
           </div>
         </Card>
+
+        {/* Mic Channels (if enabled) */}
+        {micChannels.length > 0 && (
+          <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Mic size={20} />
+              Microphones ({micChannels.length})
+            </h3>
+            
+            <div className="flex justify-around items-end">
+              {micLevels.slice(0, 4).map((mic, index) => (
+                <VUMeter
+                  key={`mic-${index}`}
+                  level={mic.level}
+                  label={mic.label}
+                  className="mx-1"
+                />
+              ))}
+            </div>
+            
+            {micLevels.length > 4 && (
+              <div className="text-xs text-slate-400 mt-2 text-center">
+                +{micLevels.length - 4} more channels (see fullscreen)
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Analog Clock */}
         <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700 flex items-center justify-center">
@@ -297,6 +515,18 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               <Clock size={14} />
               <span className="text-slate-300">System Time Synchronized</span>
             </div>
+            {faderMappings.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Activity size={14} />
+                <span className="text-slate-300">{faderMappings.length} fader mappings loaded</span>
+              </div>
+            )}
+            {micChannels.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Mic size={14} />
+                <span className="text-slate-300">Mic channels: {micChannels.join(', ')}</span>
+              </div>
+            )}
           </div>
           
           <div className="text-slate-500">
