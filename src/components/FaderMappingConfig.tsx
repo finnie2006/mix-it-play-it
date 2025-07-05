@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { FaderMapping, SettingsService } from '@/services/settingsService';
-import { Plus, Trash2, Volume2, Settings, HelpCircle } from 'lucide-react';
+import { Plus, Trash2, Volume2, Settings, HelpCircle, Copy, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface FaderMappingConfigProps {
@@ -129,6 +129,41 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
     }
   };
 
+  const handleCopyJSON = async () => {
+    const currentSettings = SettingsService.loadSettings();
+
+    const bridgeSettings = {
+      mixer: {
+        ip: "192.168.1.67",
+        port: 10024
+      },
+      radioSoftware: currentSettings.radioSoftware,
+      faderMappings: mappings,
+      lastUpdated: new Date().toISOString()
+    };
+
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(bridgeSettings, null, 2));
+      toast({
+        title: "JSON Copied!",
+        description: `Configuration with ${mappings.length} fader mappings copied to clipboard. Paste this into bridge-settings.json for bridge-only mode.`,
+      });
+    } catch (error) {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement('textarea');
+      textArea.value = JSON.stringify(bridgeSettings, null, 2);
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      toast({
+        title: "JSON Copied!",
+        description: `Configuration with ${mappings.length} fader mappings copied to clipboard. Paste this into bridge-settings.json for bridge-only mode.`,
+      });
+    }
+  };
+
   // Check if channel is already used
   const isChannelUsed = (channel: number, isStereo: boolean, excludeId?: string) => {
     return mappings.some(m => {
@@ -165,10 +200,23 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
           <span className="text-sm text-slate-400">
             {mappings.length} mapping(s) configured
           </span>
-          <Button onClick={handleAddMapping} size="sm" className="bg-green-600 hover:bg-green-700">
-            <Plus size={16} className="mr-2" />
-            Add Mapping
-          </Button>
+          <div className="flex gap-2">
+            {mappings.length > 0 && (
+              <Button
+                onClick={handleCopyJSON}
+                size="sm"
+                variant="outline"
+                className="border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+              >
+                <Copy size={16} className="mr-2" />
+                Copy JSON
+              </Button>
+            )}
+            <Button onClick={handleAddMapping} size="sm" className="bg-green-600 hover:bg-green-700">
+              <Plus size={16} className="mr-2" />
+              Add Mapping
+            </Button>
+          </div>
         </div>
 
         {/* Existing Mappings */}
@@ -222,6 +270,29 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
             </Card>
           ))}
         </div>
+
+        {/* Bridge-Only Mode Instructions */}
+        {mappings.length > 0 && (
+          <Card className="bg-blue-900/20 border-blue-600/30">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <FileText size={20} className="text-blue-400 mt-1 flex-shrink-0" />
+                <div className="space-y-2">
+                  <h4 className="font-medium text-blue-400">Bridge-Only Mode Setup</h4>
+                  <p className="text-sm text-slate-300">
+                    To use these fader mappings in bridge-only mode (headless operation):
+                  </p>
+                  <ol className="text-sm text-slate-300 space-y-1 ml-4 list-decimal">
+                    <li>Click "Copy JSON" above to copy the complete configuration</li>
+                    <li>Save it as <code className="bg-slate-700 px-1 rounded text-blue-300">bridge-settings.json</code> in your project folder</li>
+                    <li>Run <code className="bg-slate-700 px-1 rounded text-blue-300">node start-bridge-only.js</code> to start headless mode</li>
+                    <li>The bridge will automatically load your fader mappings and radio settings</li>
+                  </ol>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Edit/Add Mapping Form */}
         {editingMapping && (

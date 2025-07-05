@@ -1,29 +1,210 @@
 const osc = require('osc');
 const WebSocket = require('ws');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 // Add HTTP client for radio software requests
 const https = require('https');
 const { URL } = require('url');
 
+// Settings file path
+const SETTINGS_FILE = path.join(__dirname, '..', 'bridge-settings.json');
+
+// Load settings from file or use environment variables
+function loadSettings() {
+  let settings = {};
+
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+      settings = JSON.parse(data);
+      console.log('📋 Loaded settings from bridge-settings.json');
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not load bridge-settings.json:', error.message);
+  }
+
+  return {
+    mixer: {
+      ip: process.env.MIXER_IP || settings.mixer?.ip || '192.168.1.67',
+      port: parseInt(process.env.MIXER_PORT) || settings.mixer?.port || 10024
+    },
+    radioSoftware: settings.radioSoftware || {
+      type: 'mairlist',
+      host: 'localhost',
+      port: 9300,
+      enabled: false
+    },
+    faderMappings: settings.faderMappings || []
+  };
+}
+
+// Load initial settings
+const config = loadSettings();
+
 // Configuration - Make MIXER_IP dynamic and allow runtime updates
-let MIXER_IP = process.env.MIXER_IP || '192.168.1.67';
-const MIXER_PORT = parseInt(process.env.MIXER_PORT) || 10024;
+let MIXER_IP = config.mixer.ip;
+const MIXER_PORT = config.mixer.port;
 const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT) || 8080;
 const LOCAL_OSC_PORT = 10023;
 
 console.log(`🎛️ X-Air OSC-WebSocket Bridge`);
-console.log(`📡 Initial Mixer: ${MIXER_IP}:${MIXER_PORT}`);
+console.log(`📡 Mixer: ${MIXER_IP}:${MIXER_PORT}`);
 console.log(`🌐 WebSocket: localhost:${BRIDGE_PORT}`);
 console.log(`🔌 Local OSC: localhost:${LOCAL_OSC_PORT}`);
+
+// Display loaded configuration
+if (config.radioSoftware.enabled) {
+  console.log(`📻 Radio Software: ${config.radioSoftware.type} at ${config.radioSoftware.host}:${config.radioSoftware.port}`);
+} else {
+  console.log('📻 Radio Software: Disabled');
+}
+
+if (config.faderMappings.length > 0) {
+  console.log(`🎚️ Fader Mappings: ${config.faderMappings.length} mappings loaded`);
+  config.faderMappings.forEach((mapping, index) => {
+    if (mapping.enabled) {
+      console.log(`   ${index + 1}. Ch${mapping.channel}${mapping.isStereo ? '+' + (mapping.channel + 1) : ''}: ${mapping.description}`);
+    }
+  });
+} else {
+  console.log('🎚️ Fader Mappings: None configured');
+}
 
 // Mixer validation state
 let mixerConnected = false;
 let lastMixerResponse = null;
 let validationTimer = null;
 
-// Radio software configuration
-let radioConfig = null;
+// Radio software configuration - Load from settings
+let radioConfig = config.radioSoftware.enabled ? config.radioSoftware : null;
+
+// Fader mapping state
+let faderStates = new Map();
+let activeMappings = config.faderMappings.filter(m => m.enabled);
+
+// Fader mapping processing function
+function processFaderUpdate(channel, value) {
+  const currentState = faderStates.get(channel) || {
+    channel,
+    value: 0,
+    isActive: false,
+    commandExecuted: false
+  };
+
+  const previousValue = currentState.value;
+  currentState.value = value;
+
+  // Find mappings for this channel
+  const relevantMappings = activeMappings.filter(mapping => {
+    if (mapping.isStereo) {
+      return channel === mapping.channel; // Only consider the primary channel for stereo mappings
+    }
+    return channel === mapping.channel;
+  });
+
+  let isActive = false;
+  let commandExecuted = false;
+
+  for (const mapping of relevantMappings) {
+    // Check for fade up trigger
+    const shouldTriggerFadeUp = shouldTriggerFadeUp(mapping, channel, value, previousValue);
+
+    // Check for fade down trigger
+    const shouldTriggerFadeDown = shouldTriggerFadeDown(mapping, channel, value, previousValue);
+
+    if (shouldTriggerFadeUp) {
+      console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
+      executeRadioCommand(mapping.command);
+      commandExecuted = true;
+      currentState.lastTriggered = Date.now();
+    }
+
+    if (shouldTriggerFadeDown && mapping.fadeDownCommand) {
+      console.log(`🎚️ Triggering fade DOWN mapping for channel ${channel}: ${mapping.fadeDownCommand}`);
+      executeRadioCommand(mapping.fadeDownCommand);
+      commandExecuted = true;
+      currentState.lastTriggered = Date.now();
+    }
+
+    // Check if fader is above threshold (active state)
+    if (value >= mapping.threshold) {
+      isActive = true;
+    }
+  }
+
+  currentState.isActive = isActive;
+  currentState.commandExecuted = commandExecuted;
+  faderStates.set(channel, currentState);
+
+  // Broadcast fader state to clients
+  if (relevantMappings.length > 0) {
+    broadcastFaderUpdate(channel, isActive, commandExecuted);
+  }
+}
+
+function shouldTriggerFadeUp(mapping, channel, currentValue, previousValue) {
+  // Only trigger when crossing the threshold upwards
+  const wasAboveThreshold = previousValue >= mapping.threshold;
+  const isAboveThreshold = currentValue >= mapping.threshold;
+
+  // Trigger when going from below threshold to above threshold
+  return !wasAboveThreshold && isAboveThreshold;
+}
+
+function shouldTriggerFadeDown(mapping, channel, currentValue, previousValue) {
+  if (!mapping.fadeDownThreshold || !mapping.fadeDownCommand) {
+    return false;
+  }
+
+  // Only trigger when crossing the fade down threshold downwards
+  const wasAboveFadeDownThreshold = previousValue >= mapping.fadeDownThreshold;
+  const isBelowFadeDownThreshold = currentValue < mapping.fadeDownThreshold;
+
+  // Trigger when going from above fade down threshold to below fade down threshold
+  return wasAboveFadeDownThreshold && isBelowFadeDownThreshold;
+}
+
+async function executeRadioCommand(command) {
+  if (!radioConfig) {
+    console.warn('⚠️ Radio software not configured, cannot execute command');
+    return;
+  }
+
+  try {
+    console.log(`📻 Executing ${radioConfig.type} command: ${command}`);
+    console.log(`📻 Target: ${radioConfig.host}:${radioConfig.port}`);
+
+    const result = await sendRadioCommand(command, radioConfig);
+    console.log(`✅ Radio command executed successfully: ${command}`);
+    console.log(`📋 Response (${result.statusCode}): ${result.response}`);
+
+  } catch (error) {
+    console.error('❌ Failed to execute radio command:', error);
+  }
+}
+
+// Broadcast fader update to all clients
+function broadcastFaderUpdate(channel, isActive, commandExecuted) {
+  const updateMessage = JSON.stringify({
+    type: 'fader_update',
+    channel: channel,
+    isActive: isActive,
+    commandExecuted: commandExecuted,
+    timestamp: Date.now()
+  });
+
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(updateMessage);
+      } catch (error) {
+        console.error('Error sending fader update to client:', error);
+      }
+    }
+  });
+}
 
 // Function to send HTTP request to radio software
 async function sendRadioCommand(command, config) {
@@ -259,6 +440,20 @@ function setupOSCHandlers() {
             }
         }
 
+        // Process fader updates for mappings (e.g., /ch/01/mix/fader)
+        if (oscMessage.address && oscMessage.address.includes('/fader') && oscMessage.args && oscMessage.args.length > 0) {
+            // Extract channel number from address like /ch/01/mix/fader
+            const channelMatch = oscMessage.address.match(/\/ch\/(\d+)\//);
+            if (channelMatch) {
+                const channel = parseInt(channelMatch[1]);
+                const faderValue = oscMessage.args[0]?.value || oscMessage.args[0];
+
+                if (typeof faderValue === 'number') {
+                    processFaderUpdate(channel, faderValue);
+                }
+            }
+        }
+
         // Broadcast to all WebSocket clients
         const message = JSON.stringify({
             type: 'osc',
@@ -382,6 +577,32 @@ wss.on('connection', (ws) => {
                         timestamp: Date.now()
                     }));
                 }
+            } else if (message.type === 'reload_settings') {
+                // Reload settings from file
+                try {
+                    const newConfig = loadSettings();
+                    radioConfig = newConfig.radioSoftware.enabled ? newConfig.radioSoftware : null;
+                    activeMappings = newConfig.faderMappings.filter(m => m.enabled);
+
+                    console.log(`⚙️ Settings reloaded: ${activeMappings.length} active mappings, radio ${radioConfig ? 'enabled' : 'disabled'}`);
+
+                    // Send confirmation back to client
+                    ws.send(JSON.stringify({
+                        type: 'settings_reloaded',
+                        success: true,
+                        activeMappings: activeMappings.length,
+                        radioEnabled: !!radioConfig,
+                        timestamp: Date.now()
+                    }));
+                } catch (error) {
+                    console.error('❌ Error reloading settings:', error);
+                    ws.send(JSON.stringify({
+                        type: 'settings_reloaded',
+                        success: false,
+                        error: error.message,
+                        timestamp: Date.now()
+                    }));
+                }
             }
         } catch (error) {
             console.error('❌ Error parsing WebSocket message:', error);
@@ -403,3 +624,12 @@ console.log('🚀 Bridge server ready!');
 console.log('📋 Features:');
 console.log('  • X-Air OSC bridge');
 console.log('  • WebSocket API on localhost:8080');
+if (radioConfig) {
+    console.log(`  • Radio software integration (${radioConfig.type})`);
+}
+if (activeMappings.length > 0) {
+    console.log(`  • Fader mappings (${activeMappings.length} active)`);
+}
+console.log('💡 Tips:');
+console.log('  • Settings can be updated via the web interface');
+console.log('  • Use /reload_settings WebSocket message to refresh configuration');
