@@ -487,32 +487,40 @@ function setupOSCHandlers() {
         }
 
         // Handle VU meter data from /meters/1
-        if (oscMessage.address && oscMessage.address.startsWith('/meters/1')) {
-            try {
-                // Process meter data similar to debug-meters.js
-                if (oscMessage.args && oscMessage.args.length > 0 && oscMessage.args[0].type === 'b') {
-                    const blobData = oscMessage.args[0].value;
-                    const meters = [];
-                    const count = blobData.length / 2;
+// Handle VU meter data from /meters/1
+if (oscMessage.address && oscMessage.address.startsWith('/meters/1')) {
+    try {
+        // Process meter data similar to debug-meters.js
+        if (
+            oscMessage.args &&
+            oscMessage.args.length > 0 &&
+            oscMessage.args[0].type === 'b' &&
+            oscMessage.args[0].value instanceof Uint8Array
+        ) {
+            // Convert Uint8Array to Buffer
+            const blobData = Buffer.from(oscMessage.args[0].value);
+            const meters = [];
+            const count = blobData.length / 2;
 
-                    for (let i = 0; i < count; i++) {
-                        const val = blobData.readInt16BE(i * 2);
-                        const dbValue = val / 256;
-                        meters.push(parseFloat(dbValue.toFixed(2)));
-                    }
-
-                    lastMeterData = {
-                        channels: meters,
-                        timestamp: Date.now()
-                    };
-
-                    // Broadcast meter data to clients
-                    broadcastMeterUpdate(lastMeterData);
-                }
-            } catch (error) {
-                console.error('❌ Error parsing meter data:', error);
+            for (let i = 0; i < count; i++) {
+                const val = blobData.readInt16BE(i * 2);
+                const dbValue = val / 256;
+                meters.push(parseFloat(dbValue.toFixed(2)));
             }
+
+            lastMeterData = {
+                channels: meters,
+                timestamp: Date.now()
+            };
+
+            // Broadcast meter data to clients
+            broadcastMeterUpdate(lastMeterData);
         }
+    } catch (error) {
+        console.error('❌ Error parsing meter data:', error);
+    }
+}
+
 
         // Process fader updates for mappings (e.g., /ch/01/mix/fader)
         if (oscMessage.address && oscMessage.address.includes('/fader') && oscMessage.args && oscMessage.args.length > 0) {

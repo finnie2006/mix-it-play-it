@@ -1,11 +1,11 @@
-import osc from "osc";
+const osc = import("osc");
 
 const X_AIR_IP = "192.168.1.67";
 const X_AIR_PORT = 10024;
 
 const udpPort = new osc.UDPPort({
   localAddress: "0.0.0.0",
-  localPort: 10026,
+  localPort: 10026, // Use a different unused local port for debugging
   remoteAddress: X_AIR_IP,
   remotePort: X_AIR_PORT,
   metadata: true,
