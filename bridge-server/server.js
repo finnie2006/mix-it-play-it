@@ -91,6 +91,9 @@ let lastMeterData = {
     timestamp: Date.now()
 };
 
+// Store firmware version
+let firmwareVersion = null;
+
 // Parse meter blob for /meters/1 based on debug findings
 function parseMeterBlob(blob) {
     const buffer = Buffer.from(blob);
@@ -492,6 +495,16 @@ function setupOSCHandlers() {
                 }
             }
         }, 9000);
+
+        // Request firmware info on ready
+        setTimeout(() => {
+            if (oscPort && oscPort.socket) {
+                oscPort.send({
+                    address: '/xinfo',
+                    args: []
+                });
+            }
+        }, 1000);
     });
 
     oscPort.on('error', (error) => {
@@ -552,6 +565,44 @@ function setupOSCHandlers() {
                 }
             } catch (error) {
                 console.error('❌ Error parsing meter data:', error);
+            }
+        }
+
+        // Handle /xinfo response for firmware version
+        if (oscMessage.address === '/xinfo') {
+            try {
+                // Combine third and fourth string arguments if present, prefixing 'V' to the fourth
+                let fw = null;
+                if (
+                    Array.isArray(oscMessage.args) &&
+                    oscMessage.args.length >= 4 &&
+                    oscMessage.args[2].type === 's' &&
+                    oscMessage.args[3].type === 's'
+                ) {
+                    fw = `${oscMessage.args[2].value}-V${oscMessage.args[3].value}`;
+                }
+
+                if (fw) {
+                    firmwareVersion = fw;
+                    const fwMsg = JSON.stringify({
+                        type: 'firmware_version',
+                        version: firmwareVersion,
+                        timestamp: Date.now()
+                    });
+                    clients.forEach(client => {
+                        if (client.readyState === WebSocket.OPEN) {
+                            try {
+                                client.send(fwMsg);
+                            } catch (error) {
+                                console.error('Error sending firmware version to client:', error);
+                            }
+                        }
+                    });
+                } else {
+                    console.warn('⚠️ Firmware version not found in /xinfo response');
+                }
+            } catch (error) {
+                console.error('❌ Error parsing /xinfo firmware version:', error);
             }
         }
 
@@ -621,6 +672,15 @@ wss.on('connection', (ws) => {
         ws.send(JSON.stringify({
             type: 'vu_meters',
             data: lastMeterData,
+            timestamp: Date.now()
+        }));
+    }
+
+    // Send firmware version if available
+    if (firmwareVersion) {
+        ws.send(JSON.stringify({
+            type: 'firmware_version',
+            version: firmwareVersion,
             timestamp: Date.now()
         }));
     }
@@ -783,6 +843,13 @@ if (activeMappings.length > 0) {
     console.log(`  • Fader mappings (${activeMappings.length} active)`);
 }
 console.log('💡 Tips:');
+console.log('  • Settings can be updated via the web interface');
+console.log('  • Use /reload_settings WebSocket message to refresh configuration');
+console.log('  • Use /reload_settings WebSocket message to refresh configuration');
+console.log('💡 Tips:');
+console.log('  • Settings can be updated via the web interface');
+console.log('  • Use /reload_settings WebSocket message to refresh configuration');
+console.log('  • Use /reload_settings WebSocket message to refresh configuration');
 console.log('  • Settings can be updated via the web interface');
 console.log('  • Use /reload_settings WebSocket message to refresh configuration');
 console.log('  • Use /reload_settings WebSocket message to refresh configuration');

@@ -3,6 +3,11 @@ export interface VUMeterData {
   timestamp: number;
 }
 
+export interface FirmwareVersionData {
+  version: string;
+  timestamp: number;
+}
+
 export interface FaderMapping {
   channel: number;
   description: string;
@@ -18,6 +23,8 @@ export class VUMeterService {
   private ws: WebSocket | null = null;
   private connected: boolean = false;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private firmwareVersion: string | null = null;
+  private firmwareSubscribers: Set<(fw: FirmwareVersionData) => void> = new Set();
 
   constructor(private bridgeHost: string = 'localhost', private bridgePort: number = 8080) {}
 
@@ -54,11 +61,17 @@ export class VUMeterService {
         this.ws.onmessage = (event) => {
           try {
             const message = JSON.parse(event.data);
-            
+
             if (message.type === 'vu_meters' && message.data) {
               this.notifySubscribers(message.data);
             } else if (message.type === 'fader_mappings' && message.mappings) {
               this.notifyMappingSubscribers(message.mappings);
+            } else if (message.type === 'firmware_version' && message.version) {
+              this.firmwareVersion = message.version;
+              this.notifyFirmwareSubscribers({
+                version: message.version,
+                timestamp: message.timestamp || Date.now()
+              });
             }
           } catch (error) {
             console.error('📊 Error parsing VU meter message:', error);
@@ -121,6 +134,19 @@ export class VUMeterService {
     this.mappingSubscribers.forEach(callback => callback(mappings));
   }
 
+  onFirmwareVersion(callback: (fw: FirmwareVersionData) => void) {
+    this.firmwareSubscribers.add(callback);
+    // If already available, call immediately
+    if (this.firmwareVersion) {
+      callback({ version: this.firmwareVersion, timestamp: Date.now() });
+    }
+    return () => this.firmwareSubscribers.delete(callback);
+  }
+
+  private notifyFirmwareSubscribers(fw: FirmwareVersionData) {
+    this.firmwareSubscribers.forEach(cb => cb(fw));
+  }
+
   disconnect() {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -139,6 +165,10 @@ export class VUMeterService {
 
   isConnected(): boolean {
     return this.connected;
+  }
+
+  getFirmwareVersion(): string | null {
+    return this.firmwareVersion;
   }
 }
 

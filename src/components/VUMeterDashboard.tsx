@@ -16,6 +16,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [micChannels, setMicChannels] = useState<number[]>([]);
   const [showMicSettings, setShowMicSettings] = useState(false);
+  const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
 
   // Handle fullscreen toggle - DEFINE EARLY
   const toggleFullscreen = () => {
@@ -52,8 +53,14 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             setMeterData(data);
           });
 
+          // Subscribe to firmware version updates
+          const unsubscribeFw = vuMeterService.onFirmwareVersion((fw) => {
+            setFirmwareVersion(fw.version);
+          });
+
           return () => {
             unsubscribeMeter();
+            unsubscribeFw();
           };
         }
       } catch (error) {
@@ -345,10 +352,9 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock size={16} />
-                  <span className="text-slate-300 text-lg">System Time Synchronized</span>
+                  {/* Do not show firmware version in fullscreen */}
                 </div>
               </div>
-              
               <div className="text-slate-400 text-lg">
                 Press ESC or F11 to exit fullscreen
               </div>
@@ -482,7 +488,10 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             </div>
             <div className="flex items-center gap-2">
               <Clock size={14} />
-              <span className="text-slate-300">System Time Synchronized</span>
+              {/* Show firmware version only in normal view */}
+              <span className="text-slate-300">
+                {firmwareVersion ? `Firmware: ${firmwareVersion}` : 'Firmware: ...'}
+              </span>
             </div>
             {faderMappingService.getAllMappings().length > 0 && (
               <div className="flex items-center gap-2">
@@ -506,4 +515,3 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     </div>
   );
 };
-    
