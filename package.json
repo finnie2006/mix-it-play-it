@@ -20,7 +20,8 @@
     "electron:dev": "concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && electron .\"",
     "clean": "rimraf dist dist-electron",
     "electron:build": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder",
-    "electron:dist": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder --publish=never"
+    "electron:dist": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder --publish=never",
+    "electron:portable": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder --win portable"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -118,18 +119,32 @@
       }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "assets/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "artifactName": "${productName}-${version}-setup.exe"
     },
     "mac": {
       "target": "dmg"
     },
     "linux": {
       "target": "AppImage"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
   }
+}
 }

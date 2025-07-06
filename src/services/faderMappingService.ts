@@ -1,4 +1,3 @@
-
 import { FaderMapping, SettingsService } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
@@ -222,6 +221,10 @@ export class FaderMappingService {
   }
 
   public getActiveMappings(): FaderMapping[] {
+    return this.mappings;
+  }
+
+  public getAllMappings(): FaderMapping[] {
     return this.mappings;
   }
 

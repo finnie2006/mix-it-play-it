@@ -24,59 +24,9 @@ function createWindow() {
     },
     show: false,
     titleBarStyle: 'default',
-    fullscreenable: true
+    fullscreenable: true,
+    autoHideMenuBar: true
   });
-
-  // Create minimal menu for fullscreen functionality
-  const menuTemplate = [
-    {
-      label: 'View',
-      submenu: [
-        {
-          label: 'Toggle Fullscreen',
-          accelerator: 'F11',
-          click: () => {
-            const isFullScreen = mainWindow.isFullScreen();
-            mainWindow.setFullScreen(!isFullScreen);
-          }
-        },
-        {
-          label: 'Maximize',
-          accelerator: 'CmdOrCtrl+M',
-          click: () => {
-            if (mainWindow.isMaximized()) {
-              mainWindow.unmaximize();
-            } else {
-              mainWindow.maximize();
-            }
-          }
-        },
-        { type: 'separator' },
-        {
-          label: 'Minimize',
-          accelerator: 'CmdOrCtrl+H',
-          click: () => {
-            mainWindow.minimize();
-          }
-        }
-      ]
-    },
-    {
-      label: 'Application',
-      submenu: [
-        {
-          label: 'Quit',
-          accelerator: 'CmdOrCtrl+Q',
-          click: () => {
-            app.quit();
-          }
-        }
-      ]
-    }
-  ];
-
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu);
 
   // Load the app
   if (isDev) {
@@ -137,12 +87,18 @@ app.whenReady().then(() => {
     if (mainWindow) {
       const isFullScreen = mainWindow.isFullScreen();
       mainWindow.setFullScreen(!isFullScreen);
+      
+      // Send fullscreen state to renderer process
+      mainWindow.webContents.send('fullscreen-changed', !isFullScreen);
     }
   });
 
   globalShortcut.register('Escape', () => {
     if (mainWindow && mainWindow.isFullScreen()) {
       mainWindow.setFullScreen(false);
+      
+      // Send fullscreen state to renderer process
+      mainWindow.webContents.send('fullscreen-changed', false);
     }
   });
 

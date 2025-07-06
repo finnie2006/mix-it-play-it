@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { VUMeter } from '@/components/VUMeter';
 import { AnalogClock } from '@/components/AnalogClock';
-import { vuMeterService, VUMeterData, FaderMapping } from '@/services/vuMeterService';
+import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
+import { faderMappingService } from '@/services/faderMappingService';
 import { Activity, Clock, Maximize, Minimize, Mic, Settings } from 'lucide-react';
 
 interface VUMeterDashboardProps {
@@ -13,7 +14,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [meterData, setMeterData] = useState<VUMeterData | null>(null);
   const [serviceConnected, setServiceConnected] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [faderMappings, setFaderMappings] = useState<FaderMapping[]>([]);
   const [micChannels, setMicChannels] = useState<number[]>([]);
   const [showMicSettings, setShowMicSettings] = useState(false);
 
@@ -52,15 +52,8 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             setMeterData(data);
           });
 
-          // Subscribe to fader mapping updates
-          const unsubscribeMapping = vuMeterService.onMappingUpdate((mappings) => {
-            console.log('📊 Received fader mappings update:', mappings);
-            setFaderMappings(mappings);
-          });
-
           return () => {
             unsubscribeMeter();
-            unsubscribeMapping();
           };
         }
       } catch (error) {
@@ -99,26 +92,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     localStorage.setItem('vuMeter_micChannels', JSON.stringify(channels));
   };
 
-  // Add function to refresh fader mappings
-  const refreshMappings = () => {
-    if (vuMeterService.isConnected()) {
-      console.log('🔄 Requesting fader mappings refresh...');
-      // Request fresh mappings from the bridge server
-      (vuMeterService as any).ws?.send(JSON.stringify({
-        type: 'get_fader_mappings'
-      }));
-    }
-  };
-
-  // Add periodic refresh of mappings
-  useEffect(() => {
-    if (serviceConnected) {
-      // Refresh mappings every 10 seconds to catch setting changes
-      const refreshInterval = setInterval(refreshMappings, 10000);
-      return () => clearInterval(refreshInterval);
-    }
-  }, [serviceConnected]);
-
   // Handle mic channel toggle
   const toggleMicChannel = (channel: number) => {
     const newChannels = micChannels.includes(channel)
@@ -129,7 +102,8 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   };
 
   // Get meter labels based on typical X-Air usage
-  const getMeterLabel = (index: number, mapping?: FaderMapping) => {
+  const getMeterLabel = (index: number) => {
+    const mapping = faderMappingService.getMappingForChannel(index + 1);
     if (mapping) {
       return mapping.description || `CH ${index + 1}`;
     }
@@ -143,7 +117,9 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
   // Get channels based on fader mappings
   const getDisplayChannels = () => {
-    if (faderMappings.length === 0) {
+    const mappings = faderMappingService.getAllMappings();
+    
+    if (mappings.length === 0) {
       // Fallback to first 4 channels if no mappings
       return meterData?.channels.slice(0, 4).map((level, index) => ({
         level,
@@ -153,10 +129,10 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     }
 
     // Use first 4 fader mappings
-    return faderMappings.slice(0, 4).map(mapping => ({
+    return mappings.slice(0, 4).map(mapping => ({
       level: meterData?.channels[mapping.channel - 1] || -90,
       channel: mapping.channel - 1,
-      label: getMeterLabel(mapping.channel - 1, mapping)
+      label: getMeterLabel(mapping.channel - 1)
     }));
   };
 
@@ -175,13 +151,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     <div className="absolute top-full right-0 mt-2 p-4 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-20 min-w-[280px] max-h-96 overflow-y-auto">
       <div className="flex items-center justify-between mb-3">
         <h4 className="text-white font-semibold">Mic Channel Settings</h4>
-        <button
-          onClick={refreshMappings}
-          className="p-1 bg-slate-600 hover:bg-slate-500 text-white rounded text-xs"
-          title="Refresh mappings"
-        >
-          🔄
-        </button>
       </div>
       
       <div className="space-y-3">
@@ -294,7 +263,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
               <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
                 <Activity size={24} />
-                {faderMappings.length > 0 ? 'Mapped Channels' : 'Input Channels'}
+                {faderMappingService.getAllMappings().length > 0 ? 'Mapped Channels' : 'Input Channels'}
               </h3>
               
               <div className="flex-1 flex justify-center items-center">
@@ -436,7 +405,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity size={20} />
-            {faderMappings.length > 0 ? 'Mapped Channels' : 'Input Channels'}
+            {faderMappingService.getAllMappings().length > 0 ? 'Mapped Channels' : 'Input Channels'}
           </h3>
           
           <div className="flex justify-around items-end">
@@ -515,10 +484,10 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               <Clock size={14} />
               <span className="text-slate-300">System Time Synchronized</span>
             </div>
-            {faderMappings.length > 0 && (
+            {faderMappingService.getAllMappings().length > 0 && (
               <div className="flex items-center gap-2">
                 <Activity size={14} />
-                <span className="text-slate-300">{faderMappings.length} fader mappings loaded</span>
+                <span className="text-slate-300">{faderMappingService.getAllMappings().length} fader mappings loaded</span>
               </div>
             )}
             {micChannels.length > 0 && (
@@ -537,3 +506,4 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     </div>
   );
 };
+    
