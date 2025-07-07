@@ -355,9 +355,12 @@ export class FaderMappingService {
           this.executeCommand(mapping.fadeDownCommand);
         }
       } else {
-        // Unmute = Play command
-        if (mapping.command) {
+        // Unmute = Play command, but only if fader is above 0
+        if (mapping.command && state.value > 0) {
+          console.log(`🎚️ Unmute triggered start command for channel ${channel} (fader: ${state.value.toFixed(1)}%)`);
           this.executeCommand(mapping.command);
+        } else if (mapping.command && state.value === 0) {
+          console.log(`⏸️ Unmute ignored for channel ${channel} (fader at 0%)`);
         }
       }
     }

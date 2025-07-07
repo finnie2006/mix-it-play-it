@@ -710,10 +710,37 @@ function setupOSCHandlers() {
             if (channelMatch) {
                 const channel = parseInt(channelMatch[1]);
                 const muted = oscMessage.args[0]?.value === 0;
+                
                 // Store mute state in faderStates
-                const state = faderStates.get(channel) || {};
+                const state = faderStates.get(channel) || { channel, value: 0, isActive: false, commandExecuted: false };
                 state.muted = muted;
                 faderStates.set(channel, state);
+
+                // Process mute change for mappings that listen to mute
+                const relevantMappings = activeMappings.filter(
+                    mapping => mapping.listenToMute && (
+                        (mapping.isStereo && (channel === mapping.channel || channel === mapping.channel + 1)) ||
+                        (!mapping.isStereo && channel === mapping.channel)
+                    )
+                );
+
+                for (const mapping of relevantMappings) {
+                    if (muted) {
+                        // Mute = Stop command
+                        if (mapping.fadeDownCommand) {
+                            console.log(`🔇 Mute triggered stop command for channel ${channel}: ${mapping.fadeDownCommand}`);
+                            executeRadioCommand(mapping.fadeDownCommand);
+                        }
+                    } else {
+                        // Unmute = Play command, but only if fader is above 0
+                        if (mapping.command && state.value > 0) {
+                          console.log(`🎚️ Unmute triggered start command for channel ${channel} (fader: ${state.value.toFixed(1)}%): ${mapping.command}`);
+                          executeRadioCommand(mapping.command);
+                        } else if (mapping.command && state.value === 0) {
+                          console.log(`⏸️ Unmute ignored for channel ${channel} (fader at 0%)`);
+                        }
+                    }
+                }
             }
         }
 
