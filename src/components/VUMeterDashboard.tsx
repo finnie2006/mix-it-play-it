@@ -18,7 +18,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [micChannels, setMicChannels] = useState<number[]>([]);
   const [showMicSettings, setShowMicSettings] = useState(false);
   const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
-  const [speakerMuteActive, setSpeakerMuteActive] = useState(false);
+  const [speakerMuteConfig, setSpeakerMuteConfig] = useState<{ enabled: boolean; isMuted: boolean; triggerChannels: number[] }>({
+    enabled: false,
+    isMuted: false,
+    triggerChannels: []
+  });
 
   // Handle fullscreen toggle - DEFINE EARLY
   const toggleFullscreen = () => {
@@ -41,18 +45,18 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isFullscreen]);
 
-  // Load speaker mute status
+  // Load speaker mute status from fader mapping service
   useEffect(() => {
     const checkSpeakerMuteStatus = () => {
-      const settings = SettingsService.loadSettings();
-      setSpeakerMuteActive(settings.speakerMute.enabled);
+      const status = faderMappingService.getSpeakerMuteStatus();
+      setSpeakerMuteConfig(status);
     };
 
     // Check initial status
     checkSpeakerMuteStatus();
 
     // Check periodically for updates
-    const interval = setInterval(checkSpeakerMuteStatus, 1000);
+    const interval = setInterval(checkSpeakerMuteStatus, 100); // Check more frequently for real-time updates
     return () => clearInterval(interval);
   }, []);
 
@@ -227,14 +231,20 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     </div>
   );
 
-  // Speaker mute indicator component
+  // Speaker mute indicator component - updated to show real-time status
   const SpeakerMuteIndicator = ({ className = "" }) => {
-    if (!speakerMuteActive) return null;
+    if (!speakerMuteConfig.enabled) return null;
 
     return (
-      <div className={`flex items-center gap-2 px-3 py-2 bg-red-600/20 border border-red-500/50 rounded-lg ${className}`}>
-        <VolumeX className="text-red-400" size={16} />
-        <span className="text-red-300 font-medium">SPEAKERS MUTED</span>
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${className} ${
+        speakerMuteConfig.isMuted 
+          ? 'bg-red-600/20 border border-red-500/50' 
+          : 'bg-green-600/20 border border-green-500/50'
+      }`}>
+        <VolumeX className={speakerMuteConfig.isMuted ? 'text-red-400' : 'text-green-400'} size={16} />
+        <span className={`font-medium ${speakerMuteConfig.isMuted ? 'text-red-300' : 'text-green-300'}`}>
+          {speakerMuteConfig.isMuted ? 'ON AIR - TALKING' : 'SPEAKERS ACTIVE'}
+        </span>
       </div>
     );
   };
