@@ -4,7 +4,8 @@ import { VUMeter } from '@/components/VUMeter';
 import { AnalogClock } from '@/components/AnalogClock';
 import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
 import { faderMappingService } from '@/services/faderMappingService';
-import { Activity, Clock, Maximize, Minimize, Mic, Settings } from 'lucide-react';
+import { SettingsService } from '@/services/settingsService';
+import { Activity, Clock, Maximize, Minimize, Mic, Settings, VolumeX } from 'lucide-react';
 
 interface VUMeterDashboardProps {
   isConnected?: boolean;
@@ -17,6 +18,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [micChannels, setMicChannels] = useState<number[]>([]);
   const [showMicSettings, setShowMicSettings] = useState(false);
   const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
+  const [speakerMuteActive, setSpeakerMuteActive] = useState(false);
 
   // Handle fullscreen toggle - DEFINE EARLY
   const toggleFullscreen = () => {
@@ -38,6 +40,21 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isFullscreen]);
+
+  // Load speaker mute status
+  useEffect(() => {
+    const checkSpeakerMuteStatus = () => {
+      const settings = SettingsService.loadSettings();
+      setSpeakerMuteActive(settings.speakerMute.enabled);
+    };
+
+    // Check initial status
+    checkSpeakerMuteStatus();
+
+    // Check periodically for updates
+    const interval = setInterval(checkSpeakerMuteStatus, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -210,6 +227,18 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     </div>
   );
 
+  // Speaker mute indicator component
+  const SpeakerMuteIndicator = ({ className = "" }) => {
+    if (!speakerMuteActive) return null;
+
+    return (
+      <div className={`flex items-center gap-2 px-3 py-2 bg-red-600/20 border border-red-500/50 rounded-lg ${className}`}>
+        <VolumeX className="text-red-400" size={16} />
+        <span className="text-red-300 font-medium">SPEAKERS MUTED</span>
+      </div>
+    );
+  };
+
   if (!isConnected) {
     return (
       <Card className="p-8 bg-slate-800/50 border-slate-700 text-center">
@@ -239,7 +268,8 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     return (
       <div className="fixed inset-0 z-50 bg-slate-900 p-4 overflow-hidden">
         {/* Fullscreen controls */}
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          <SpeakerMuteIndicator />
           <button
             onClick={toggleFullscreen}
             className="p-2 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-white transition-colors"
@@ -352,7 +382,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock size={16} />
-                  {/* Do not show firmware version in fullscreen */}
                 </div>
               </div>
               <div className="text-slate-400 text-lg">
@@ -383,6 +412,8 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               Last update: {new Date(meterData.timestamp).toLocaleTimeString()}
             </div>
           )}
+          
+          <SpeakerMuteIndicator />
           
           <div className="relative">
             <button
@@ -488,7 +519,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             </div>
             <div className="flex items-center gap-2">
               <Clock size={14} />
-              {/* Show firmware version only in normal view */}
               <span className="text-slate-300">
                 {firmwareVersion ? `Firmware: ${firmwareVersion}` : 'Firmware: ...'}
               </span>
