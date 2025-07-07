@@ -136,11 +136,28 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       return mapping.description || `CH ${index + 1}`;
     }
     if (index < 16) return `CH ${index + 1}`;
-    if (index === 36) return 'MAIN L';
-    if (index === 37) return 'MAIN R';
+    if (index === 36) return 'PGM L';
+    if (index === 37) return 'PGM R';
     if (index < 18) return `AUX ${index - 15}`;
     if (index < 20) return `FX ${index - 17}`;
     return `OUT ${index - 19}`;
+  };
+
+  // Get speaker mute bus meter level
+  const getSpeakerMuteBusLevel = () => {
+    if (!speakerMuteConfig.enabled || !meterData) return -90;
+    
+    const settings = SettingsService.loadSettings();
+    const speakerMuteSettings = settings.speakerMute;
+    
+    if (speakerMuteSettings.muteType === 'bus') {
+      // Bus meters start at index 22 (after 16 channels + 6 bus channels)
+      const busIndex = (speakerMuteSettings.busNumber || 1) - 1;
+      const meterIndex = 22 + busIndex; // Bus 1 = index 22, Bus 2 = index 23, etc.
+      return meterData.channels[meterIndex] || -90;
+    }
+    
+    return -90; // If not using bus mute, return silent level
   };
 
   // Get channels based on fader mappings
@@ -359,24 +376,35 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               </div>
             </Card>
 
-            {/* Main LR Output */}
+            {/* Main Output + CRM */}
             <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
               <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
                 <Activity size={24} />
-                Main LR Output
+                Program & Monitor
               </h3>
               
               <div className="flex-1 flex justify-center items-center">
-                <div className="flex justify-around items-end w-full max-w-xs">
-                  {mainLR.map((level, index) => (
+                <div className="flex justify-center items-end w-full max-w-sm gap-4">
+                  <VUMeter
+                    level={mainLR[0]}
+                    label="PGM L"
+                    height="extra-tall"
+                    className="mx-1"
+                  />
+                  <VUMeter
+                    level={mainLR[1]}
+                    label="PGM R"
+                    height="extra-tall"
+                    className="mx-1"
+                  />
+                  {speakerMuteConfig.enabled && (
                     <VUMeter
-                      key={`main-${index}`}
-                      level={level}
-                      label={getMeterLabel(36 + index)}
+                      level={getSpeakerMuteBusLevel()}
+                      label="CRM"
                       height="extra-tall"
-                      className="mx-6"
+                      className="mx-1"
                     />
-                  ))}
+                  )}
                 </div>
               </div>
             </Card>
@@ -496,22 +524,31 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           <AnalogClock />
         </Card>
 
-        {/* Main LR Output */}
+        {/* Main Output + CRM */}
         <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity size={20} />
-            Main LR Output
+            Program & Monitor
           </h3>
           
-          <div className="flex justify-around items-end">
-            {mainLR.map((level, index) => (
+          <div className="flex justify-center items-end gap-2">
+            <VUMeter
+              level={mainLR[0]}
+              label="PGM L"
+              className="mx-1"
+            />
+            <VUMeter
+              level={mainLR[1]}
+              label="PGM R"
+              className="mx-1"
+            />
+            {speakerMuteConfig.enabled && (
               <VUMeter
-                key={`main-${index}`}
-                level={level}
-                label={getMeterLabel(36 + index)}
+                level={getSpeakerMuteBusLevel()}
+                label="CRM"
                 className="mx-1"
               />
-            ))}
+            )}
           </div>
         </Card>
       </div>
