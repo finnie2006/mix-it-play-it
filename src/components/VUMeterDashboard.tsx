@@ -394,9 +394,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                   <Clock size={16} />
                 </div>
               </div>
-              <div className="text-slate-400 text-lg">
-                Press ESC or F11 to exit fullscreen
-              </div>
             </div>
           </div>
         </div>
