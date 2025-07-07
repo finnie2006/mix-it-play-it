@@ -143,7 +143,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     return `OUT ${index - 19}`;
   };
 
-  // Get speaker mute bus meter level
+  // Get speaker mute bus meter level - FIXED TO USE CORRECT BUS INDEX
   const getSpeakerMuteBusLevel = () => {
     if (!speakerMuteConfig.enabled || !meterData) return -90;
     
@@ -151,9 +151,10 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     const speakerMuteSettings = settings.speakerMute;
     
     if (speakerMuteSettings.muteType === 'bus') {
-      // Bus meters start at index 22 (after 16 channels + 6 bus channels)
+      // Bus meters are at indices 22-27 (Bus 1-6)
       const busIndex = (speakerMuteSettings.busNumber || 1) - 1;
       const meterIndex = 22 + busIndex; // Bus 1 = index 22, Bus 2 = index 23, etc.
+      console.log(`📊 Getting bus ${speakerMuteSettings.busNumber} meter from index ${meterIndex}:`, meterData.channels[meterIndex]);
       return meterData.channels[meterIndex] || -90;
     }
     
