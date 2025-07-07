@@ -624,7 +624,7 @@ function setupOSCHandlers() {
                     const values = parseMeterBlob(blob);
                     if (values && values.length >= 38) {
                         // Update meter data with parsed values
-                        // Channel layout: 16 mono channels + 5x2 aux/fx + 6 bus + 4 fx send + 2 main + 2 monitor
+                        // For now, focus on main LR (positions 36, 37) and first few channels
                         const channels = Array(40).fill(-90);
                         
                         // Copy channel data (first 16 are mono channels)
@@ -632,31 +632,10 @@ function setupOSCHandlers() {
                             channels[i] = values[i] < -90 ? -90 : values[i];
                         }
                         
-                        // Aux/FX returns (positions 16-25)
-                        for (let i = 16; i < Math.min(26, values.length); i++) {
-                            channels[i] = values[i] < -90 ? -90 : values[i];
-                        }
-                        
-                        // Bus outputs (positions 22-27 in the values array map to our positions 22-27)
-                        for (let i = 22; i < Math.min(28, values.length); i++) {
-                            channels[i] = values[i] < -90 ? -90 : values[i];
-                        }
-                        
-                        // FX sends (positions 28-31)
-                        for (let i = 28; i < Math.min(32, values.length); i++) {
-                            channels[i] = values[i] < -90 ? -90 : values[i];
-                        }
-                        
                         // Main LR post-fader at positions 36, 37
                         if (values.length >= 38) {
                             channels[36] = values[36] < -90 ? -90 : values[36]; // Main L
                             channels[37] = values[37] < -90 ? -90 : values[37]; // Main R
-                        }
-
-                        // Monitor outputs (positions 38-39)
-                        if (values.length >= 40) {
-                            channels[38] = values[38] < -90 ? -90 : values[38]; // Monitor L
-                            channels[39] = values[39] < -90 ? -90 : values[39]; // Monitor R
                         }
 
                         lastMeterData = {
