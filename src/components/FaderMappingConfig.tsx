@@ -355,6 +355,16 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                 <Label className="text-slate-200">Stereo (uses this channel + next channel)</Label>
               </div>
 
+              {/* Listen to mute button */}
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={!!editingMapping.listenToMute}
+                  onCheckedChange={(checked) => setEditingMapping(prev => ({ ...prev, listenToMute: checked }))
+                  }
+                />
+                <Label className="text-slate-200">Listen to mute button (Mute = Stop, Unmute = Play)</Label>
+              </div>
+              
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label className="text-slate-200">Fade Up Command</Label>

@@ -102,6 +102,7 @@ export class SettingsService {
       id: `fader-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     };
     settings.faderMappings.push(newMapping);
+    this.saveSettings(settings);
   }
 
   static removeFaderMapping(id: string): void {

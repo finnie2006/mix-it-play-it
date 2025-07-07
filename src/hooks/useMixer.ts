@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { faderMappingService } from '@/services/faderMappingService';
@@ -51,6 +50,8 @@ export const useMixer = (config: MixerConfig) => {
         ...prev,
         [data.channel]: data.muted
       }));
+      // NEW: process mute update for fader mappings
+      faderMappingService.processMuteUpdate(data.channel, data.muted);
     });
 
     return () => {

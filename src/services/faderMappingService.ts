@@ -7,6 +7,7 @@ export interface FaderState {
   isActive: boolean;
   lastTriggered?: number;
   commandExecuted: boolean;
+  muted?: boolean; // Track mute state
 }
 
 export class FaderMappingService {
@@ -111,7 +112,8 @@ export class FaderMappingService {
       channel,
       value: 0,
       isActive: false,
-      commandExecuted: false
+      commandExecuted: false,
+      muted: false
     };
 
     const previousValue = currentState.value;
@@ -138,11 +140,24 @@ export class FaderMappingService {
       // Check for fade down trigger
       const shouldTriggerFadeDown = this.shouldTriggerFadeDown(mapping, channel, value, previousValue);
 
+      // --- Listen to mute logic ---
+      let isMuted = false;
+      if (mapping.listenToMute) {
+        if (typeof currentState.muted === 'boolean') {
+          isMuted = currentState.muted;
+        }
+      }
+
       if (shouldTriggerFadeUp) {
-        console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
-        this.executeCommand(mapping.command);
-        commandExecuted = true;
-        currentState.lastTriggered = Date.now();
+        // If listenToMute is enabled and currently muted, do NOT run the start command
+        if (!(mapping.listenToMute && isMuted)) {
+          console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
+          this.executeCommand(mapping.command);
+          commandExecuted = true;
+          currentState.lastTriggered = Date.now();
+        } else {
+          console.log(`⏸️ Fade UP ignored for channel ${channel} (muted, listenToMute enabled)`);
+        }
       }
 
       if (shouldTriggerFadeDown && mapping.fadeDownCommand) {
@@ -316,6 +331,36 @@ export class FaderMappingService {
       isMuted: this.isSpeakerMuted,
       triggerChannels: this.speakerMuteConfig?.triggerChannels || []
     };
+  }
+
+  // Add this new method to process mute changes
+  public processMuteUpdate(channel: number, muted: boolean) {
+    // Store mute state in faderStates for use in processFaderUpdate
+    const state = this.faderStates.get(channel) || { channel, value: 0, isActive: false, commandExecuted: false };
+    state.muted = muted;
+    this.faderStates.set(channel, state);
+
+    // Find mappings for this channel that listen to mute
+    const relevantMappings = this.mappings.filter(
+      mapping => mapping.listenToMute && (
+        (mapping.isStereo && (channel === mapping.channel || channel === mapping.channel + 1)) ||
+        (!mapping.isStereo && channel === mapping.channel)
+      )
+    );
+
+    for (const mapping of relevantMappings) {
+      if (muted) {
+        // Mute = Stop command
+        if (mapping.fadeDownCommand) {
+          this.executeCommand(mapping.fadeDownCommand);
+        }
+      } else {
+        // Unmute = Play command
+        if (mapping.command) {
+          this.executeCommand(mapping.command);
+        }
+      }
+    }
   }
 }
 

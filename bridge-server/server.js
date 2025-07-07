@@ -215,11 +215,25 @@ function processFaderUpdate(channel, value) {
     // Check for fade down trigger
     const shouldFadeDown = shouldTriggerFadeDown(mapping, channel, value, previousValue);
 
+    // --- Listen to mute logic ---
+    let isMuted = false;
+    if (mapping.listenToMute) {
+      // Try to get mute state for this channel
+      if (typeof currentState.muted === 'boolean') {
+        isMuted = currentState.muted;
+      }
+    }
+
     if (shouldFadeUp) {
-      console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
-      executeRadioCommand(mapping.command);
-      commandExecuted = true;
-      currentState.lastTriggered = Date.now();
+      // If listenToMute is enabled and currently muted, do NOT run the start command
+      if (!(mapping.listenToMute && isMuted)) {
+        console.log(`🎚️ Triggering fade UP mapping for channel ${channel}: ${mapping.command}`);
+        executeRadioCommand(mapping.command);
+        commandExecuted = true;
+        currentState.lastTriggered = Date.now();
+      } else {
+        console.log(`⏸️ Fade UP ignored for channel ${channel} (muted, listenToMute enabled)`);
+      }
     }
 
     if (shouldFadeDown && mapping.fadeDownCommand) {
@@ -687,6 +701,19 @@ function setupOSCHandlers() {
                 if (typeof faderValue === 'number') {
                     processFaderUpdate(channel, faderValue);
                 }
+            }
+        }
+
+        // Handle mute state updates for /ch/XX/mix/on
+        if (oscMessage.address && oscMessage.address.match(/^\/ch\/\d+\/mix\/on$/) && oscMessage.args && oscMessage.args.length > 0) {
+            const channelMatch = oscMessage.address.match(/\/ch\/(\d+)\/mix\/on/);
+            if (channelMatch) {
+                const channel = parseInt(channelMatch[1]);
+                const muted = oscMessage.args[0]?.value === 0;
+                // Store mute state in faderStates
+                const state = faderStates.get(channel) || {};
+                state.muted = muted;
+                faderStates.set(channel, state);
             }
         }
 
