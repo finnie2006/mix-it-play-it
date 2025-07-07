@@ -25,6 +25,15 @@ const DEFAULT_SETTINGS = {
     enabled: false
   },
   faderMappings: [],
+  speakerMute: {
+    enabled: false,
+    triggerChannels: [],
+    muteType: 'bus',
+    busNumber: 1,
+    muteGroupNumber: 1,
+    threshold: 10,
+    description: 'Mute main speakers when mics are open'
+  },
   lastUpdated: new Date().toISOString()
 };
 
@@ -152,6 +161,68 @@ async function configureRadioSoftware(settings) {
   return settings;
 }
 
+// Prompt for speaker mute configuration
+async function configureSpeakerMute(settings) {
+  console.log('\n🔇 SPEAKER MUTE CONFIGURATION');
+  console.log('=============================');
+
+  const enableSpeakerMute = await askQuestion(`Enable speaker mute when mics are open? [${settings.speakerMute.enabled ? 'y' : 'n'}]: `);
+  settings.speakerMute.enabled = enableSpeakerMute.toLowerCase().startsWith('y');
+
+  if (settings.speakerMute.enabled) {
+    const muteType = await askQuestion(`Mute method (bus/muteGroup) [${settings.speakerMute.muteType}]: `);
+    if (muteType.trim() && (muteType.trim() === 'bus' || muteType.trim() === 'muteGroup')) {
+      settings.speakerMute.muteType = muteType.trim();
+    }
+
+    if (settings.speakerMute.muteType === 'bus') {
+      const busNumber = await askQuestion(`Bus number to mute [${settings.speakerMute.busNumber || 1}]: `);
+      if (busNumber.trim()) {
+        const num = parseInt(busNumber.trim());
+        if (num >= 1 && num <= 6) {
+          settings.speakerMute.busNumber = num;
+        }
+      }
+    } else {
+      const muteGroupNumber = await askQuestion(`Mute group number [${settings.speakerMute.muteGroupNumber || 1}]: `);
+      if (muteGroupNumber.trim()) {
+        const num = parseInt(muteGroupNumber.trim());
+        if (num >= 1 && num <= 6) {
+          settings.speakerMute.muteGroupNumber = num;
+        }
+      }
+    }
+
+    const threshold = await askQuestion(`Trigger threshold (%) [${settings.speakerMute.threshold}]: `);
+    if (threshold.trim()) {
+      const thresholdNum = parseInt(threshold.trim());
+      if (thresholdNum >= 1 && thresholdNum <= 100) {
+        settings.speakerMute.threshold = thresholdNum;
+      }
+    }
+
+    const channels = await askQuestion(`Trigger channels (comma-separated, e.g., 1,2,3,4) [${settings.speakerMute.triggerChannels.join(',')}]: `);
+    if (channels.trim()) {
+      const channelList = channels.split(',').map(c => parseInt(c.trim())).filter(c => c >= 1 && c <= 16);
+      if (channelList.length > 0) {
+        settings.speakerMute.triggerChannels = channelList;
+      }
+    }
+
+    const description = await askQuestion(`Description [${settings.speakerMute.description}]: `);
+    if (description.trim()) {
+      settings.speakerMute.description = description.trim();
+    }
+
+    console.log(`✅ Speaker mute configured: ${settings.speakerMute.muteType} ${settings.speakerMute.muteType === 'bus' ? settings.speakerMute.busNumber : settings.speakerMute.muteGroupNumber}`);
+    console.log(`   Trigger channels: ${settings.speakerMute.triggerChannels.join(', ')}`);
+  } else {
+    console.log('⏭️ Speaker mute disabled');
+  }
+
+  return settings;
+}
+
 // Display current fader mappings
 function displayFaderMappings(settings) {
   console.log('\n🎚️ CURRENT FADER MAPPINGS');
@@ -187,6 +258,7 @@ async function runConfiguration() {
   console.log(`   Mixer: ${settings.mixer.ip}:${settings.mixer.port}`);
   console.log(`   Radio Software: ${settings.radioSoftware.enabled ? `${settings.radioSoftware.type} at ${settings.radioSoftware.host}:${settings.radioSoftware.port}` : 'Disabled'}`);
   console.log(`   Fader Mappings: ${settings.faderMappings.length} configured`);
+  console.log(`   Speaker Mute: ${settings.speakerMute.enabled ? `${settings.speakerMute.muteType} ${settings.speakerMute.muteType === 'bus' ? settings.speakerMute.busNumber : settings.speakerMute.muteGroupNumber} (${settings.speakerMute.triggerChannels.length} channels)` : 'Disabled'}`);
   console.log('');
 
   const needsConfig = await askQuestion('Do you want to configure settings? (y/n) [n]: ');
@@ -194,6 +266,7 @@ async function runConfiguration() {
   if (needsConfig.toLowerCase().startsWith('y')) {
     settings = await configureMixer(settings);
     settings = await configureRadioSoftware(settings);
+    settings = await configureSpeakerMute(settings);
     saveSettings(settings);
   }
 

@@ -19,9 +19,20 @@ export interface RadioSoftwareConfig {
   enabled: boolean;
 }
 
+export interface SpeakerMuteConfig {
+  enabled: boolean;
+  triggerChannels: number[];
+  muteType: 'bus' | 'muteGroup';
+  busNumber?: number;
+  muteGroupNumber?: number;
+  threshold: number;
+  description: string;
+}
+
 export interface AppSettings {
   radioSoftware: RadioSoftwareConfig;
   faderMappings: FaderMapping[];
+  speakerMute: SpeakerMuteConfig;
   lastUpdated: string;
 }
 
@@ -33,6 +44,15 @@ const DEFAULT_SETTINGS: AppSettings = {
     enabled: false
   },
   faderMappings: [],
+  speakerMute: {
+    enabled: false,
+    triggerChannels: [],
+    muteType: 'bus',
+    busNumber: 1,
+    muteGroupNumber: 1,
+    threshold: 10,
+    description: 'Mute main speakers when mics are open'
+  },
   lastUpdated: new Date().toISOString()
 };
 
@@ -97,5 +117,11 @@ export class SettingsService {
       settings.faderMappings[index] = { ...settings.faderMappings[index], ...updates };
       this.saveSettings(settings);
     }
+  }
+
+  static updateSpeakerMute(config: SpeakerMuteConfig): void {
+    const settings = this.loadSettings();
+    settings.speakerMute = config;
+    this.saveSettings(settings);
   }
 }

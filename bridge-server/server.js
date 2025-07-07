@@ -36,7 +36,16 @@ function loadSettings() {
       port: 9300,
       enabled: false
     },
-    faderMappings: settings.faderMappings || []
+    faderMappings: settings.faderMappings || [],
+    speakerMute: settings.speakerMute || {
+      enabled: false,
+      triggerChannels: [],
+      muteType: 'bus',
+      busNumber: 1,
+      muteGroupNumber: 1,
+      threshold: 10,
+      description: 'Mute main speakers when mics are open'
+    }
   };
 }
 
@@ -54,35 +63,16 @@ console.log(`📡 Mixer: ${MIXER_IP}:${MIXER_PORT}`);
 console.log(`🌐 WebSocket: localhost:${BRIDGE_PORT}`);
 console.log(`🔌 Local OSC: localhost:${LOCAL_OSC_PORT}`);
 
-// Display loaded configuration
-if (config.radioSoftware.enabled) {
-  console.log(`📻 Radio Software: ${config.radioSoftware.type} at ${config.radioSoftware.host}:${config.radioSoftware.port}`);
-} else {
-  console.log('📻 Radio Software: Disabled');
-}
-
-if (config.faderMappings.length > 0) {
-  console.log(`🎚️ Fader Mappings: ${config.faderMappings.length} mappings loaded`);
-  config.faderMappings.forEach((mapping, index) => {
-    if (mapping.enabled) {
-      console.log(`   ${index + 1}. Ch${mapping.channel}${mapping.isStereo ? '+' + (mapping.channel + 1) : ''}: ${mapping.description}`);
-    }
-  });
-} else {
-  console.log('🎚️ Fader Mappings: None configured');
-}
-
-// Mixer validation state
-let mixerConnected = false;
-let lastMixerResponse = null;
-let validationTimer = null;
-
 // Radio software configuration - Load from settings
 let radioConfig = config.radioSoftware.enabled ? config.radioSoftware : null;
 
 // Fader mapping state
 let faderStates = new Map();
 let activeMappings = config.faderMappings.filter(m => m.enabled);
+
+// Speaker mute configuration and state
+let speakerMuteConfig = config.speakerMute.enabled ? config.speakerMute : null;
+let isSpeakerMuted = false;
 
 // VU meter state - IMPLEMENT BACKEND FUNCTIONALITY
 let metersSubscribed = false;
@@ -93,6 +83,11 @@ let lastMeterData = {
 
 // Store firmware version
 let firmwareVersion = null;
+
+// Mixer validation state
+let mixerConnected = false;
+let lastMixerResponse = null;
+let validationTimer = null;
 
 // Parse meter blob for /meters/1 based on debug findings
 function parseMeterBlob(blob) {
@@ -115,6 +110,78 @@ function parseMeterBlob(blob) {
     return values;
 }
 
+// Broadcast speaker mute status to all clients
+function broadcastSpeakerMuteStatus(muted) {
+  const statusMessage = JSON.stringify({
+    type: 'speaker_mute_status',
+    muted: muted,
+    config: speakerMuteConfig,
+    timestamp: Date.now()
+  });
+
+  clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(statusMessage);
+      } catch (error) {
+        console.error('Error sending speaker mute status to client:', error);
+      }
+    }
+  });
+}
+
+// Process speaker mute logic
+function processSpeakerMute() {
+  if (!speakerMuteConfig) return;
+
+  // Check if any trigger channels are above threshold
+  const shouldMute = speakerMuteConfig.triggerChannels.some(channel => {
+    const state = faderStates.get(channel);
+    return state && state.value >= speakerMuteConfig.threshold;
+  });
+
+  // Only send command if mute state has changed
+  if (shouldMute !== isSpeakerMuted) {
+    isSpeakerMuted = shouldMute;
+    
+    if (shouldMute) {
+      console.log(`🔇 Muting speakers - mic channels active`);
+      sendSpeakerMuteCommand(true);
+    } else {
+      console.log(`🔊 Unmuting speakers - no mic channels active`);
+      sendSpeakerMuteCommand(false);
+    }
+  }
+}
+
+function sendSpeakerMuteCommand(mute) {
+  if (!speakerMuteConfig || !oscPort || !oscPort.socket) {
+    return;
+  }
+
+  let oscCommand;
+
+  if (speakerMuteConfig.muteType === 'bus') {
+    // Bus mute: /bus/1/mix/on with 0 (mute) or 1 (unmute)
+    oscCommand = {
+      address: `/bus/${speakerMuteConfig.busNumber || 1}/mix/on`,
+      args: [{ type: 'i', value: mute ? 0 : 1 }]
+    };
+  } else {
+    // Mute group: /config/mute/1 with 1 (activate) or 0 (deactivate)
+    oscCommand = {
+      address: `/config/mute/${speakerMuteConfig.muteGroupNumber || 1}`,
+      args: [{ type: 'i', value: mute ? 1 : 0 }]
+    };
+  }
+
+  oscPort.send(oscCommand);
+  console.log(`🔇 Sent speaker ${mute ? 'mute' : 'unmute'} command: ${oscCommand.address}`);
+
+  // Broadcast speaker mute status to clients
+  broadcastSpeakerMuteStatus(mute);
+}
+
 // Fader mapping processing function
 function processFaderUpdate(channel, value) {
   const currentState = faderStates.get(channel) || {
@@ -126,6 +193,9 @@ function processFaderUpdate(channel, value) {
 
   const previousValue = currentState.value;
   currentState.value = value;
+
+  // Process speaker mute logic
+  processSpeakerMute();
 
   // Find mappings for this channel
   const relevantMappings = activeMappings.filter(mapping => {
@@ -646,189 +716,201 @@ oscPort.open();
 
 // Handle WebSocket connections
 wss.on('connection', (ws) => {
-    console.log('🔗 WebSocket client connected');
-    clients.add(ws);
+  console.log('🔗 WebSocket client connected');
+  clients.add(ws);
 
-    // Send connection status
+  // Send connection status
+  ws.send(JSON.stringify({
+    type: 'status',
+    connected: true,
+    mixerIP: MIXER_IP,
+    mixerPort: MIXER_PORT
+  }));
+
+  // Send current mixer validation status
+  ws.send(JSON.stringify({
+    type: 'mixer_status',
+    connected: mixerConnected,
+    mixerIP: MIXER_IP,
+    mixerPort: MIXER_PORT,
+    message: mixerConnected ? 'Mixer responding' : 'Validating mixer connection...',
+    timestamp: Date.now()
+  }));
+
+  // Send speaker mute status if available
+  if (speakerMuteConfig) {
     ws.send(JSON.stringify({
-        type: 'status',
-        connected: true,
-        mixerIP: MIXER_IP,
-        mixerPort: MIXER_PORT
+      type: 'speaker_mute_status',
+      muted: isSpeakerMuted,
+      config: speakerMuteConfig,
+      timestamp: Date.now()
     }));
+  }
 
-    // Send current mixer validation status
+  // Send last meter data if available
+  if (lastMeterData.channels) {
     ws.send(JSON.stringify({
-        type: 'mixer_status',
-        connected: mixerConnected,
-        mixerIP: MIXER_IP,
-        mixerPort: MIXER_PORT,
-        message: mixerConnected ? 'Mixer responding' : 'Validating mixer connection...',
-        timestamp: Date.now()
+      type: 'vu_meters',
+      data: lastMeterData,
+      timestamp: Date.now()
     }));
+  }
 
-    // Send last meter data if available
-    if (lastMeterData.channels) {
-        ws.send(JSON.stringify({
-            type: 'vu_meters',
-            data: lastMeterData,
-            timestamp: Date.now()
-        }));
-    }
+  // Send firmware version if available
+  if (firmwareVersion) {
+    ws.send(JSON.stringify({
+      type: 'firmware_version',
+      version: firmwareVersion,
+      timestamp: Date.now()
+    }));
+  }
 
-    // Send firmware version if available
-    if (firmwareVersion) {
-        ws.send(JSON.stringify({
-            type: 'firmware_version',
-            version: firmwareVersion,
-            timestamp: Date.now()
-        }));
-    }
+  // Handle messages from WebSocket client
+  ws.on('message', async (data) => {
+    try {
+      const message = JSON.parse(data.toString());
 
-    // Handle messages from WebSocket client
-    ws.on('message', async (data) => {
-        try {
-            const message = JSON.parse(data.toString());
-
-            if (message.type === 'osc' && message.address) {
-                // Send OSC message to mixer
-                if (oscPort && oscPort.socket) {
-                    oscPort.send({
-                        address: message.address,
-                        args: message.args || []
-                    });
-                }
-            } else if (message.type === 'subscribe') {
-                // Handle subscription requests
-                if (oscPort && oscPort.socket) {
-                    oscPort.send({
-                        address: message.address,
-                        args: []
-                    });
-                }
-            } else if (message.type === 'subscribe_meters') {
-                // Handle VU meter subscription
-                subscribeToMeters();
-            } else if (message.type === 'validate_mixer') {
-                // Manual mixer validation request
-                validateMixerConnection();
-            } else if (message.type === 'update_mixer_ip' && message.mixerIP) {
-                // Handle mixer IP update from client
-                updateMixerIP(message.mixerIP);
-            } else if (message.type === 'radio_config' && message.config) {
-                // Update radio software configuration
-                radioConfig = message.config;
-                console.log(`📻 Radio config updated: ${radioConfig.host}:${radioConfig.port} (${radioConfig.type})`);
-
-                // Send confirmation back to client
-                ws.send(JSON.stringify({
-                    type: 'radio_config_updated',
-                    success: true,
-                    timestamp: Date.now()
-                }));
-            } else if (message.type === 'radio_command' && message.command) {
-                // Execute radio software command
-                if (!radioConfig) {
-                    console.warn('⚠️ Radio command requested but no radio config available');
-                    ws.send(JSON.stringify({
-                        type: 'radio_command_result',
-                        success: false,
-                        error: 'No radio configuration available',
-                        command: message.command,
-                        timestamp: Date.now()
-                    }));
-                    return;
-                }
-
-                try {
-                    const result = await sendRadioCommand(message.command, radioConfig);
-
-                    // Send result back to client
-                    ws.send(JSON.stringify({
-                        type: 'radio_command_result',
-                        success: true,
-                        command: message.command,
-                        statusCode: result.statusCode,
-                        response: result.response,
-                        timestamp: Date.now()
-                    }));
-                } catch (error) {
-                    console.error(`❌ Radio command execution failed:`, error);
-
-                    // Send error back to client
-                    ws.send(JSON.stringify({
-                        type: 'radio_command_result',
-                        success: false,
-                        error: error.error || error.message || 'Unknown error',
-                        command: message.command,
-                        timestamp: Date.now()
-                    }));
-                }
-            } else if (message.type === 'reload_settings') {
-                // Reload settings from file
-                try {
-                    const newConfig = loadSettings();
-                    radioConfig = newConfig.radioSoftware.enabled ? newConfig.radioSoftware : null;
-                    activeMappings = newConfig.faderMappings.filter(m => m.enabled);
-
-                    console.log(`⚙️ Settings reloaded: ${activeMappings.length} active mappings, radio ${radioConfig ? 'enabled' : 'disabled'}`);
-
-                    // Broadcast updated fader mappings to all clients
-                    const mappingUpdateMessage = JSON.stringify({
-                        type: 'fader_mappings',
-                        mappings: activeMappings,
-                        timestamp: Date.now()
-                    });
-
-                    clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            try {
-                                client.send(mappingUpdateMessage);
-                            } catch (error) {
-                                console.error('Error sending mapping update to client:', error);
-                            }
-                        }
-                    });
-
-                    // Send confirmation back to client
-                    ws.send(JSON.stringify({
-                        type: 'settings_reloaded',
-                        success: true,
-                        activeMappings: activeMappings.length,
-                        radioEnabled: !!radioConfig,
-                        timestamp: Date.now()
-                    }));
-                } catch (error) {
-                    console.error('❌ Error reloading settings:', error);
-                    ws.send(JSON.stringify({
-                        type: 'settings_reloaded',
-                        success: false,
-                        error: error.message,
-                        timestamp: Date.now()
-                    }));
-                }
-            } else if (message.type === 'get_fader_mappings') {
-                // Send current fader mappings to client
-                ws.send(JSON.stringify({
-                    type: 'fader_mappings',
-                    mappings: activeMappings,
-                    timestamp: Date.now()
-                }));
-            }
-        } catch (error) {
-            console.error('❌ Error parsing WebSocket message:', error);
+      if (message.type === 'osc' && message.address) {
+        // Send OSC message to mixer
+        if (oscPort && oscPort.socket) {
+          oscPort.send({
+            address: message.address,
+            args: message.args || []
+          });
         }
-    });
+      } else if (message.type === 'subscribe') {
+        // Handle subscription requests
+        if (oscPort && oscPort.socket) {
+          oscPort.send({
+            address: message.address,
+            args: []
+          });
+        }
+      } else if (message.type === 'subscribe_meters') {
+        // Handle VU meter subscription
+        subscribeToMeters();
+      } else if (message.type === 'validate_mixer') {
+        // Manual mixer validation request
+        validateMixerConnection();
+      } else if (message.type === 'update_mixer_ip' && message.mixerIP) {
+        // Handle mixer IP update from client
+        updateMixerIP(message.mixerIP);
+      } else if (message.type === 'radio_config' && message.config) {
+        // Update radio software configuration
+        radioConfig = message.config;
+        console.log(`📻 Radio config updated: ${radioConfig.host}:${radioConfig.port} (${radioConfig.type})`);
 
-    ws.on('close', () => {
-        console.log('❌ WebSocket client disconnected');
-        clients.delete(ws);
-    });
+        // Send confirmation back to client
+        ws.send(JSON.stringify({
+          type: 'radio_config_updated',
+          success: true,
+          timestamp: Date.now()
+        }));
+      } else if (message.type === 'radio_command' && message.command) {
+        // Execute radio software command
+        if (!radioConfig) {
+          console.warn('⚠️ Radio command requested but no radio config available');
+          ws.send(JSON.stringify({
+            type: 'radio_command_result',
+            success: false,
+            error: 'No radio configuration available',
+            command: message.command,
+            timestamp: Date.now()
+          }));
+          return;
+        }
 
-    ws.on('error', (error) => {
-        console.error('❌ WebSocket error:', error);
-        clients.delete(ws);
-    });
+        try {
+          const result = await sendRadioCommand(message.command, radioConfig);
+
+          // Send result back to client
+          ws.send(JSON.stringify({
+            type: 'radio_command_result',
+            success: true,
+            command: message.command,
+            statusCode: result.statusCode,
+            response: result.response,
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error(`❌ Radio command execution failed:`, error);
+
+          // Send error back to client
+          ws.send(JSON.stringify({
+            type: 'radio_command_result',
+            success: false,
+            error: error.error || error.message || 'Unknown error',
+            command: message.command,
+            timestamp: Date.now()
+          }));
+        }
+      } else if (message.type === 'reload_settings') {
+        // Reload settings from file
+        try {
+          const newConfig = loadSettings();
+          radioConfig = newConfig.radioSoftware.enabled ? newConfig.radioSoftware : null;
+          activeMappings = newConfig.faderMappings.filter(m => m.enabled);
+          speakerMuteConfig = newConfig.speakerMute.enabled ? newConfig.speakerMute : null;
+
+          console.log(`⚙️ Settings reloaded: ${activeMappings.length} active mappings, radio ${radioConfig ? 'enabled' : 'disabled'}, speaker mute ${speakerMuteConfig ? 'enabled' : 'disabled'}`);
+
+          // Broadcast updated fader mappings to all clients
+          const mappingUpdateMessage = JSON.stringify({
+            type: 'fader_mappings',
+            mappings: activeMappings,
+            timestamp: Date.now()
+          });
+
+          clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              try {
+                client.send(mappingUpdateMessage);
+              } catch (error) {
+                console.error('Error sending mapping update to client:', error);
+              }
+            }
+          });
+
+          // Send confirmation back to client
+          ws.send(JSON.stringify({
+            type: 'settings_reloaded',
+            success: true,
+            activeMappings: activeMappings.length,
+            radioEnabled: !!radioConfig,
+            speakerMuteEnabled: !!speakerMuteConfig,
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error('❌ Error reloading settings:', error);
+          ws.send(JSON.stringify({
+            type: 'settings_reloaded',
+            success: false,
+            error: error.message,
+            timestamp: Date.now()
+          }));
+        }
+      } else if (message.type === 'get_fader_mappings') {
+        // Send current fader mappings to client
+        ws.send(JSON.stringify({
+          type: 'fader_mappings',
+          mappings: activeMappings,
+          timestamp: Date.now()
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Error parsing WebSocket message:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    console.log('❌ WebSocket client disconnected');
+    clients.delete(ws);
+  });
+
+  ws.on('error', (error) => {
+    console.error('❌ WebSocket error:', error);
+    clients.delete(ws);
+  });
 });
 
 console.log('🚀 Bridge server ready!');
@@ -842,14 +924,10 @@ if (radioConfig) {
 if (activeMappings.length > 0) {
     console.log(`  • Fader mappings (${activeMappings.length} active)`);
 }
+if (speakerMuteConfig) {
+    console.log(`  • Speaker mute protection`);
+}
 console.log('💡 Tips:');
-console.log('  • Settings can be updated via the web interface');
-console.log('  • Use /reload_settings WebSocket message to refresh configuration');
-console.log('  • Use /reload_settings WebSocket message to refresh configuration');
-console.log('💡 Tips:');
-console.log('  • Settings can be updated via the web interface');
-console.log('  • Use /reload_settings WebSocket message to refresh configuration');
-console.log('  • Use /reload_settings WebSocket message to refresh configuration');
 console.log('  • Settings can be updated via the web interface');
 console.log('  • Use /reload_settings WebSocket message to refresh configuration');
 console.log('  • Use /reload_settings WebSocket message to refresh configuration');

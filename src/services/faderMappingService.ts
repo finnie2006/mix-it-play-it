@@ -1,4 +1,4 @@
-import { FaderMapping, SettingsService } from './settingsService';
+import { FaderMapping, SettingsService, SpeakerMuteConfig } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
 export interface FaderState {
@@ -13,6 +13,8 @@ export class FaderMappingService {
   private faderStates: Map<number, FaderState> = new Map();
   private mappings: FaderMapping[] = [];
   private radioConfig: RadioSoftwareConfig | null = null;
+  private speakerMuteConfig: SpeakerMuteConfig | null = null;
+  private isSpeakerMuted: boolean = false;
   private statusUpdateCallback?: (channel: number, isActive: boolean, commandExecuted: boolean) => void;
   private bridgeConnection: WebSocket | null = null;
   private radioConfigSent = false;
@@ -83,7 +85,12 @@ export class FaderMappingService {
     const settings = SettingsService.loadSettings();
     this.mappings = settings.faderMappings.filter(m => m.enabled);
     this.radioConfig = settings.radioSoftware.enabled ? settings.radioSoftware : null;
+    this.speakerMuteConfig = settings.speakerMute.enabled ? settings.speakerMute : null;
     console.log(`🎚️ Loaded ${this.mappings.length} active fader mappings`);
+    
+    if (this.speakerMuteConfig) {
+      console.log(`🔇 Speaker mute enabled for channels: ${this.speakerMuteConfig.triggerChannels.join(', ')}`);
+    }
 
     // Send updated config to bridge if connected
     this.radioConfigSent = false;
@@ -109,6 +116,9 @@ export class FaderMappingService {
 
     const previousValue = currentState.value;
     currentState.value = value;
+
+    // Process speaker mute logic
+    this.processSpeakerMute();
 
     // Find mappings for this channel
     const relevantMappings = this.mappings.filter(mapping => {
@@ -216,6 +226,60 @@ export class FaderMappingService {
     console.log(`🌐 Sent command to bridge: ${command}`);
   }
 
+  private processSpeakerMute() {
+    if (!this.speakerMuteConfig) return;
+
+    // Check if any trigger channels are above threshold
+    const shouldMute = this.speakerMuteConfig.triggerChannels.some(channel => {
+      const state = this.faderStates.get(channel);
+      return state && state.value >= this.speakerMuteConfig!.threshold;
+    });
+
+    // Only send command if mute state has changed
+    if (shouldMute !== this.isSpeakerMuted) {
+      this.isSpeakerMuted = shouldMute;
+      
+      if (shouldMute) {
+        console.log(`🔇 Muting speakers - mic channels active`);
+        this.sendSpeakerMuteCommand(true);
+      } else {
+        console.log(`🔊 Unmuting speakers - no mic channels active`);
+        this.sendSpeakerMuteCommand(false);
+      }
+    }
+  }
+
+  private sendSpeakerMuteCommand(mute: boolean) {
+    if (!this.speakerMuteConfig || !this.bridgeConnection || this.bridgeConnection.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    let oscCommand: { address: string; args: { type: string; value: number | string }[] };
+
+    if (this.speakerMuteConfig.muteType === 'bus') {
+      // Bus mute: /bus/1/mix/on with 0 (mute) or 1 (unmute)
+      oscCommand = {
+        address: `/bus/${this.speakerMuteConfig.busNumber || 1}/mix/on`,
+        args: [{ type: 'i', value: mute ? 0 : 1 }]
+      };
+    } else {
+      // Mute group: /config/mute/1 with 1 (activate) or 0 (deactivate)
+      oscCommand = {
+        address: `/config/mute/${this.speakerMuteConfig.muteGroupNumber || 1}`,
+        args: [{ type: 'i', value: mute ? 1 : 0 }]
+      };
+    }
+
+    const message = {
+      type: 'osc',
+      address: oscCommand.address,
+      args: oscCommand.args
+    };
+
+    this.bridgeConnection.send(JSON.stringify(message));
+    console.log(`🔇 Sent speaker ${mute ? 'mute' : 'unmute'} command: ${oscCommand.address}`);
+  }
+
   public getFaderState(channel: number): FaderState | undefined {
     return this.faderStates.get(channel);
   }
@@ -244,6 +308,14 @@ export class FaderMappingService {
       }
       return channel === mapping.channel;
     });
+  }
+
+  public getSpeakerMuteStatus(): { enabled: boolean; isMuted: boolean; triggerChannels: number[] } {
+    return {
+      enabled: !!this.speakerMuteConfig,
+      isMuted: this.isSpeakerMuted,
+      triggerChannels: this.speakerMuteConfig?.triggerChannels || []
+    };
   }
 }
 

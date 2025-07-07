@@ -2,7 +2,8 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioSoftwareConfig } from '@/components/RadioSoftwareConfig';
 import { FaderMappingConfig } from '@/components/FaderMappingConfig';
-import { Settings, Radio, Volume2 } from 'lucide-react';
+import { SpeakerMuteConfig } from '@/components/SpeakerMuteConfig';
+import { Settings, Radio, Volume2, VolumeX } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
@@ -20,11 +21,11 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <Settings className="text-blue-400" size={28} />
           Configuration
         </h2>
-        <p className="text-slate-300">Configure radio software integration and fader mappings</p>
+        <p className="text-slate-300">Configure radio software integration, fader mappings, and speaker mute</p>
       </div>
 
       <Tabs defaultValue="radio" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-slate-800/50 border-slate-700">
+        <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border-slate-700">
           <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
             Radio Software
@@ -32,6 +33,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <TabsTrigger value="faders" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Volume2 size={16} />
             Fader Mappings
+          </TabsTrigger>
+          <TabsTrigger value="speakers" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+            <VolumeX size={16} />
+            Speaker Mute
           </TabsTrigger>
         </TabsList>
 
@@ -41,6 +46,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
 
         <TabsContent value="faders" className="mt-6">
           <FaderMappingConfig mixerModel={mixerModel} onSettingsUpdate={onSettingsUpdate} />
+        </TabsContent>
+
+        <TabsContent value="speakers" className="mt-6">
+          <SpeakerMuteConfig mixerModel={mixerModel} onSettingsUpdate={onSettingsUpdate} />
         </TabsContent>
       </Tabs>
     </div>
