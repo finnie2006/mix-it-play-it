@@ -19,9 +19,14 @@
     "electron": "electron .",
     "electron:dev": "concurrently \"npm run dev\" \"npx wait-on http://localhost:5173 && electron .\"",
     "clean": "rimraf dist dist-electron",
-    "electron:build": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder",
-    "electron:dist": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder --publish=never",
-    "electron:portable": "npm run clean && timeout /t 2 /nobreak > nul && npm run build && electron-builder --win portable"
+    "electron:build": "npm run clean && npm run wait && npm run build && electron-builder",
+    "electron:build:current": "npm run clean && npm run wait && npm run build && electron-builder --publish=never",
+    "electron:build:win": "npm run clean && npm run wait && npm run build && electron-builder --win --publish=never",
+    "electron:build:linux": "npm run clean && npm run wait && npm run build && electron-builder --linux --publish=never",
+    "electron:build:mac": "npm run clean && npm run wait && npm run build && electron-builder --mac --publish=never",
+    "electron:dist": "npm run clean && npm run wait && npm run build && electron-builder --publish=never",
+    "electron:portable": "npm run clean && npm run wait && npm run build && electron-builder --win portable --publish=never",
+    "wait": "node -e \"setTimeout(() => process.exit(0), 2000)\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
@@ -86,8 +91,8 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react-swc": "^3.5.0",
     "autoprefixer": "^10.4.20",
-    "electron": "^33.0.0",
-    "electron-builder": "^25.0.0",
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8",
     "eslint": "^9.9.0",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "eslint-plugin-react-refresh": "^0.4.9",
@@ -118,6 +123,9 @@
       }
     ],
     "win": {
+      "icon": "assets/icon.ico",
+      "sign": false,
+      "requestedExecutionLevel": "asInvoker",
       "target": [
         {
           "target": "nsis",
@@ -144,10 +152,13 @@
       "artifactName": "${productName}-${version}-setup.exe"
     },
     "mac": {
+      "icon": "assets/logo.png",
       "target": "dmg"
     },
     "linux": {
-      "target": "AppImage"
+      "icon": "assets/logo.png",
+      "target": "AppImage",
+      "category": "AudioVideo"
     }
   }
 }

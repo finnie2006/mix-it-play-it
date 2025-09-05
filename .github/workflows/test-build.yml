@@ -1,0 +1,51 @@
+name: Test Build
+
+on:
+  push:
+    branches: [ develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test-build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install bridge-server dependencies
+      run: |
+        cd bridge-server
+        npm ci
+
+    - name: Lint code
+      run: npm run lint
+
+    - name: Build React app
+      run: npm run build
+
+    - name: Test Electron packaging (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: npm run electron:build:linux
+
+    - name: Test Electron packaging (Windows)
+      if: matrix.os == 'windows-latest'
+      run: npm run electron:build:win
+
+    - name: Test Electron packaging (macOS)
+      if: matrix.os == 'macos-latest'
+      run: npm run electron:build:mac
