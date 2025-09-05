@@ -72,7 +72,7 @@ npm run electron:portable
 ## Requirements
 
 The workflows automatically handle all dependencies, but for local development you need:
-- Node.js 18+
+- Node.js 22+
 - npm or yarn
 - Platform-specific requirements for cross-compilation (if applicable)
 
