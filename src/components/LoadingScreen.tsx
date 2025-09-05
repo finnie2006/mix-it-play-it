@@ -38,7 +38,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
             X-Air Radio Mode
           </h1>
           <p className="text-slate-300 text-lg">
-            Professional X-Air Control
+            X-Air Radio broadcasting engine
           </p>
         </div>
 

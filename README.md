@@ -43,4 +43,4 @@ See `assets/logo-design.txt` for design specifications.
 
 ## License
 
-© 2024 Mix It Play It. All rights reserved.
+© 2024 - 2025 Mix It Play It. All rights reserved.
