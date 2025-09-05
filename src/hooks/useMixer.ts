@@ -21,8 +21,18 @@ export const useMixer = (config: MixerConfig) => {
   useEffect(() => {
     if (!config.ip) return;
 
+    // Cleanup previous mixer if exists
+    if (mixer) {
+      mixer.disconnect();
+    }
+
     const xairMixer = new XAirWebSocket(config.ip, config.port, config.model);
     setMixer(xairMixer);
+
+    // Reset states for new connection
+    setIsConnected(false);
+    setMixerValidated(false);
+    setMixerStatusMessage('');
 
     // Subscribe to connection status
     const unsubscribeStatus = xairMixer.onStatusChange(setIsConnected);
@@ -81,6 +91,13 @@ export const useMixer = (config: MixerConfig) => {
   const disconnect = useCallback(() => {
     if (mixer) {
       mixer.disconnect();
+      // Reset states when disconnecting
+      setIsConnected(false);
+      setMixerValidated(false);
+      setMixerStatusMessage('');
+      setFaderValues({});
+      setMuteStates({});
+      setFaderStates({});
     }
   }, [mixer]);
 

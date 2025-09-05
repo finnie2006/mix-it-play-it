@@ -4,14 +4,19 @@ import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { VUMeterDashboard } from '@/components/VUMeterDashboard';
 import { HelpModal } from '@/components/HelpModal';
+import { AdvancedSettingsModal } from '@/components/AdvancedSettingsModal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Radio, Volume2, Settings, Activity } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Radio, Volume2, Settings, Activity, Shield, ShieldOff } from 'lucide-react';
 import { useMixer } from '@/hooks/useMixer';
 import { FullscreenButton } from '@/components/FullscreenButton';
 
 const Index = () => {
   const [mixerIP, setMixerIP] = useState('192.168.1.10');
   const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
+  const [currentTab, setCurrentTab] = useState('dashboard');
+  const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
+  const [isEndUserMode, setIsEndUserMode] = useState(false);
   
   const { 
     isConnected, 
@@ -27,11 +32,47 @@ const Index = () => {
     reloadMappings
   } = useMixer({ ip: mixerIP, port: 10024, model: mixerModel });
 
+  // Load auto-connect settings and connect if enabled
+  React.useEffect(() => {
+    const savedSettings = localStorage.getItem('advancedSettings');
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings);
+        if (settings.autoConnectEnabled && settings.autoConnectIP) {
+          setAutoConnectEnabled(true);
+          setMixerIP(settings.autoConnectIP);
+          // Auto-connect after a short delay to ensure everything is initialized
+          setTimeout(() => {
+            connect();
+          }, 1000);
+        }
+      } catch (error) {
+        console.error('Failed to load auto-connect settings:', error);
+      }
+    }
+  }, [connect]);
+
   // Reload mappings when tab changes to dashboard (to pick up any new settings)
   const handleTabChange = (value: string) => {
+    setCurrentTab(value);
+    
     if (value === 'dashboard') {
       reloadMappings();
     }
+  };
+
+  // Handle auto-connect settings change
+  const handleAutoConnectChange = (enabled: boolean, ip: string) => {
+    setAutoConnectEnabled(enabled);
+    if (enabled && ip) {
+      setMixerIP(ip);
+    }
+  };
+
+  // Handle password protection settings change
+  const handlePasswordProtectionChange = (enabled: boolean, password: string) => {
+    // This is handled within the VUMeterDashboard component now
+    // Just acknowledge the change
   };
 
   return (
@@ -46,6 +87,10 @@ const Index = () => {
             <p className="text-slate-300">Professional X-Air 16/18 Control for Radio Broadcasting</p>
           </div>
           <div className="flex gap-2">
+            <AdvancedSettingsModal 
+              onPasswordProtectionChange={handlePasswordProtectionChange}
+              onAutoConnectChange={handleAutoConnectChange}
+            />
             <FullscreenButton />
             <HelpModal />
           </div>
@@ -67,7 +112,7 @@ const Index = () => {
         />
 
         <div className="mt-8">
-          <Tabs defaultValue="dashboard" className="w-full" onValueChange={handleTabChange}>
+          <Tabs value={currentTab} className="w-full" onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="dashboard" className="flex items-center gap-2">
                 <Volume2 size={16} />
@@ -94,9 +139,36 @@ const Index = () => {
             </TabsContent>
             
             <TabsContent value="meters">
-              <VUMeterDashboard 
-                isConnected={isConnected && mixerValidated}
-              />
+              <div className="space-y-4">
+                {/* Mode Toggle */}
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">
+                      VU Meters & Clock - {isEndUserMode ? 'End User Mode' : 'Admin Mode'}
+                    </h2>
+                    <p className="text-slate-400">
+                      {isEndUserMode 
+                        ? 'Protected mode with working password exit functionality' 
+                        : 'Full admin access mode'
+                      }
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => setIsEndUserMode(!isEndUserMode)}
+                    variant={isEndUserMode ? "secondary" : "default"}
+                    className="flex items-center gap-2"
+                  >
+                    {isEndUserMode ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                    {isEndUserMode ? 'Switch to Admin Mode' : 'Switch to End User Mode'}
+                  </Button>
+                </div>
+                
+                {/* Dashboard Content */}
+                <VUMeterDashboard 
+                  isConnected={isConnected && mixerValidated}
+                  endUserMode={isEndUserMode}
+                />
+              </div>
             </TabsContent>
             
             <TabsContent value="config">

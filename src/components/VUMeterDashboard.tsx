@@ -1,39 +1,117 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card } from '@/components/ui/card';
 import { VUMeter } from '@/components/VUMeter';
 import { AnalogClock } from '@/components/AnalogClock';
+import { PasswordUnlockModal } from '@/components/PasswordUnlockModal';
 import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
 import { faderMappingService } from '@/services/faderMappingService';
-import { SettingsService } from '@/services/settingsService';
 import { Activity, Clock, Maximize, Minimize, Mic, Settings, VolumeX } from 'lucide-react';
 
 interface VUMeterDashboardProps {
   isConnected?: boolean;
+  endUserMode?: boolean;
 }
 
-export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected = false }) => {
+export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected = false, endUserMode = false }) => {
   const [meterData, setMeterData] = useState<VUMeterData | null>(null);
   const [serviceConnected, setServiceConnected] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [micChannels, setMicChannels] = useState<number[]>([]);
   const [showMicSettings, setShowMicSettings] = useState(false);
   const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
+  const [isLocked, setIsLocked] = useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordProtectionEnabled, setPasswordProtectionEnabled] = useState(false);
+  const [savedPassword, setSavedPassword] = useState('');
   const [speakerMuteConfig, setSpeakerMuteConfig] = useState<{ enabled: boolean; isMuted: boolean; triggerChannels: number[] }>({
     enabled: false,
     isMuted: false,
     triggerChannels: []
   });
 
-  // Handle fullscreen toggle - DEFINE EARLY
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  // Load password protection settings
+  useEffect(() => {
+    const loadPasswordSettings = () => {
+      const savedSettings = localStorage.getItem('advancedSettings');
+      console.log('Loading advanced settings:', savedSettings);
+      
+      if (savedSettings) {
+        try {
+          const settings = JSON.parse(savedSettings);
+          console.log('Parsed settings:', settings);
+          
+          const hasPassword = settings.password && settings.password.trim() !== '';
+          const isEnabled = settings.passwordProtectionEnabled && hasPassword;
+          
+          setPasswordProtectionEnabled(isEnabled);
+          setSavedPassword(settings.password || '');
+          
+          console.log('Password protection enabled:', isEnabled);
+          console.log('Has password:', hasPassword);
+        } catch (error) {
+          console.error('Failed to parse settings:', error);
+        }
+      } else {
+        console.log('No advanced settings found');
+      }
+    };
+
+    loadPasswordSettings();
+  }, []);
+
+  // Handle fullscreen toggle
+  const toggleFullscreen = useCallback(() => {
+    console.log('toggleFullscreen called, current isFullscreen:', isFullscreen);
+    console.log('End user mode:', endUserMode);
+    console.log('Password protection enabled:', passwordProtectionEnabled);
+    
+    if (isFullscreen) {
+      // Exiting fullscreen
+      if (endUserMode && passwordProtectionEnabled) {
+        console.log('End user mode with password - showing modal');
+        setIsPasswordModalOpen(true);
+        return; // Important: stop here and wait for password
+      } else {
+        console.log('Admin mode or no password - exiting directly');
+        setIsFullscreen(false);
+        // Also exit browser fullscreen
+        if (document.fullscreenElement) {
+          document.exitFullscreen?.();
+        }
+      }
+    } else {
+      // Entering fullscreen
+      console.log('Entering fullscreen');
+      setIsFullscreen(true);
+      // Also enter browser fullscreen
+      document.documentElement.requestFullscreen?.();
+    }
+  }, [isFullscreen, endUserMode, passwordProtectionEnabled]);
+
+  // Handle password verification
+  const handlePasswordSubmit = (enteredPassword: string): boolean => {
+    console.log('Password submitted for verification');
+    if (enteredPassword === savedPassword) {
+      console.log('Password correct - exiting fullscreen');
+      setIsPasswordModalOpen(false);
+      setIsFullscreen(false);
+      // Also exit browser fullscreen
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.();
+      }
+      return true;
+    } else {
+      console.log('Password incorrect');
+      return false;
+    }
   };
 
-  // Handle escape key to exit fullscreen - DEFINE EARLY
+  // Handle escape key to exit fullscreen
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isFullscreen) {
-        setIsFullscreen(false);
+        // Use the same logic as fullscreen toggle for consistency
+        toggleFullscreen();
       }
       if (event.key === 'F11') {
         event.preventDefault();
@@ -43,6 +121,23 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [isFullscreen, toggleFullscreen]);
+
+  useEffect(() => {
+    console.log('State changed - isFullscreen:', isFullscreen);
+  }, [isFullscreen]);
+
+  // Handle browser fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        console.log('Browser exited fullscreen, updating component state');
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, [isFullscreen]);
 
   // Load speaker mute status from fader mapping service
@@ -281,9 +376,12 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
           <SpeakerMuteIndicator />
           <button
-            onClick={toggleFullscreen}
-            className="p-2 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-white transition-colors"
-            title="Exit Fullscreen (ESC or F11)"
+            onClick={() => {
+              console.log('Custom exit button clicked!');
+              toggleFullscreen();
+            }}
+            className="p-2 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-white transition-colors border-2 border-red-500"
+            title="Exit Fullscreen (Custom Button)"
           >
             <Minimize size={20} />
           </button>
@@ -397,6 +495,15 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             </div>
           </div>
         </div>
+
+        {/* Password unlock modal also rendered in fullscreen so user isn't locked in */}
+        <PasswordUnlockModal
+          isOpen={isPasswordModalOpen}
+            /* When attempting to exit fullscreen under password protection, modal opens */
+          onUnlock={handlePasswordSubmit}
+          onClose={() => setIsPasswordModalOpen(false)}
+          allowClose={true}
+        />
       </div>
     );
   }
@@ -549,6 +656,14 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           </div>
         </div>
       </Card>
+
+      {/* Password unlock modal */}
+      <PasswordUnlockModal
+        isOpen={isPasswordModalOpen}
+        onUnlock={handlePasswordSubmit}
+        onClose={() => setIsPasswordModalOpen(false)}
+        allowClose={true}
+      />
     </div>
   );
 };
