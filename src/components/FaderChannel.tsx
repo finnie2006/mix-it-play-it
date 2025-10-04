@@ -3,8 +3,10 @@ import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Volume2, VolumeX, Settings, Play, Pause } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Volume2, VolumeX, Settings, Play, Pause, Plus } from 'lucide-react';
 import { faderMappingService } from '@/services/faderMappingService';
+import { MiniVUMeter } from './MiniVUMeter';
 
 interface FaderChannelProps {
   channel: number;
@@ -12,6 +14,8 @@ interface FaderChannelProps {
   isActive: boolean;
   isMuted?: boolean;
   commandExecuted?: boolean;
+  vuLevel?: number;
+  onConfigureClick?: (channel: number) => void;
 }
 
 export const FaderChannel: React.FC<FaderChannelProps> = ({ 
@@ -19,7 +23,9 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
   value, 
   isActive,
   isMuted = false,
-  commandExecuted = false
+  commandExecuted = false,
+  vuLevel = -90,
+  onConfigureClick
 }) => {
   const mapping = faderMappingService.getMappingForChannel(channel);
   const hasMapping = mapping !== undefined;
@@ -65,21 +71,26 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
             {mapping?.isStereo && channel === mapping.channel + 1 && " (R)"}
           </span>
         </div>
-        <div className="flex gap-2">
-          {commandStatus && (
-            <Badge variant={showAsActive ? 'default' : 'secondary'} className={
-              showAsActive ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
-            }>
-              {commandStatus === 'PLAYING' && <Play size={12} className="mr-1" />}
-              {commandStatus === 'PAUSED' && <Pause size={12} className="mr-1" />}
-              {commandStatus}
-            </Badge>
-          )}
-          {isMuted && (
-            <Badge variant="destructive" className="bg-red-600 text-white">
-              MUTED
-            </Badge>
-          )}
+        <div className="flex items-center gap-2">
+          {/* Mini VU Meter */}
+          <MiniVUMeter level={vuLevel} className="opacity-80" />
+          
+          <div className="flex gap-2">
+            {commandStatus && (
+              <Badge variant={showAsActive ? 'default' : 'secondary'} className={
+                showAsActive ? 'bg-green-600 text-white' : 'bg-slate-600 text-slate-300'
+              }>
+                {commandStatus === 'PLAYING' && <Play size={12} className="mr-1" />}
+                {commandStatus === 'PAUSED' && <Pause size={12} className="mr-1" />}
+                {commandStatus}
+              </Badge>
+            )}
+            {isMuted && (
+              <Badge variant="destructive" className="bg-red-600 text-white">
+                MUTED
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
 
@@ -126,13 +137,20 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
             </div>
           </div>
         ) : (
-          <div className="space-y-2 text-sm">
-            <div className="flex items-center gap-2 text-slate-500">
-              <Settings size={14} />
-              <span>Not configured</span>
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-center p-4 border-2 border-dashed border-slate-600 rounded-lg bg-slate-800/30">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onConfigureClick?.(channel)}
+                className="flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              >
+                <Plus size={16} />
+                Configure Fader
+              </Button>
             </div>
-            <div className="text-xs text-slate-500">
-              Configure this fader in the Configuration tab
+            <div className="text-xs text-slate-500 text-center">
+              Click to map this fader to a radio command
             </div>
           </div>
         )}

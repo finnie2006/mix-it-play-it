@@ -25,6 +25,7 @@ const Index = () => {
     faderValues,
     muteStates,
     faderStates,
+    vuLevels,
     connect, 
     disconnect, 
     validateMixer,
@@ -73,6 +74,13 @@ const Index = () => {
   const handlePasswordProtectionChange = (enabled: boolean, password: string) => {
     // This is handled within the VUMeterDashboard component now
     // Just acknowledge the change
+  };
+
+  // Handle quick channel configuration from dashboard
+  const handleConfigureChannel = (channel: number) => {
+    setCurrentTab('config');
+    // TODO: Could add specific channel focus/scroll functionality here
+    console.log(`Navigating to configuration for channel ${channel}`);
   };
 
   return (
@@ -134,7 +142,9 @@ const Index = () => {
                 faderValues={faderValues}
                 muteStates={muteStates}
                 faderStates={faderStates}
+                vuLevels={vuLevels}
                 mixerModel={mixerModel}
+                onConfigureChannel={handleConfigureChannel}
               />
             </TabsContent>
             

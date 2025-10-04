@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { faderMappingService } from '@/services/faderMappingService';
+import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
 
 interface MixerConfig {
   ip: string;
@@ -15,6 +16,7 @@ export const useMixer = (config: MixerConfig) => {
   const [faderValues, setFaderValues] = useState<Record<number, number>>({});
   const [muteStates, setMuteStates] = useState<Record<number, boolean>>({});
   const [faderStates, setFaderStates] = useState<Record<number, { isActive: boolean; commandExecuted: boolean }>>({});
+  const [vuLevels, setVuLevels] = useState<Record<number, number>>({});
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
 
   // Initialize mixer connection
@@ -83,6 +85,31 @@ export const useMixer = (config: MixerConfig) => {
     });
   }, []);
 
+  // Subscribe to VU meter updates
+  useEffect(() => {
+    const unsubscribeVU = vuMeterService.onMeterUpdate((data: VUMeterData) => {
+      if (data.channels && Array.isArray(data.channels)) {
+        const newVuLevels: Record<number, number> = {};
+        data.channels.forEach((level, index) => {
+          const channel = index + 1; // VU meter channels are 0-indexed, we want 1-indexed
+          newVuLevels[channel] = level;
+        });
+        setVuLevels(newVuLevels);
+      }
+    });
+
+    // Connect to VU meter service when mixer is connected
+    if (isConnected && mixerValidated) {
+      vuMeterService.connect().catch(error => {
+        console.error('Failed to connect to VU meter service:', error);
+      });
+    }
+
+    return () => {
+      unsubscribeVU();
+    };
+  }, [isConnected, mixerValidated]);
+
   const connect = useCallback(async () => {
     if (!mixer) return false;
     return await mixer.connect();
@@ -98,7 +125,10 @@ export const useMixer = (config: MixerConfig) => {
       setFaderValues({});
       setMuteStates({});
       setFaderStates({});
+      setVuLevels({});
     }
+    // Also disconnect VU meter service
+    vuMeterService.disconnect();
   }, [mixer]);
 
   const validateMixer = useCallback(() => {
@@ -130,6 +160,7 @@ export const useMixer = (config: MixerConfig) => {
     faderValues,
     muteStates,
     faderStates,
+    vuLevels,
     connect,
     disconnect,
     validateMixer,

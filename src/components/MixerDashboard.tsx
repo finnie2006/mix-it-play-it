@@ -8,7 +8,9 @@ interface MixerDashboardProps {
   faderValues?: Record<number, number>;
   muteStates?: Record<number, boolean>;
   faderStates?: Record<number, { isActive: boolean; commandExecuted: boolean }>;
+  vuLevels?: Record<number, number>;
   mixerModel?: 'X-Air 16' | 'X-Air 18';
+  onConfigureChannel?: (channel: number) => void;
 }
 
 export const MixerDashboard: React.FC<MixerDashboardProps> = ({ 
@@ -16,7 +18,9 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
   faderValues, 
   muteStates = {},
   faderStates = {},
-  mixerModel
+  vuLevels = {},
+  mixerModel,
+  onConfigureChannel
 }) => {
   // Set channel count based on mixer model
   const maxChannels = mixerModel === 'X-Air 16' ? 12 : 16;
@@ -52,6 +56,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
           const faderState = faderStates[channel];
           const isActive = faderState?.isActive || value > 5;
           const commandExecuted = faderState?.commandExecuted || false;
+          const vuLevel = vuLevels[channel] || -90;
 
           return (
             <FaderChannel
@@ -61,6 +66,8 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
               isActive={isActive}
               isMuted={isMuted}
               commandExecuted={commandExecuted}
+              vuLevel={vuLevel}
+              onConfigureClick={onConfigureChannel}
             />
           );
         })}

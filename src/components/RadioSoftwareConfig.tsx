@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { RadioSoftwareConfig as RadioConfig, SettingsService } from '@/services/settingsService';
-import { Radio, Settings } from 'lucide-react';
+import { Radio, Settings, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface RadioSoftwareConfigProps {
@@ -17,6 +17,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
   const [config, setConfig] = useState<RadioConfig>(() =>
     SettingsService.loadSettings().radioSoftware
   );
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
   const { toast } = useToast();
 
   const handleSave = () => {
@@ -31,6 +32,61 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
       title: "Settings Saved",
       description: `Radio software configuration for ${config.type} has been saved successfully.`,
     });
+  };
+
+  const testConnection = async () => {
+    setIsTestingConnection(true);
+    
+    try {
+      const testUrl = config.type === 'radiodj' 
+        ? `http://${config.host}:${config.port}/opt?auth=${config.password || ''}&var=version`
+        : `http://${config.host}:${config.port}/execute?command=hello`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        signal: controller.signal,
+        headers: config.type === 'mairlist' && (config.username || config.password) ? {
+          'Authorization': `Basic ${btoa(`${config.username || ''}:${config.password || ''}`)}`
+        } : {}
+      });
+
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
+        const responseText = await response.text();
+        toast({
+          title: "Verbinding Gelukt! ✅",
+          description: `Succesvol verbonden met ${config.type === 'radiodj' ? 'RadioDJ' : 'mAirList'} op ${config.host}:${config.port}`,
+        });
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+    } catch (error: any) {
+      let errorMessage = "Onbekende fout";
+      
+      if (error.name === 'AbortError') {
+        errorMessage = "Verbinding time-out (5 seconden)";
+      } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+        errorMessage = "Kan de server niet bereiken. Controleer host en port.";
+      } else if (error.message.includes('401')) {
+        errorMessage = "Authenticatie gefaald. Controleer gebruikersnaam/wachtwoord.";
+      } else if (error.message.includes('404')) {
+        errorMessage = "Endpoint niet gevonden. Controleer de server configuratie.";
+      } else {
+        errorMessage = error.message;
+      }
+
+      toast({
+        title: "Verbinding Mislukt ❌",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
   };
 
   const handleConfigChange = (key: keyof RadioConfig, value: any) => {
@@ -150,10 +206,31 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
               </div>
             )}
 
-            <Button onClick={handleSave} className="w-full bg-blue-600 hover:bg-blue-700">
-              <Settings size={16} className="mr-2" />
-              Save Configuration
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={testConnection} 
+                disabled={isTestingConnection || !config.host || !config.port}
+                variant="outline"
+                className="flex-1 bg-slate-700 border-slate-600 text-white hover:bg-slate-600"
+              >
+                {isTestingConnection ? (
+                  <>
+                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Wifi size={16} className="mr-2" />
+                    Test Connection
+                  </>
+                )}
+              </Button>
+              
+              <Button onClick={handleSave} className="flex-1 bg-blue-600 hover:bg-blue-700">
+                <Settings size={16} className="mr-2" />
+                Save Configuration
+              </Button>
+            </div>
           </>
         )}
       </CardContent>
