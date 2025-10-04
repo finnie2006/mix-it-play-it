@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
+import { formatTime, getTimeSettings, TimeSettings } from '@/lib/utils';
 
 export const AnalogClock: React.FC = () => {
   const [time, setTime] = useState(new Date());
+  const [timeSettings, setTimeSettings] = useState<TimeSettings>({ use24Hour: true });
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -12,14 +14,22 @@ export const AnalogClock: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  };
+  // Load time settings
+  useEffect(() => {
+    const loadedTimeSettings = getTimeSettings();
+    setTimeSettings(loadedTimeSettings);
+
+    // Listen for storage changes to update time settings in real-time
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'timeSettings') {
+        const newTimeSettings = getTimeSettings();
+        setTimeSettings(newTimeSettings);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -132,7 +142,7 @@ export const AnalogClock: React.FC = () => {
       {/* Digital time display */}
       <div className="text-center">
         <div className="text-3xl font-mono font-bold text-green-400">
-          {formatTime(time)}
+          {formatTime(time, timeSettings.use24Hour)}
         </div>
         <div className="text-sm text-slate-400 mt-1">
           {formatDate(time)}

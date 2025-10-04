@@ -5,6 +5,7 @@ import { AnalogClock } from '@/components/AnalogClock';
 import { PasswordUnlockModal } from '@/components/PasswordUnlockModal';
 import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
 import { faderMappingService } from '@/services/faderMappingService';
+import { formatTime, getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
 import { Activity, Clock, Maximize, Minimize, Mic, Settings, VolumeX } from 'lucide-react';
 
 interface VUMeterDashboardProps {
@@ -23,6 +24,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordProtectionEnabled, setPasswordProtectionEnabled] = useState(false);
   const [savedPassword, setSavedPassword] = useState('');
+  const [timeSettings, setTimeSettings] = useState<TimeSettings>({ use24Hour: true });
   const [speakerMuteConfig, setSpeakerMuteConfig] = useState<{ enabled: boolean; isMuted: boolean; triggerChannels: number[] }>({
     enabled: false,
     isMuted: false,
@@ -57,6 +59,23 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     };
 
     loadPasswordSettings();
+  }, []);
+
+  // Load time settings
+  useEffect(() => {
+    const loadedTimeSettings = getTimeSettings();
+    setTimeSettings(loadedTimeSettings);
+
+    // Listen for storage changes to update time settings in real-time
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'timeSettings') {
+        const newTimeSettings = getTimeSettings();
+        setTimeSettings(newTimeSettings);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Handle fullscreen toggle
@@ -269,7 +288,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     label: `MIC ${channel}`
   }));
 
-  // Enhanced mic settings panel with multi-selection
+  // Enhanced mic settings panel 
   const renderMicSettings = () => (
     <div className="absolute top-full right-0 mt-2 p-4 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-20 min-w-[280px] max-h-96 overflow-y-auto">
       <div className="flex items-center justify-between mb-3">
@@ -393,13 +412,8 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
               <Activity className="text-green-400" size={36} />
-              VU Meter & Clock Dashboard
+              Broadcasting Dashboard
             </h1>
-            {meterData && (
-              <div className="text-sm text-slate-500 mt-2">
-                Last update: {new Date(meterData.timestamp).toLocaleTimeString()}
-              </div>
-            )}
           </div>
 
           {/* Main content grid - optimized for fullscreen */}
@@ -492,6 +506,9 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                   <Clock size={16} />
                 </div>
               </div>
+              <div className="text-slate-500">
+                {meterData && `Last update: ${formatTime(new Date(meterData.timestamp), timeSettings.use24Hour)}`}
+              </div>
             </div>
           </div>
         </div>
@@ -515,18 +532,12 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">
             <Activity className="text-green-400" size={32} />
-            VU Meter & Clock Dashboard
+            Broadcasting Dashboard
           </h2>
           <p className="text-slate-400 mt-1">Real-time audio level monitoring and system time</p>
         </div>
         
         <div className="flex items-center gap-4">
-          {meterData && (
-            <div className="text-sm text-slate-500">
-              Last update: {new Date(meterData.timestamp).toLocaleTimeString()}
-            </div>
-          )}
-          
           <SpeakerMuteIndicator />
           
           <div className="relative">
@@ -626,33 +637,42 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       {/* Status Information */}
       <Card className="p-4 bg-slate-800/50 border-slate-700">
         <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${serviceConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-              <span className="text-slate-300">{serviceConnected ? 'VU Meters Active' : 'VU Meters Disconnected'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock size={14} />
-              <span className="text-slate-300">
-                {firmwareVersion ? `Firmware: ${firmwareVersion}` : 'Firmware: ...'}
-              </span>
-            </div>
-            {faderMappingService.getAllMappings().length > 0 && (
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <Activity size={14} />
-                <span className="text-slate-300">{faderMappingService.getAllMappings().length} fader mappings loaded</span>
+                <div className={`w-2 h-2 rounded-full ${serviceConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className="text-slate-300">{serviceConnected ? 'VU Meters Active' : 'VU Meters Disconnected'}</span>
               </div>
-            )}
-            {micChannels.length > 0 && (
               <div className="flex items-center gap-2">
-                <Mic size={14} />
-                <span className="text-slate-300">Mic channels: {micChannels.join(', ')}</span>
+                <Clock size={14} />
+                <span className="text-slate-300">
+                  {firmwareVersion ? `Firmware: ${firmwareVersion}` : 'Firmware: ...'}
+                </span>
               </div>
-            )}
-          </div>
-          
-          <div className="text-slate-500">
-            {meterData?.channels.length || 0} channels monitored
+              {faderMappingService.getAllMappings().length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Activity size={14} />
+                  <span className="text-slate-300">{faderMappingService.getAllMappings().length} fader mappings loaded</span>
+                </div>
+              )}
+              {micChannels.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Mic size={14} />
+                  <span className="text-slate-300">Mic channels: {micChannels.join(', ')}</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {meterData && (
+                <div className="text-slate-500">
+                  Last update: {formatTime(new Date(meterData.timestamp), timeSettings.use24Hour)}
+                </div>
+              )}
+              <div className="text-slate-500">
+                {meterData?.channels.length || 0} channels monitored
+              </div>
+            </div>
           </div>
         </div>
       </Card>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface VUMeterProps {
   level: number;
@@ -8,6 +8,11 @@ interface VUMeterProps {
 }
 
 export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', height = 'normal' }) => {
+  const [peakHold, setPeakHold] = useState(-90); // Initialize to minimum dB level
+  const [isShowingPeak, setIsShowingPeak] = useState(false);
+  const peakTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPeakTimeRef = useRef<number>(0);
+
   // Convert dB level to percentage for display
   // Typical range is -60dB to 0dB, so we'll map this to 0-100%
   const normalizeLevel = (db: number) => {
@@ -18,7 +23,65 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
   };
 
   const percentage = normalizeLevel(level);
-  
+  const peakPercentage = normalizeLevel(peakHold);
+
+  // Peak hold logic with guaranteed 2-second reset
+  useEffect(() => {
+    const currentPercentage = normalizeLevel(level);
+    const currentPeakPercentage = normalizeLevel(peakHold);
+    const now = Date.now();
+    
+    // Only update peak if current level is higher than stored peak
+    if (currentPercentage > currentPeakPercentage) {
+      setPeakHold(level);
+      setIsShowingPeak(true);
+      lastPeakTimeRef.current = now;
+      
+      // Clear existing timeout to prevent multiple timers
+      if (peakTimeoutRef.current) {
+        clearTimeout(peakTimeoutRef.current);
+      }
+      
+      // Set timeout to reset after exactly 2 seconds
+      peakTimeoutRef.current = setTimeout(() => {
+        setIsShowingPeak(false);
+        // Add small delay for smooth visual transition
+        setTimeout(() => {
+          setPeakHold(-90);
+        }, 200);
+      }, 2000);
+    }
+  }, [level]);
+
+  // Additional timer to ensure peak always resets after 2 seconds
+  useEffect(() => {
+    if (isShowingPeak) {
+      const checkReset = () => {
+        const timeSinceLastPeak = Date.now() - lastPeakTimeRef.current;
+        if (timeSinceLastPeak >= 2000) {
+          setIsShowingPeak(false);
+          setTimeout(() => {
+            setPeakHold(-90);
+          }, 200);
+        }
+      };
+
+      // Check every 100ms to ensure timely reset
+      const intervalId = setInterval(checkReset, 100);
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [isShowingPeak]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (peakTimeoutRef.current) {
+        clearTimeout(peakTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Determine color based on level
   const getBarColor = (position: number) => {
     if (position > 85) return 'bg-red-500'; // Peak/danger zone
@@ -44,12 +107,32 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
   const segments = Array.from({ length: segmentCount }, (_, index) => {
     const segmentPosition = ((index + 1) / segmentCount) * 100; // Each segment represents a percentage
     const isActive = percentage >= segmentPosition;
-    const colorClass = isActive ? getBarColor(segmentPosition) : 'bg-slate-700';
+    
+    // Check if this segment should show the peak hold
+    // We want to light up the segment that corresponds to the peak level
+    const segmentThreshold = (index / segmentCount) * 100;
+    const nextSegmentThreshold = ((index + 1) / segmentCount) * 100;
+    const isPeakHold = isShowingPeak && 
+                       peakPercentage > segmentThreshold && 
+                       peakPercentage <= nextSegmentThreshold && 
+                       peakHold > -60 && 
+                       !isActive; // Only show peak hold if segment is not already active
+    
+    let colorClass;
+    if (isPeakHold) {
+      // Peak hold indicator - subtle but visible styling
+      const baseColor = getBarColor(peakPercentage);
+      colorClass = `${baseColor} ring-1 ring-white/60 brightness-125 transition-all duration-500 ease-out`;
+    } else if (isActive) {
+      colorClass = getBarColor(segmentPosition);
+    } else {
+      colorClass = 'bg-slate-700';
+    }
     
     return (
       <div
         key={index}
-        className={`${segmentHeight} w-full mb-1 rounded-sm transition-colors duration-75 ${colorClass}`}
+        className={`${segmentHeight} w-full mb-1 rounded-sm transition-all duration-300 ease-out ${colorClass}`}
       />
     );
   });

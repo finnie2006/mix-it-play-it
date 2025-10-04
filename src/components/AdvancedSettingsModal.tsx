@@ -5,17 +5,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { PasswordUnlockModal } from '@/components/PasswordUnlockModal';
-import { Settings, Shield, Eye, EyeOff, Save, Wifi } from 'lucide-react';
+import { Settings, Shield, Eye, EyeOff, Save, Wifi, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
 
 interface AdvancedSettingsModalProps {
   onPasswordProtectionChange?: (enabled: boolean, password: string) => void;
   onAutoConnectChange?: (enabled: boolean, ip: string) => void;
+  onTimeSettingsChange?: (settings: TimeSettings) => void;
 }
 
 export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
   onPasswordProtectionChange,
-  onAutoConnectChange
+  onAutoConnectChange,
+  onTimeSettingsChange
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isUnlocked, setIsUnlocked] = useState(false);
@@ -26,6 +29,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
   const [autoConnectIP, setAutoConnectIP] = useState('192.168.1.10');
+  const [timeSettings, setTimeSettings] = useState<TimeSettings>({ use24Hour: true });
   const { toast } = useToast();
 
   // Check if password protection is enabled for this modal
@@ -84,6 +88,10 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
         console.error('Failed to load advanced settings:', error);
       }
     }
+
+    // Load time settings
+    const loadedTimeSettings = getTimeSettings();
+    setTimeSettings(loadedTimeSettings);
   }, []);
 
   const saveSettings = () => {
@@ -148,6 +156,9 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
 
     localStorage.setItem('advancedSettings', JSON.stringify(settings));
 
+    // Save time settings separately
+    saveTimeSettings(timeSettings);
+
     // Notify parent components
     if (onPasswordProtectionChange) {
       onPasswordProtectionChange(passwordProtectionEnabled, passwordProtectionEnabled ? password : '');
@@ -155,6 +166,10 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
     
     if (onAutoConnectChange) {
       onAutoConnectChange(autoConnectEnabled, autoConnectEnabled ? autoConnectIP.trim() : '');
+    }
+
+    if (onTimeSettingsChange) {
+      onTimeSettingsChange(timeSettings);
     }
 
     toast({
@@ -206,6 +221,48 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
           </DialogHeader>
           
           <div className="space-y-6 py-4">
+            {/* Time Format Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium flex items-center gap-2 text-slate-200">
+                    <Clock size={16} />
+                    Time Format
+                  </Label>
+                  <p className="text-xs text-slate-400">
+                    Choose between 12-hour and 24-hour time display
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 pl-6 border-l-2 border-slate-600">
+                <div className="flex gap-2">
+                  <Button
+                    variant={timeSettings.use24Hour ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTimeSettings({ use24Hour: true })}
+                    className={timeSettings.use24Hour 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500" 
+                      : "border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    }
+                  >
+                    24-Hour (23:45:30)
+                  </Button>
+                  <Button
+                    variant={!timeSettings.use24Hour ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setTimeSettings({ use24Hour: false })}
+                    className={!timeSettings.use24Hour 
+                      ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500" 
+                      : "border-slate-600 bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    }
+                  >
+                    12-Hour (11:45:30 PM)
+                  </Button>
+                </div>
+              </div>
+            </div>
+
             {/* Auto Connect Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
