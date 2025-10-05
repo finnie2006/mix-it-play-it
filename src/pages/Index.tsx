@@ -26,6 +26,7 @@ const Index = () => {
     muteStates,
     faderStates,
     vuLevels,
+    channelNames,
     connect, 
     disconnect, 
     validateMixer,
@@ -182,7 +183,11 @@ const Index = () => {
             </TabsContent>
             
             <TabsContent value="config">
-              <ConfigurationPanel mixerModel={mixerModel} />
+              <ConfigurationPanel 
+                mixerModel={mixerModel} 
+                channelNames={channelNames}
+                onSettingsUpdate={reloadMappings}
+              />
             </TabsContent>
           </Tabs>
         </div>

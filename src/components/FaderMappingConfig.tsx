@@ -7,17 +7,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { FaderMapping, SettingsService } from '@/services/settingsService';
+import { FaderMapping, SettingsService, ChannelNameMap } from '@/services/settingsService';
 import { Plus, Trash2, Volume2, Settings, HelpCircle, Copy, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface FaderMappingConfigProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
+  channelNames?: ChannelNameMap; // NEW: current channel names from mixer
   onSettingsUpdate?: () => void;
 }
 
 export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
   mixerModel,
+  channelNames = {},
   onSettingsUpdate
 }) => {
   const [mappings, setMappings] = useState<FaderMapping[]>(() =>
@@ -48,6 +50,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
     setEditingMapping({
       channel: 1,
       isStereo: false,
+      followChannelName: false,
       threshold: 10,
       command: 'PLAYER 1 PLAY',
       enabled: true,
@@ -181,7 +184,20 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
   };
 
   const getChannelDisplay = (mapping: FaderMapping) => {
-    return mapping.isStereo ? `${mapping.channel}-${mapping.channel + 1}` : mapping.channel.toString();
+    const channelPart = mapping.isStereo ? `${mapping.channel}-${mapping.channel + 1}` : mapping.channel.toString();
+    
+    // If mapping follows channel name, show the cached name
+    if (mapping.followChannelName && mapping.channelName) {
+      return `${channelPart} → "${mapping.channelName}"`;
+    }
+    
+    // If no follow but we have current names, show current name for reference
+    const currentName = channelNames[mapping.channel];
+    if (currentName) {
+      return `${channelPart} (${currentName})`;
+    }
+    
+    return channelPart;
   };
 
   return (
@@ -235,6 +251,11 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                         <span className="font-medium text-white">
                           CH {getChannelDisplay(mapping)}
                           {mapping.isStereo && " (Stereo)"}
+                          {mapping.followChannelName && (
+                            <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-1 rounded">
+                              Name-Linked
+                            </span>
+                          )}
                         </span>
                       </div>
                       <div className="text-sm text-slate-300">
@@ -308,7 +329,16 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                   <Label className="text-slate-200">Channel</Label>
                   <Select
                     value={editingMapping.channel?.toString()}
-                    onValueChange={(value) => setEditingMapping(prev => ({ ...prev, channel: parseInt(value) }))}
+                    onValueChange={(value) => {
+                      const newChannel = parseInt(value);
+                      const newChannelName = channelNames[newChannel];
+                      setEditingMapping(prev => ({ 
+                        ...prev, 
+                        channel: newChannel,
+                        // Update channel name if following channel names
+                        channelName: prev.followChannelName ? newChannelName : prev.channelName
+                      }));
+                    }}
                   >
                     <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                       <SelectValue />
@@ -318,6 +348,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                         const channel = i + 1;
                         const wouldBeUsed = isChannelUsed(channel, editingMapping.isStereo || false, editingMapping.id);
                         const isLastChannel = editingMapping.isStereo && channel === maxChannels;
+                        const channelName = channelNames[channel];
 
                         return (
                           <SelectItem
@@ -326,7 +357,10 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                             disabled={wouldBeUsed || isLastChannel}
                             className="text-white hover:bg-slate-600"
                           >
-                            Channel {channel} {wouldBeUsed && "(Used)"} {isLastChannel && "(Can't be stereo)"}
+                            Channel {channel}
+                            {channelName && ` (${channelName})`}
+                            {wouldBeUsed && " (Used)"}
+                            {isLastChannel && " (Can't be stereo)"}
                           </SelectItem>
                         );
                       })}
@@ -345,6 +379,44 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
+              </div>
+
+              {/* Channel Name Field */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={editingMapping.followChannelName || false}
+                    onCheckedChange={(checked) => {
+                      const currentChannelName = checked ? channelNames[editingMapping.channel || 1] : undefined;
+                      setEditingMapping(prev => ({ 
+                        ...prev, 
+                        followChannelName: checked,
+                        channelName: currentChannelName
+                      }));
+                    }}
+                  />
+                  <Label className="text-slate-200">Follow channel name instead of position</Label>
+                </div>
+                
+                {editingMapping.followChannelName && (
+                  <div className="ml-6 p-3 bg-slate-700/50 rounded border border-slate-600">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-300">Will follow channel:</span>
+                      <span className="font-medium text-white">
+                        {editingMapping.channelName || channelNames[editingMapping.channel || 1] || 'No name set'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      This mapping will automatically find the channel with this name, even if its position changes between scenes.
+                    </p>
+                  </div>
+                )}
+                
+                {!editingMapping.followChannelName && (
+                  <p className="text-xs text-slate-400">
+                    The mapping will use the selected channel position (traditional behavior).
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">

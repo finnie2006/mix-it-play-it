@@ -1,4 +1,4 @@
-import { FaderMapping, SettingsService, SpeakerMuteConfig } from './settingsService';
+import { FaderMapping, SettingsService, SpeakerMuteConfig, ChannelNameMap } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
 export interface FaderState {
@@ -122,12 +122,14 @@ export class FaderMappingService {
     // Process speaker mute logic
     this.processSpeakerMute();
 
-    // Find mappings for this channel
+    // Find mappings for this channel (using name-based or position-based matching)
     const relevantMappings = this.mappings.filter(mapping => {
+      const mappingChannel = this.getMappingChannelByName(mapping);
+      
       if (mapping.isStereo) {
-        return channel === mapping.channel; // Only consider the primary channel for stereo mappings
+        return channel === mappingChannel; // Only consider the primary channel for stereo mappings
       }
-      return channel === mapping.channel;
+      return channel === mappingChannel;
     });
 
     let isActive = false;
@@ -309,19 +311,23 @@ export class FaderMappingService {
 
   public isChannelMapped(channel: number): boolean {
     return this.mappings.some(mapping => {
+      const mappingChannel = this.getMappingChannelByName(mapping);
+      
       if (mapping.isStereo) {
-        return channel === mapping.channel || channel === mapping.channel + 1;
+        return channel === mappingChannel || channel === mappingChannel + 1;
       }
-      return channel === mapping.channel;
+      return channel === mappingChannel;
     });
   }
 
   public getMappingForChannel(channel: number): FaderMapping | undefined {
     return this.mappings.find(mapping => {
+      const mappingChannel = this.getMappingChannelByName(mapping);
+      
       if (mapping.isStereo) {
-        return channel === mapping.channel || channel === mapping.channel + 1;
+        return channel === mappingChannel || channel === mappingChannel + 1;
       }
-      return channel === mapping.channel;
+      return channel === mappingChannel;
     });
   }
 
@@ -363,6 +369,68 @@ export class FaderMappingService {
           console.log(`⏸️ Unmute ignored for channel ${channel} (fader at 0%)`);
         }
       }
+    }
+  }
+
+  // NEW: Channel name-based mapping methods
+  public findChannelByName(channelName: string): number | null {
+    const channelNames = SettingsService.getAllChannelNames();
+    for (const [channel, name] of Object.entries(channelNames)) {
+      if (name.toLowerCase().trim() === channelName.toLowerCase().trim()) {
+        return parseInt(channel);
+      }
+    }
+    return null;
+  }
+
+  public getMappingChannelByName(mapping: FaderMapping): number {
+    // If followChannelName is enabled and we have a cached name, try to find it
+    if (mapping.followChannelName && mapping.channelName) {
+      const foundChannel = this.findChannelByName(mapping.channelName);
+      if (foundChannel !== null) {
+        return foundChannel;
+      } else {
+        console.warn(`⚠️ Channel with name "${mapping.channelName}" not found, falling back to channel ${mapping.channel}`);
+      }
+    }
+    // Fall back to original channel number
+    return mapping.channel;
+  }
+
+  public updateMappingWithChannelName(mappingId: string, channelName: string): void {
+    SettingsService.updateFaderMapping(mappingId, { channelName });
+    this.reloadSettings();
+  }
+
+  // NEW: Update mapping to follow channel name and cache the current name
+  public setMappingFollowChannelName(mappingId: string, followChannelName: boolean, currentChannelName?: string): void {
+    const updates: Partial<FaderMapping> = { 
+      followChannelName,
+      channelName: followChannelName ? currentChannelName : undefined
+    };
+    SettingsService.updateFaderMapping(mappingId, updates);
+    this.reloadSettings();
+  }
+
+  // NEW: Refresh channel names for all mappings that follow channel names
+  public refreshFollowedChannelNames(): void {
+    const channelNames = SettingsService.getAllChannelNames();
+    const settings = SettingsService.loadSettings();
+    
+    let updated = false;
+    settings.faderMappings.forEach(mapping => {
+      if (mapping.followChannelName) {
+        const currentName = channelNames[mapping.channel];
+        if (currentName && currentName !== mapping.channelName) {
+          mapping.channelName = currentName;
+          updated = true;
+        }
+      }
+    });
+
+    if (updated) {
+      SettingsService.updateFaderMappings(settings.faderMappings);
+      this.reloadSettings();
     }
   }
 }

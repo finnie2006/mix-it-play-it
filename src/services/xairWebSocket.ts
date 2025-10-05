@@ -37,6 +37,7 @@ export class XAirWebSocket {
   private isConnecting = false;
   private subscribers: Set<(data: FaderData) => void> = new Set();
   private muteSubscribers: Set<(data: MuteData) => void> = new Set();
+  private channelNameSubscribers: Set<(channel: number, name: string) => void> = new Set();
   private statusSubscribers: Set<(connected: boolean) => void> = new Set();
   private mixerStatusSubscribers: Set<(validated: boolean, message: string) => void> = new Set();
   private maxChannels: number;
@@ -128,6 +129,33 @@ export class XAirWebSocket {
     }
 
     if (message.type === 'osc' && message.address) {
+      // Handle channel name updates
+      if (message.address.includes('/config/name')) {
+        const channelMatch = message.address.match(/\/ch\/(\d+)\/config\/name$/);
+        if (channelMatch && message.args && message.args.length > 0) {
+          const channel = parseInt(channelMatch[1]);
+          let name = message.args[0];
+
+          // Handle different argument formats
+          if (typeof name === 'object' && name.value !== undefined) {
+            name = name.value;
+          }
+
+          if (typeof name === 'string' && name.trim()) {
+            // Simply remove everything after underscore (_)
+            let cleanName = name.trim();
+            
+            if (cleanName.includes('_')) {
+              cleanName = cleanName.split('_')[0].trim();
+            }
+            
+            if (cleanName) {
+              this.notifyChannelNameSubscribers(channel, cleanName);
+            }
+          }
+        }
+      }
+
       // Handle fader updates - improved parsing
       if (message.address.includes('/mix/fader')) {
         const channelMatch = message.address.match(/\/ch\/(\d+)\/mix\/fader$/);
@@ -264,6 +292,10 @@ export class XAirWebSocket {
     this.muteSubscribers.forEach(callback => callback(data));
   }
 
+  private notifyChannelNameSubscribers(channel: number, name: string) {
+    this.channelNameSubscribers.forEach(callback => callback(channel, name));
+  }
+
   private notifyStatusSubscribers(connected: boolean) {
     this.statusSubscribers.forEach(callback => callback(connected));
   }
@@ -291,6 +323,7 @@ export class XAirWebSocket {
     // Clear all subscription sets
     this.subscribers.clear();
     this.muteSubscribers.clear();
+    this.channelNameSubscribers.clear();
     this.statusSubscribers.clear();
     this.mixerStatusSubscribers.clear();
 
@@ -309,5 +342,31 @@ export class XAirWebSocket {
 
   isMixerValidated(): boolean {
     return this.integratedBridge?.isMixerValidated() || false;
+  }
+
+  // NEW: Request channel names from mixer
+  async requestChannelNames(): Promise<void> {
+    if (!this.integratedBridge?.isActive()) {
+      return;
+    }
+
+    // Subscribe to channel name updates and request current values
+    for (let channel = 1; channel <= this.maxChannels; channel++) {
+      const paddedChannel = channel.toString().padStart(2, '0');
+      const nameAddress = `/ch/${paddedChannel}/config/name`;
+      
+      try {
+        this.integratedBridge.subscribe(nameAddress);
+        this.integratedBridge.sendOSCMessage(nameAddress, []);
+      } catch (error) {
+        console.warn(`Failed to setup channel name for channel ${channel}:`, error);
+      }
+    }
+  }
+
+  // NEW: Subscribe to channel name updates
+  onChannelNameUpdate(callback: (channel: number, name: string) => void): () => void {
+    this.channelNameSubscribers.add(callback);
+    return () => this.channelNameSubscribers.delete(callback);
   }
 }

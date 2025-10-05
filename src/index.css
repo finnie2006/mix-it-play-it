@@ -129,3 +129,42 @@ All colors MUST be HSL.
   height: 20px;
   animation: audioBar 1s ease-in-out infinite;
 }
+
+/* Custom scrollbar styling that matches the project's dark theme */
+/* Webkit-based browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(215 28% 17%); /* slate-800 equivalent */
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(215 20% 32%); /* slate-600 equivalent */
+  border-radius: 6px;
+  border: 2px solid hsl(215 28% 17%); /* Creates a gap effect */
+  transition: background-color 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(215 20% 40%); /* Lighter slate on hover */
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: hsl(142 69% 58%); /* green-400 for active state */
+}
+
+::-webkit-scrollbar-corner {
+  background: hsl(215 28% 17%); /* slate-800 equivalent */
+}
+
+/* Firefox scrollbar styling */
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(215 20% 32%) hsl(215 28% 17%); /* thumb track */
+  }
+}

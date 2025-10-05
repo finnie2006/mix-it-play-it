@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { XAirWebSocket, FaderData, MuteData, OSCBridgeConfig } from '@/services/xairWebSocket';
 import { faderMappingService } from '@/services/faderMappingService';
 import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
+import { SettingsService, ChannelNameMap } from '@/services/settingsService';
 
 interface MixerConfig {
   ip: string;
@@ -17,6 +18,7 @@ export const useMixer = (config: MixerConfig) => {
   const [muteStates, setMuteStates] = useState<Record<number, boolean>>({});
   const [faderStates, setFaderStates] = useState<Record<number, { isActive: boolean; commandExecuted: boolean }>>({});
   const [vuLevels, setVuLevels] = useState<Record<number, number>>({});
+  const [channelNames, setChannelNames] = useState<ChannelNameMap>({});
   const [mixer, setMixer] = useState<XAirWebSocket | null>(null);
 
   // Initialize mixer connection
@@ -66,11 +68,31 @@ export const useMixer = (config: MixerConfig) => {
       faderMappingService.processMuteUpdate(data.channel, data.muted);
     });
 
+    // NEW: Subscribe to channel name updates
+    const unsubscribeChannelNames = xairMixer.onChannelNameUpdate((channel: number, name: string) => {
+      setChannelNames(prev => {
+        const updated = { ...prev, [channel]: name };
+        // Save to persistent storage
+        SettingsService.updateChannelNames(updated);
+        
+        // Refresh cached channel names for mappings that follow channel names
+        setTimeout(() => {
+          faderMappingService.refreshFollowedChannelNames();
+        }, 100);
+        
+        return updated;
+      });
+    });
+
+    // Load existing channel names from storage
+    setChannelNames(SettingsService.getAllChannelNames());
+
     return () => {
       unsubscribeStatus();
       unsubscribeMixerStatus();
       unsubscribeFader();
       unsubscribeMute();
+      unsubscribeChannelNames();
       xairMixer.disconnect();
     };
   }, [config.ip, config.port, config.model]);
@@ -103,12 +125,19 @@ export const useMixer = (config: MixerConfig) => {
       vuMeterService.connect().catch(error => {
         console.error('Failed to connect to VU meter service:', error);
       });
+
+      // NEW: Request channel names when mixer is validated
+      if (mixer) {
+        setTimeout(() => {
+          mixer.requestChannelNames();
+        }, 1000); // Small delay to ensure mixer is fully ready
+      }
     }
 
     return () => {
       unsubscribeVU();
     };
-  }, [isConnected, mixerValidated]);
+  }, [isConnected, mixerValidated, mixer]);
 
   const connect = useCallback(async () => {
     if (!mixer) return false;
@@ -161,6 +190,7 @@ export const useMixer = (config: MixerConfig) => {
     muteStates,
     faderStates,
     vuLevels,
+    channelNames, // NEW: expose channel names
     connect,
     disconnect,
     validateMixer,

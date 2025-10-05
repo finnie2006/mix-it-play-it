@@ -1,6 +1,8 @@
 export interface FaderMapping {
   id: string;
   channel: number;
+  followChannelName?: boolean; // NEW: if true, follow channel name instead of position
+  channelName?: string; // NEW: cached channel name (auto-fetched when followChannelName is true)
   isStereo: boolean;
   threshold: number;
   command: string;
@@ -30,10 +32,15 @@ export interface SpeakerMuteConfig {
   description: string;
 }
 
+export interface ChannelNameMap {
+  [channelNumber: number]: string;
+}
+
 export interface AppSettings {
   radioSoftware: RadioSoftwareConfig;
   faderMappings: FaderMapping[];
   speakerMute: SpeakerMuteConfig;
+  channelNames: ChannelNameMap; // NEW: store channel names from mixer
   lastUpdated: string;
 }
 
@@ -54,6 +61,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     threshold: 10,
     description: 'Mute main speakers when mics are open'
   },
+  channelNames: {}, // NEW: empty channel names by default
   lastUpdated: new Date().toISOString()
 };
 
@@ -124,5 +132,21 @@ export class SettingsService {
     const settings = this.loadSettings();
     settings.speakerMute = config;
     this.saveSettings(settings);
+  }
+
+  static updateChannelNames(channelNames: ChannelNameMap): void {
+    const settings = this.loadSettings();
+    settings.channelNames = channelNames;
+    this.saveSettings(settings);
+  }
+
+  static getChannelName(channel: number): string | undefined {
+    const settings = this.loadSettings();
+    return settings.channelNames[channel];
+  }
+
+  static getAllChannelNames(): ChannelNameMap {
+    const settings = this.loadSettings();
+    return settings.channelNames;
   }
 }

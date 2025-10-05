@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { SettingsService } from '@/services/settingsService';
+import { SettingsService, ChannelNameMap } from '@/services/settingsService';
 import { Button } from '@/components/ui/button';
 import { Download, Upload } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,11 +10,13 @@ import { Settings, Radio, Volume2, VolumeX } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
+  channelNames?: ChannelNameMap;
   onSettingsUpdate?: () => void;
 }
 
 export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   mixerModel,
+  channelNames = {},
   onSettingsUpdate
 }) => {
 
@@ -110,7 +112,11 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         </TabsContent>
 
         <TabsContent value="faders" className="mt-6">
-          <FaderMappingConfig mixerModel={mixerModel} onSettingsUpdate={onSettingsUpdate} />
+          <FaderMappingConfig 
+            mixerModel={mixerModel} 
+            channelNames={channelNames}
+            onSettingsUpdate={onSettingsUpdate} 
+          />
         </TabsContent>
 
         <TabsContent value="speakers" className="mt-6">
