@@ -376,7 +376,7 @@ export class FaderMappingService {
   public findChannelByName(channelName: string): number | null {
     const channelNames = SettingsService.getAllChannelNames();
     for (const [channel, name] of Object.entries(channelNames)) {
-      if (name.toLowerCase().trim() === channelName.toLowerCase().trim()) {
+      if (name && name.toLowerCase().trim() === channelName.toLowerCase().trim()) {
         return parseInt(channel);
       }
     }
@@ -384,14 +384,19 @@ export class FaderMappingService {
   }
 
   public getMappingChannelByName(mapping: FaderMapping): number {
-    // If followChannelName is enabled and we have a cached name, try to find it
+    // If followChannelName is enabled, look up the current channel name dynamically
     if (mapping.followChannelName && mapping.channelName) {
-      const foundChannel = this.findChannelByName(mapping.channelName);
-      if (foundChannel !== null) {
-        return foundChannel;
-      } else {
-        console.warn(`⚠️ Channel with name "${mapping.channelName}" not found, falling back to channel ${mapping.channel}`);
+      // Always get the current channel names from the mixer
+      const currentChannelNames = SettingsService.getAllChannelNames();
+      
+      // Find which channel currently has the name we're looking for
+      for (const [channelNum, currentName] of Object.entries(currentChannelNames)) {
+        if (currentName && currentName.toLowerCase().trim() === mapping.channelName.toLowerCase().trim()) {
+          return parseInt(channelNum);
+        }
       }
+      
+      console.warn(`⚠️ Channel with name "${mapping.channelName}" not found, falling back to channel ${mapping.channel}`);
     }
     // Fall back to original channel number
     return mapping.channel;
@@ -413,25 +418,12 @@ export class FaderMappingService {
   }
 
   // NEW: Refresh channel names for all mappings that follow channel names
+  // Note: With dynamic lookup in getMappingChannelByName, this method is largely obsolete
+  // but kept for compatibility and potential future use
   public refreshFollowedChannelNames(): void {
-    const channelNames = SettingsService.getAllChannelNames();
-    const settings = SettingsService.loadSettings();
-    
-    let updated = false;
-    settings.faderMappings.forEach(mapping => {
-      if (mapping.followChannelName) {
-        const currentName = channelNames[mapping.channel];
-        if (currentName && currentName !== mapping.channelName) {
-          mapping.channelName = currentName;
-          updated = true;
-        }
-      }
-    });
-
-    if (updated) {
-      SettingsService.updateFaderMappings(settings.faderMappings);
-      this.reloadSettings();
-    }
+    // Since we now do dynamic lookups, we don't need to update cached names
+    // The getMappingChannelByName method will always find the current channel with the target name
+    console.log('🔄 Channel name mappings use dynamic lookup - no refresh needed');
   }
 }
 
