@@ -246,8 +246,11 @@ export class FaderMappingService {
   private processSpeakerMute() {
     if (!this.speakerMuteConfig) return;
 
+    // Get effective trigger channels (supporting name-based mapping)
+    const effectiveTriggerChannels = this.getEffectiveSpeakerMuteTriggerChannels();
+
     // Check if any trigger channels are above threshold
-    const shouldMute = this.speakerMuteConfig.triggerChannels.some(channel => {
+    const shouldMute = effectiveTriggerChannels.some(channel => {
       const state = this.faderStates.get(channel);
       return state && state.value >= this.speakerMuteConfig!.threshold;
     });
@@ -257,7 +260,7 @@ export class FaderMappingService {
       this.isSpeakerMuted = shouldMute;
       
       if (shouldMute) {
-        console.log(`🔇 Muting speakers - mic channels active`);
+        console.log(`🔇 Muting speakers - mic channels active (channels: ${effectiveTriggerChannels.join(', ')})`);
         this.sendSpeakerMuteCommand(true);
       } else {
         console.log(`🔊 Unmuting speakers - no mic channels active`);
@@ -332,11 +335,36 @@ export class FaderMappingService {
   }
 
   public getSpeakerMuteStatus(): { enabled: boolean; isMuted: boolean; triggerChannels: number[] } {
+    const effectiveChannels = this.getEffectiveSpeakerMuteTriggerChannels();
     return {
       enabled: !!this.speakerMuteConfig,
       isMuted: this.isSpeakerMuted,
-      triggerChannels: this.speakerMuteConfig?.triggerChannels || []
+      triggerChannels: effectiveChannels
     };
+  }
+
+  // NEW: Get effective trigger channels for speaker mute (supporting name-based mapping)
+  private getEffectiveSpeakerMuteTriggerChannels(): number[] {
+    if (!this.speakerMuteConfig) return [];
+
+    // If following channel names, look up current positions of those names
+    if (this.speakerMuteConfig.followChannelNames && this.speakerMuteConfig.triggerChannelNames) {
+      const effectiveChannels: number[] = [];
+      
+      for (const channelName of this.speakerMuteConfig.triggerChannelNames) {
+        const foundChannel = this.findChannelByName(channelName);
+        if (foundChannel !== null) {
+          effectiveChannels.push(foundChannel);
+        } else {
+          console.warn(`⚠️ Speaker mute trigger channel with name "${channelName}" not found`);
+        }
+      }
+      
+      return effectiveChannels;
+    }
+
+    // Fall back to traditional channel positions
+    return this.speakerMuteConfig.triggerChannels || [];
   }
 
   // Add this new method to process mute changes

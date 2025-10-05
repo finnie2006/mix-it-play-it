@@ -120,7 +120,11 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         </TabsContent>
 
         <TabsContent value="speakers" className="mt-6">
-          <SpeakerMuteConfig mixerModel={mixerModel} onSettingsUpdate={onSettingsUpdate} />
+          <SpeakerMuteConfig 
+            mixerModel={mixerModel} 
+            channelNames={channelNames}
+            onSettingsUpdate={onSettingsUpdate} 
+          />
         </TabsContent>
       </Tabs>
     </div>

@@ -130,12 +130,50 @@ function broadcastSpeakerMuteStatus(muted) {
   });
 }
 
+// Get effective trigger channels for speaker mute (supporting name-based mapping)
+function getEffectiveSpeakerMuteTriggerChannels() {
+  if (!speakerMuteConfig) return [];
+
+  // If following channel names, look up current positions of those names
+  if (speakerMuteConfig.followChannelNames && speakerMuteConfig.triggerChannelNames) {
+    const effectiveChannels = [];
+    
+    for (const channelName of speakerMuteConfig.triggerChannelNames) {
+      const foundChannel = findChannelByName(channelName);
+      if (foundChannel !== null) {
+        effectiveChannels.push(foundChannel);
+      } else {
+        console.warn(`⚠️ Speaker mute trigger channel with name "${channelName}" not found`);
+      }
+    }
+    
+    return effectiveChannels;
+  }
+
+  // Fall back to traditional channel positions
+  return speakerMuteConfig.triggerChannels || [];
+}
+
+// Find channel by name
+function findChannelByName(channelName) {
+  const channelNames = config.channelNames || {};
+  for (const [channel, name] of Object.entries(channelNames)) {
+    if (name && name.toLowerCase().trim() === channelName.toLowerCase().trim()) {
+      return parseInt(channel);
+    }
+  }
+  return null;
+}
+
 // Process speaker mute logic
 function processSpeakerMute() {
   if (!speakerMuteConfig) return;
 
+  // Get effective trigger channels (supporting name-based mapping)
+  const effectiveTriggerChannels = getEffectiveSpeakerMuteTriggerChannels();
+
   // Check if any trigger channels are above threshold
-  const shouldMute = speakerMuteConfig.triggerChannels.some(channel => {
+  const shouldMute = effectiveTriggerChannels.some(channel => {
     const state = faderStates.get(channel);
     return state && state.value >= speakerMuteConfig.threshold;
   });
@@ -145,7 +183,7 @@ function processSpeakerMute() {
     isSpeakerMuted = shouldMute;
     
     if (shouldMute) {
-      console.log(`🔇 Muting speakers - mic channels active`);
+      console.log(`🔇 Muting speakers - mic channels active (channels: ${effectiveTriggerChannels.join(', ')})`);
       sendSpeakerMuteCommand(true);
     } else {
       console.log(`🔊 Unmuting speakers - no mic channels active`);

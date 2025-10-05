@@ -6,17 +6,19 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { SpeakerMuteConfig as SpeakerConfig, SettingsService } from '@/services/settingsService';
+import { SpeakerMuteConfig as SpeakerConfig, SettingsService, ChannelNameMap } from '@/services/settingsService';
 import { VolumeX, Mic, Settings, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface SpeakerMuteConfigProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
+  channelNames?: ChannelNameMap; // NEW: current channel names from mixer
   onSettingsUpdate?: () => void;
 }
 
 export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
   mixerModel,
+  channelNames = {},
   onSettingsUpdate
 }) => {
   const [config, setConfig] = useState<SpeakerConfig>(() =>
@@ -50,16 +52,37 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
       : [...config.triggerChannels, channel].sort((a, b) => a - b);
     
     handleConfigChange('triggerChannels', newChannels);
+
+    // If following channel names, update the trigger channel names as well
+    if (config.followChannelNames) {
+      const newChannelNames = newChannels
+        .map(ch => channelNames[ch])
+        .filter(name => name); // only keep channels that have names
+      handleConfigChange('triggerChannelNames', newChannelNames);
+    }
   };
 
   const handleSelectAllMics = () => {
     // Typical mic channels are 1-4 for most radio setups
     const micChannels = [1, 2, 3, 4];
     handleConfigChange('triggerChannels', micChannels);
+
+    // If following channel names, update the trigger channel names as well
+    if (config.followChannelNames) {
+      const micChannelNames = micChannels
+        .map(ch => channelNames[ch])
+        .filter(name => name); // only keep channels that have names
+      handleConfigChange('triggerChannelNames', micChannelNames);
+    }
   };
 
   const handleClearAll = () => {
     handleConfigChange('triggerChannels', []);
+    
+    // Also clear channel names if following names
+    if (config.followChannelNames) {
+      handleConfigChange('triggerChannelNames', []);
+    }
   };
 
   return (
@@ -131,11 +154,58 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
                   )}
                 </div>
               </div>
+
+              {/* Channel Name Following Option */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={config.followChannelNames || false}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        // When enabling, capture current channel names for selected channels
+                        const selectedChannelNames = config.triggerChannels
+                          .map(ch => channelNames[ch])
+                          .filter(name => name); // only keep channels that have names
+                        handleConfigChange('followChannelNames', true);
+                        handleConfigChange('triggerChannelNames', selectedChannelNames);
+                      } else {
+                        handleConfigChange('followChannelNames', false);
+                        handleConfigChange('triggerChannelNames', []);
+                      }
+                    }}
+                  />
+                  <Label className="text-slate-200">Follow channel names instead of positions</Label>
+                </div>
+                
+                {config.followChannelNames && (
+                  <div className="ml-6 p-3 bg-slate-700/50 rounded border border-slate-600">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-slate-300">Following channel names:</span>
+                      <span className="font-medium text-white">
+                        {config.triggerChannelNames?.length ? 
+                          config.triggerChannelNames.join(', ') : 
+                          'No named channels selected'
+                        }
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Speaker mute will automatically find channels with these names, even if they move between scenes.
+                    </p>
+                  </div>
+                )}
+                
+                {!config.followChannelNames && (
+                  <p className="text-xs text-slate-400">
+                    Trigger channels will use the selected channel positions (traditional behavior).
+                  </p>
+                )}
+              </div>
               
               <div className="grid grid-cols-4 gap-2">
                 {Array.from({ length: maxChannels }, (_, i) => {
                   const channel = i + 1;
                   const isSelected = config.triggerChannels.includes(channel);
+                  const channelName = channelNames[channel];
                   return (
                     <button
                       key={channel}
@@ -147,6 +217,11 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
                       }`}
                     >
                       CH {channel}
+                      {channelName && (
+                        <div className="text-xs opacity-75 truncate">
+                          {channelName}
+                        </div>
+                      )}
                     </button>
                   );
                 })}
@@ -154,7 +229,14 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
               
               {config.triggerChannels.length > 0 && (
                 <div className="text-sm text-slate-400">
-                  Selected channels: {config.triggerChannels.join(', ')}
+                  {config.followChannelNames ? (
+                    <div className="space-y-1">
+                      <div>Channel positions: {config.triggerChannels.join(', ')}</div>
+                      <div>Following names: {config.triggerChannelNames?.join(', ') || 'None named'}</div>
+                    </div>
+                  ) : (
+                    <div>Selected channels: {config.triggerChannels.join(', ')}</div>
+                  )}
                 </div>
               )}
             </div>

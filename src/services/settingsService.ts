@@ -25,6 +25,8 @@ export interface RadioSoftwareConfig {
 export interface SpeakerMuteConfig {
   enabled: boolean;
   triggerChannels: number[];
+  followChannelNames?: boolean; // NEW: if true, follow channel names instead of positions
+  triggerChannelNames?: string[]; // NEW: channel names to follow (when followChannelNames is true)
   muteType: 'bus' | 'muteGroup';
   busNumber?: number;
   muteGroupNumber?: number;
@@ -55,6 +57,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   speakerMute: {
     enabled: false,
     triggerChannels: [],
+    followChannelNames: false,
+    triggerChannelNames: [],
     muteType: 'bus',
     busNumber: 1,
     muteGroupNumber: 1,
