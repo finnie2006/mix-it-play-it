@@ -14,7 +14,7 @@ jobs:
     
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         include:
           - os: ubuntu-latest
             build_command: npm run electron:build:linux
@@ -24,11 +24,6 @@ jobs:
             build_command: npm run electron:build:win
             artifact_name: windows-build
             artifact_path: dist-electron/*.exe
-          - os: macos-latest
-            build_command: npm run electron:build:mac
-            artifact_name: mac-build
-            artifact_path: dist-electron/*.dmg
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -80,6 +75,5 @@ jobs:
           files: |
             artifacts/linux-build/*
             artifacts/windows-build/*
-            artifacts/mac-build/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
