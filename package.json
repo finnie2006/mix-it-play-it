@@ -1,6 +1,6 @@
 {
-  "name": "xair-radio-mode",
-  "description": "X-Air Radio Mode - Professional mixer control for radio broadcasting",
+  "name": "xair-radio-control",
+  "description": "X-Air Radio Control - Professional mixer control for radio broadcasting",
   "author": "Mix It Play It",
   "private": true,
   "version": "1.0.0",
@@ -105,8 +105,8 @@
     "vite": "^7.0.2"
   },
   "build": {
-    "appId": "com.mixitplayit.xair-radio-mode",
-    "productName": "X-Air Radio Mode",
+    "appId": "com.mixitplayit.xair-radio-control",
+    "productName": "X-Air Radio Control",
     "directories": {
       "output": "dist-electron",
       "buildResources": "assets"

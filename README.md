@@ -1,4 +1,4 @@
-# X-Air Radio Mode
+# X-Air Radio Control
 
 Professional X-Air mixer control for radio broadcasting environments.
 

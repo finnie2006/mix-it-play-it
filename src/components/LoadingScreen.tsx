@@ -35,7 +35,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
         {/* App title with typewriter effect */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-white animate-pulse">
-            X-Air Radio Mode
+            X-Air Radio Control
           </h1>
           <p className="text-slate-300 text-lg">
             X-Air Radio broadcasting engine

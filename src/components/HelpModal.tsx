@@ -23,7 +23,7 @@ export const HelpModal = () => {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Radio className="text-green-400" size={24} />
-            X-Air Radio Mode - Help & Information
+            X-Air Radio Control - Help & Information
           </DialogTitle>
           <DialogDescription>
             Professional X-Air mixer control for radio broadcasting

@@ -91,7 +91,7 @@ const Index = () => {
           <div>
             <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
               <Radio className="text-green-400" size={36} />
-              X-Air Radio Mode
+              X-Air Radio Control
             </h1>
             <p className="text-slate-300">Professional X-Air 16/18 Control for Radio Broadcasting</p>
           </div>

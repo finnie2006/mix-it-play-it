@@ -3,6 +3,6 @@ import App from './App.tsx'
 import './index.css'
 
 // Set document title
-document.title = 'X-Air Radio Mode';
+document.title = 'X-Air Radio Control';
 
 createRoot(document.getElementById("root")!).render(<App />);
