@@ -7,7 +7,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 let mainWindow;
-let bridgeProcess;
 
 const isDev = !app.isPackaged;
 
@@ -54,28 +53,33 @@ function createWindow() {
 }
 
 function startBridgeServer() {
-  const bridgePath = isDev 
-    ? join(__dirname, '../bridge-server/server.js')
-    : join(process.resourcesPath, 'bridge-server/server.js');
-
-  console.log('Starting bridge server at:', bridgePath);
-
-  bridgeProcess = spawn('node', [bridgePath], {
-    stdio: 'pipe',
-    cwd: isDev ? join(__dirname, '..') : process.resourcesPath
-  });
-
-  bridgeProcess.stdout.on('data', (data) => {
-    console.log(`Bridge: ${data}`);
-  });
-
-  bridgeProcess.stderr.on('data', (data) => {
-    console.error(`Bridge Error: ${data}`);
-  });
-
-  bridgeProcess.on('close', (code) => {
-    console.log(`Bridge process exited with code ${code}`);
-  });
+  try {
+    // Run bridge server in the same process instead of spawning
+    console.log('Starting bridge server in same process...');
+    
+    // Import and run the bridge server module
+    if (isDev) {
+      // In development, require directly
+      import(join(__dirname, '../bridge-server/server.js'))
+        .then(() => {
+          console.log('✅ Bridge server started successfully (development mode)');
+        })
+        .catch((error) => {
+          console.error('❌ Failed to start bridge server:', error);
+        });
+    } else {
+      // In production, import from resources
+      import(join(process.resourcesPath, 'bridge-server/server.js'))
+        .then(() => {
+          console.log('✅ Bridge server started successfully (production mode)');
+        })
+        .catch((error) => {
+          console.error('❌ Failed to start bridge server:', error);
+        });
+    }
+  } catch (error) {
+    console.error('❌ Failed to start bridge server:', error);
+  }
 }
 
 app.whenReady().then(() => {
@@ -113,16 +117,11 @@ app.on('window-all-closed', () => {
   // Unregister all shortcuts
   globalShortcut.unregisterAll();
   
-  if (bridgeProcess) {
-    bridgeProcess.kill();
-  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
 app.on('before-quit', () => {
-  if (bridgeProcess) {
-    bridgeProcess.kill();
-  }
+  // Bridge server will be cleaned up automatically when the main process exits
 });
