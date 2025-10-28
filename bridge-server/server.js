@@ -85,6 +85,10 @@ let lastMeterData = {
 // Store firmware version
 let firmwareVersion = null;
 
+// Scene state
+let sceneList = []; // Will be populated when mixer connects
+let currentSceneId = null;
+
 // Mixer validation state
 let mixerConnected = false;
 let lastMixerResponse = null;
@@ -407,6 +411,132 @@ function subscribeToMeters() {
     }, 5000);
 }
 
+// Scene management functions
+function loadScene(sceneId) {
+    if (!oscPort || !oscPort.socket) {
+        console.error('🎬 Cannot load scene - OSC port not ready');
+        return;
+    }
+
+    console.log(`🎬 Loading scene ${sceneId}`);
+    
+    // Send scene load command: /-snap/load with scene index
+    oscPort.send({
+        address: '/-snap/load',
+        args: [{ type: 'i', value: sceneId }]
+    });
+
+    currentSceneId = sceneId;
+
+    // Broadcast to all clients
+    const message = JSON.stringify({
+        type: 'scene_loaded',
+        sceneId: sceneId,
+        timestamp: Date.now()
+    });
+
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try {
+                client.send(message);
+            } catch (error) {
+                console.error('Error sending scene loaded notification:', error);
+            }
+        }
+    });
+}
+
+function saveScene(sceneId, name) {
+    if (!oscPort || !oscPort.socket) {
+        console.error('🎬 Cannot save scene - OSC port not ready');
+        return;
+    }
+
+    console.log(`🎬 Saving current state to scene ${sceneId}${name ? ` as "${name}"` : ''}`);
+    
+    // Send scene save command: /-snap/save with scene index
+    oscPort.send({
+        address: '/-snap/save',
+        args: [{ type: 'i', value: sceneId }]
+    });
+
+    // If name is provided, also set the scene name
+    if (name) {
+        // Set scene name: /-snap/001/name (note: scenes are 1-indexed in naming, but 0-indexed in load/save)
+        const sceneIndex = String(sceneId + 1).padStart(3, '0');
+        oscPort.send({
+            address: `/-snap/${sceneIndex}/name`,
+            args: [{ type: 's', value: name }]
+        });
+    }
+
+    // Update scene list
+    requestSceneList();
+
+    // Broadcast to all clients
+    const message = JSON.stringify({
+        type: 'scene_saved',
+        sceneId: sceneId,
+        name: name,
+        timestamp: Date.now()
+    });
+
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try {
+                client.send(message);
+            } catch (error) {
+                console.error('Error sending scene saved notification:', error);
+            }
+        }
+    });
+}
+
+function requestSceneList() {
+    if (!oscPort || !oscPort.socket) {
+        console.log('🎬 Cannot request scene list - OSC port not ready');
+        return;
+    }
+
+    console.log('🎬 Requesting scene list from mixer');
+    
+    // X-Air stores up to 64 scenes (0-63)
+    // Request scene names: /-snap/001/name through /-snap/064/name
+    sceneList = [];
+    
+    for (let i = 0; i < 64; i++) {
+        const sceneIndex = String(i + 1).padStart(3, '0');
+        oscPort.send({
+            address: `/-snap/${sceneIndex}/name`,
+            args: []
+        });
+    }
+
+    // Also request current scene index
+    oscPort.send({
+        address: '/-snap/index',
+        args: []
+    });
+}
+
+function broadcastSceneList() {
+    const message = JSON.stringify({
+        type: 'scene_list',
+        scenes: sceneList,
+        timestamp: Date.now()
+    });
+
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try {
+                client.send(message);
+            } catch (error) {
+                console.error('Error sending scene list to client:', error);
+            }
+        }
+    });
+}
+
 // Function to send HTTP request to radio software
 async function sendRadioCommand(command, config) {
     return new Promise((resolve, reject) => {
@@ -653,6 +783,9 @@ function setupOSCHandlers() {
 
             // Auto-subscribe to meters when connection is established
             setTimeout(() => subscribeToMeters(), 1000);
+
+            // Request scene list when connection is established
+            setTimeout(() => requestSceneList(), 2000);
         }
 
         // VU METER HANDLING - IMPLEMENT BASED ON DEBUG FINDINGS
@@ -791,6 +924,57 @@ function setupOSCHandlers() {
             }
         }
 
+        // Handle scene name responses: /-snap/001/name through /-snap/064/name
+        if (oscMessage.address && oscMessage.address.match(/^\/-snap\/\d+\/name$/)) {
+            const sceneMatch = oscMessage.address.match(/^\/-snap\/(\d+)\/name$/);
+            if (sceneMatch) {
+                const sceneIndex = parseInt(sceneMatch[1]) - 1; // Convert to 0-based index
+                const sceneName = oscMessage.args && oscMessage.args.length > 0 ? oscMessage.args[0].value : '';
+                
+                // Update scene list
+                const existingIndex = sceneList.findIndex(s => s.id === sceneIndex);
+                if (existingIndex >= 0) {
+                    sceneList[existingIndex].name = sceneName;
+                } else {
+                    sceneList.push({
+                        id: sceneIndex,
+                        name: sceneName,
+                        timestamp: Date.now()
+                    });
+                }
+
+                // Broadcast updated scene list if we've received a reasonable number
+                if (sceneList.length >= 10) {
+                    broadcastSceneList();
+                }
+            }
+        }
+
+        // Handle current scene index response: /-snap/index
+        if (oscMessage.address === '/-snap/index') {
+            if (oscMessage.args && oscMessage.args.length > 0) {
+                currentSceneId = oscMessage.args[0].value;
+                console.log(`🎬 Current scene: ${currentSceneId}`);
+                
+                // Broadcast current scene to clients
+                const message = JSON.stringify({
+                    type: 'current_scene',
+                    sceneId: currentSceneId,
+                    timestamp: Date.now()
+                });
+
+                clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        try {
+                            client.send(message);
+                        } catch (error) {
+                            console.error('Error sending current scene to client:', error);
+                        }
+                    }
+                });
+            }
+        }
+
         // Broadcast to all WebSocket clients
         const message = JSON.stringify({
             type: 'osc',
@@ -862,6 +1046,24 @@ wss.on('connection', (ws) => {
     ws.send(JSON.stringify({
       type: 'firmware_version',
       version: firmwareVersion,
+      timestamp: Date.now()
+    }));
+  }
+
+  // Send scene list if available
+  if (sceneList.length > 0) {
+    ws.send(JSON.stringify({
+      type: 'scene_list',
+      scenes: sceneList,
+      timestamp: Date.now()
+    }));
+  }
+
+  // Send current scene if available
+  if (currentSceneId !== null) {
+    ws.send(JSON.stringify({
+      type: 'current_scene',
+      sceneId: currentSceneId,
       timestamp: Date.now()
     }));
   }
@@ -972,17 +1174,14 @@ wss.on('connection', (ws) => {
             }
           });
 
-          // Send confirmation back to client
+          // Send confirmation back to requesting client
           ws.send(JSON.stringify({
             type: 'settings_reloaded',
             success: true,
-            activeMappings: activeMappings.length,
-            radioEnabled: !!radioConfig,
-            speakerMuteEnabled: !!speakerMuteConfig,
             timestamp: Date.now()
           }));
         } catch (error) {
-          console.error('❌ Error reloading settings:', error);
+          console.error('❌ Failed to reload settings:', error);
           ws.send(JSON.stringify({
             type: 'settings_reloaded',
             success: false,
@@ -990,6 +1189,24 @@ wss.on('connection', (ws) => {
             timestamp: Date.now()
           }));
         }
+      } else if (message.type === 'get_scene_list') {
+        // Request scene list from mixer
+        requestSceneList();
+        
+        // Send current scene list if available
+        if (sceneList.length > 0) {
+          ws.send(JSON.stringify({
+            type: 'scene_list',
+            scenes: sceneList,
+            timestamp: Date.now()
+          }));
+        }
+      } else if (message.type === 'load_scene' && typeof message.sceneId === 'number') {
+        // Load a specific scene
+        loadScene(message.sceneId);
+      } else if (message.type === 'save_scene' && typeof message.sceneId === 'number') {
+        // Save current state to a scene
+        saveScene(message.sceneId, message.name);
       } else if (message.type === 'get_fader_mappings') {
         // Send current fader mappings to client
         ws.send(JSON.stringify({

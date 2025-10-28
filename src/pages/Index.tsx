@@ -5,6 +5,7 @@ import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { VUMeterDashboard } from '@/components/VUMeterDashboard';
 import { HelpModal } from '@/components/HelpModal';
 import { AdvancedSettingsModal } from '@/components/AdvancedSettingsModal';
+import { SceneQuickSwitcher } from '@/components/SceneQuickSwitcher';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Radio, Volume2, Settings, Activity, Shield, ShieldOff } from 'lucide-react';
@@ -120,6 +121,11 @@ const Index = () => {
           onBridgeConfigured={configureBridge}
         />
 
+        {/* Scene Quick Switcher */}
+        <div className="mt-4 flex justify-end">
+          <SceneQuickSwitcher isConnected={isConnected && mixerValidated} />
+        </div>
+
         <div className="mt-8">
           <Tabs value={currentTab} className="w-full" onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-3 mb-6">
@@ -187,6 +193,7 @@ const Index = () => {
                 mixerModel={mixerModel} 
                 channelNames={channelNames}
                 onSettingsUpdate={reloadMappings}
+                isConnected={isConnected && mixerValidated}
               />
             </TabsContent>
           </Tabs>

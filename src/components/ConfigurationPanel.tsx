@@ -6,18 +6,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioSoftwareConfig } from '@/components/RadioSoftwareConfig';
 import { FaderMappingConfig } from '@/components/FaderMappingConfig';
 import { SpeakerMuteConfig } from '@/components/SpeakerMuteConfig';
-import { Settings, Radio, Volume2, VolumeX } from 'lucide-react';
+import { SceneManager } from '@/components/SceneManager';
+import { Settings, Radio, Volume2, VolumeX, Film } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
   channelNames?: ChannelNameMap;
   onSettingsUpdate?: () => void;
+  isConnected?: boolean;
 }
 
 export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   mixerModel,
   channelNames = {},
-  onSettingsUpdate
+  onSettingsUpdate,
+  isConnected = false
 }) => {
 
   // Backup logic
@@ -92,7 +95,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       </div>
 
       <Tabs defaultValue="radio" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border-slate-700">
+        <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 border-slate-700">
           <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
             Radio Software
@@ -104,6 +107,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <TabsTrigger value="speakers" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <VolumeX size={16} />
             Speaker Mute
+          </TabsTrigger>
+          <TabsTrigger value="scenes" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+            <Film size={16} />
+            Scenes
           </TabsTrigger>
         </TabsList>
 
@@ -125,6 +132,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             channelNames={channelNames}
             onSettingsUpdate={onSettingsUpdate} 
           />
+        </TabsContent>
+
+        <TabsContent value="scenes" className="mt-6">
+          <SceneManager isConnected={isConnected} />
         </TabsContent>
       </Tabs>
     </div>
