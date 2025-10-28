@@ -136,7 +136,7 @@ export class IntegratedOSCBridge {
     }
   }
 
-  sendOSCMessage(address: string, args: any[] = []) {
+  sendOSCMessage(address: string, args: Array<string | number | boolean> = []) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const oscMessage = {
         type: 'osc',

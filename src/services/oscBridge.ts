@@ -7,7 +7,7 @@ export interface BridgeConfig {
 
 export class OSCBridge {
   private isRunning = false;
-  private bridgeProcess: any = null;
+  private bridgeProcess: unknown = null;
   private config: BridgeConfig;
 
   constructor(config: BridgeConfig) {

@@ -51,6 +51,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
         }, 200);
       }, 2000);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level]);
 
   // Additional timer to ensure peak always resets after 2 seconds
@@ -71,7 +72,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
       
       return () => clearInterval(intervalId);
     }
-  }, [isShowingPeak]);
+  }, [isShowingPeak, peakHold]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

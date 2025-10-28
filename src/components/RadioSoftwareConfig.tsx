@@ -64,19 +64,21 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
       } else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       let errorMessage = "Onbekende fout";
       
-      if (error.name === 'AbortError') {
-        errorMessage = "Verbinding time-out (5 seconden)";
-      } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
-        errorMessage = "Kan de server niet bereiken. Controleer host en port.";
-      } else if (error.message.includes('401')) {
-        errorMessage = "Authenticatie gefaald. Controleer gebruikersnaam/wachtwoord.";
-      } else if (error.message.includes('404')) {
-        errorMessage = "Endpoint niet gevonden. Controleer de server configuratie.";
-      } else {
-        errorMessage = error.message;
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = "Verbinding time-out (5 seconden)";
+        } else if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
+          errorMessage = "Kan de server niet bereiken. Controleer host en port.";
+        } else if (error.message.includes('401')) {
+          errorMessage = "Authenticatie gefaald. Controleer gebruikersnaam/wachtwoord.";
+        } else if (error.message.includes('404')) {
+          errorMessage = "Endpoint niet gevonden. Controleer de server configuratie.";
+        } else {
+          errorMessage = error.message;
+        }
       }
 
       toast({
@@ -89,7 +91,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
     }
   };
 
-  const handleConfigChange = (key: keyof RadioConfig, value: any) => {
+  const handleConfigChange = (key: keyof RadioConfig, value: string | number | boolean) => {
     setConfig(prev => {
       const newConfig = { ...prev, [key]: value };
 

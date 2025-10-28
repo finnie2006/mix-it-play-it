@@ -42,7 +42,7 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
     });
   };
 
-  const handleConfigChange = (key: keyof SpeakerConfig, value: any) => {
+  const handleConfigChange = (key: keyof SpeakerConfig, value: boolean | number | number[] | string | string[] | 'bus' | 'muteGroup') => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 

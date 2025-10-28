@@ -95,7 +95,7 @@ export const useMixer = (config: MixerConfig) => {
       unsubscribeChannelNames();
       xairMixer.disconnect();
     };
-  }, [config.ip, config.port, config.model]);
+  }, [config.ip, config.port, config.model, mixer]);
 
   // Subscribe to fader mapping status updates
   useEffect(() => {

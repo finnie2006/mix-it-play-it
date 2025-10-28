@@ -3,7 +3,7 @@ import { IntegratedOSCBridge } from './integratedBridge';
 export interface XAirMessage {
   type: 'osc' | 'status' | 'subscribe' | 'mixer_status';
   address?: string;
-  args?: any[];
+  args?: Array<string | number | boolean | { value: string | number | boolean }>;
   connected?: boolean;
   mixerIP?: string;
   mixerPort?: number;
@@ -69,56 +69,58 @@ export class XAirWebSocket {
     console.log(`🌉 OSC Bridge configured: ${config.bridgeHost}:${config.bridgePort} -> ${config.mixerIP}:${config.mixerPort}`);
   }
 
-  connect(): Promise<boolean> {
+  async connect(): Promise<boolean> {
     if (this.isConnecting || this.isConnectedState) {
       return Promise.resolve(this.isConnectedState);
     }
 
     this.isConnecting = true;
 
-    return new Promise(async (resolve) => {
-      try {
-        console.log('🔧 Starting OSC bridge connection...');
-        this.integratedBridge = new IntegratedOSCBridge(
-          this.ip,
-          this.port,
-          this.bridgeConfig.host,
-          this.bridgeConfig.port
-        );
+    return new Promise((resolve) => {
+      (async () => {
+        try {
+          console.log('🔧 Starting OSC bridge connection...');
+          this.integratedBridge = new IntegratedOSCBridge(
+            this.ip,
+            this.port,
+            this.bridgeConfig.host,
+            this.bridgeConfig.port
+          );
 
-        // Set up message handler
-        const unsubscribe = this.integratedBridge.onMessage((message) => {
-          this.handleBridgeMessage(message);
-        });
+          // Set up message handler
+          const unsubscribe = this.integratedBridge.onMessage((message) => {
+            this.handleBridgeMessage(message);
+          });
 
-        // Set up mixer status handler
-        const unsubscribeMixerStatus = this.integratedBridge.onMixerStatus((validated, message) => {
-          console.log(`🎛️ Mixer validation status: ${validated ? 'Valid' : 'Invalid'} - ${message}`);
-          this.notifyMixerStatusSubscribers(validated, message);
-        });
+          // Set up mixer status handler
+          const unsubscribeMixerStatus = this.integratedBridge.onMixerStatus((validated, message) => {
+            console.log(`🎛️ Mixer validation status: ${validated ? 'Valid' : 'Invalid'} - ${message}`);
+            this.notifyMixerStatusSubscribers(validated, message);
+          });
 
-        const bridgeStarted = await this.integratedBridge.start();
+          const bridgeStarted = await this.integratedBridge.start();
 
-        if (bridgeStarted) {
-          console.log('✅ OSC bridge connected successfully');
+          if (bridgeStarted) {
+            console.log('✅ OSC bridge connected successfully');
+            this.isConnecting = false;
+            this.isConnectedState = true;
+            this.reconnectAttempts = 0;
+            this.notifyStatusSubscribers(true);
+            this.subscribeFaderUpdates();
+            resolve(true);
+          } else {
+            throw new Error('Failed to connect to OSC bridge server');
+          }
+
+        } catch (error) {
+          console.error('❌ Failed to connect to OSC bridge:', error);
+          console.error('Make sure the bridge server is running on ws://localhost:8080');
           this.isConnecting = false;
-          this.isConnectedState = true;
-          this.reconnectAttempts = 0;
-          this.notifyStatusSubscribers(true);
-          this.subscribeFaderUpdates();
-          resolve(true);
-        } else {
-          throw new Error('Failed to connect to OSC bridge server');
+          this.isConnectedState = false;
+          this.notifyStatusSubscribers(false);
+          resolve(false);
         }
-
-      } catch (error) {
-        console.error('❌ Failed to connect to OSC bridge:', error);
-        console.error('Make sure the bridge server is running on ws://localhost:8080');
-        this.isConnecting = false;
-        this.isConnectedState = false;
-        this.notifyStatusSubscribers(false);
-        resolve(false);
-      }
+      })();
     });
   }
 
@@ -249,7 +251,7 @@ export class XAirWebSocket {
     }
   }
 
-  sendCommand(address: string, args: any[] = []) {
+  sendCommand(address: string, args: Array<string | number | boolean> = []) {
     if (this.integratedBridge?.isActive()) {
       return this.integratedBridge.sendOSCMessage(address, args);
     }
