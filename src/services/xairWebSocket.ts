@@ -80,6 +80,14 @@ export class XAirWebSocket {
       (async () => {
         try {
           console.log('🔧 Starting OSC bridge connection...');
+          
+          // Clean up existing bridge if it exists
+          if (this.integratedBridge) {
+            console.log('🧹 Cleaning up existing bridge before reconnecting...');
+            this.integratedBridge.stop();
+            this.integratedBridge = null;
+          }
+          
           this.integratedBridge = new IntegratedOSCBridge(
             this.ip,
             this.port,
@@ -88,12 +96,12 @@ export class XAirWebSocket {
           );
 
           // Set up message handler
-          const unsubscribe = this.integratedBridge.onMessage((message) => {
+          this.integratedBridge.onMessage((message) => {
             this.handleBridgeMessage(message);
           });
 
           // Set up mixer status handler
-          const unsubscribeMixerStatus = this.integratedBridge.onMixerStatus((validated, message) => {
+          this.integratedBridge.onMixerStatus((validated, message) => {
             console.log(`🎛️ Mixer validation status: ${validated ? 'Valid' : 'Invalid'} - ${message}`);
             this.notifyMixerStatusSubscribers(validated, message);
           });

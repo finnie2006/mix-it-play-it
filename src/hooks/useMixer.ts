@@ -95,7 +95,8 @@ export const useMixer = (config: MixerConfig) => {
       unsubscribeChannelNames();
       xairMixer.disconnect();
     };
-  }, [config.ip, config.port, config.model, mixer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.ip, config.port, config.model]);
 
   // Subscribe to fader mapping status updates
   useEffect(() => {

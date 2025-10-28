@@ -103,14 +103,14 @@ export class IntegratedOSCBridge {
     console.log('🛑 Stopping OSC bridge connection');
     this.isActiveState = false;
     
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+    
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
   }
 
