@@ -1,0 +1,121 @@
+name: Build Electron App
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            arch: x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+          - os: macos-latest
+            platform: mac
+            arch: x64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Install bridge server dependencies
+      run: |
+        cd bridge-server
+        npm install
+
+    - name: Build Vite app
+      run: npm run build
+
+    - name: Build Electron app (Windows)
+      if: matrix.platform == 'win'
+      run: npm run electron:build:win
+
+    - name: Build Electron app (Linux)
+      if: matrix.platform == 'linux'
+      run: npm run electron:build:linux
+
+    - name: Build Electron app (macOS)
+      if: matrix.platform == 'mac'
+      run: npm run electron:build:mac
+
+    - name: Upload Windows artifacts
+      if: matrix.platform == 'win'
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-build
+        path: |
+          dist-electron/*.exe
+          dist-electron/win-unpacked/
+        retention-days: 30
+
+    - name: Upload Linux artifacts
+      if: matrix.platform == 'linux'
+      uses: actions/upload-artifact@v4
+      with:
+        name: linux-build
+        path: |
+          dist-electron/*.AppImage
+          dist-electron/*.deb
+          dist-electron/*.rpm
+          dist-electron/linux-unpacked/
+        retention-days: 30
+
+    - name: Upload macOS artifacts
+      if: matrix.platform == 'mac'
+      uses: actions/upload-artifact@v4
+      with:
+        name: macos-build
+        path: |
+          dist-electron/*.dmg
+          dist-electron/*.zip
+          dist-electron/mac/
+        retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/windows-build/*.exe
+          artifacts/linux-build/*.AppImage
+          artifacts/linux-build/*.deb
+          artifacts/linux-build/*.rpm
+          artifacts/macos-build/*.dmg
+          artifacts/macos-build/*.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

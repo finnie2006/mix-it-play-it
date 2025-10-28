@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Menu, globalShortcut } from 'electron';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { spawn } from 'child_process';
+import { createRequire } from 'module';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -57,25 +58,19 @@ function startBridgeServer() {
     // Run bridge server in the same process instead of spawning
     console.log('Starting bridge server in same process...');
     
-    // Import and run the bridge server module
+    // Import and run the bridge server module using createRequire for CommonJS
+    const require = createRequire(import.meta.url);
+    
     if (isDev) {
       // In development, require directly
-      import(join(__dirname, '../bridge-server/server.js'))
-        .then(() => {
-          console.log('✅ Bridge server started successfully (development mode)');
-        })
-        .catch((error) => {
-          console.error('❌ Failed to start bridge server:', error);
-        });
+      const serverPath = join(__dirname, '../bridge-server/server.js');
+      require(serverPath);
+      console.log('✅ Bridge server started successfully (development mode)');
     } else {
-      // In production, import from resources
-      import(join(process.resourcesPath, 'bridge-server/server.js'))
-        .then(() => {
-          console.log('✅ Bridge server started successfully (production mode)');
-        })
-        .catch((error) => {
-          console.error('❌ Failed to start bridge server:', error);
-        });
+      // In production, import from resources (now with its own node_modules)
+      const serverPath = join(process.resourcesPath, 'bridge-server/server.js');
+      require(serverPath);
+      console.log('✅ Bridge server started successfully (production mode)');
     }
   } catch (error) {
     console.error('❌ Failed to start bridge server:', error);
