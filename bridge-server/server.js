@@ -78,6 +78,7 @@ let isSpeakerMuted = false;
 let metersSubscribed = false;
 let lastMeterData = {
     channels: Array(40).fill(-90), // Initialize with -90dB (silence)
+    buses: Array(6).fill(-90), // Initialize 6 bus meters with -90dB (silence)
     timestamp: Date.now()
 };
 
@@ -662,12 +663,19 @@ function setupOSCHandlers() {
                     const values = parseMeterBlob(blob);
                     if (values && values.length >= 38) {
                         // Update meter data with parsed values
-                        // For now, focus on main LR (positions 36, 37) and first few channels
+                        // /meters/1 structure: 16 mono + 5x2 fx/aux + 6 bus + 4 fx send (all pre) + 2 st (post) + 2 monitor
+                        // Positions: 0-15 (16 mono), 16-25 (5x2 fx/aux), 26-31 (6 bus), 32-35 (4 fx send), 36-37 (2 st/main LR), 38-39 (2 monitor)
                         const channels = Array(40).fill(-90);
+                        const buses = Array(6).fill(-90);
                         
                         // Copy channel data (first 16 are mono channels)
                         for (let i = 0; i < Math.min(16, values.length); i++) {
                             channels[i] = values[i] < -90 ? -90 : values[i];
+                        }
+                        
+                        // Bus meters at positions 26-31 (6 buses)
+                        for (let i = 0; i < 6 && (26 + i) < values.length; i++) {
+                            buses[i] = values[26 + i] < -90 ? -90 : values[26 + i];
                         }
                         
                         // Main LR post-fader at positions 36, 37
@@ -678,6 +686,7 @@ function setupOSCHandlers() {
 
                         lastMeterData = {
                             channels: channels,
+                            buses: buses,
                             timestamp: Date.now()
                         };
 

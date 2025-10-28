@@ -38,11 +38,24 @@ export interface ChannelNameMap {
   [channelNumber: number]: string;
 }
 
+export interface BusMeterConfig {
+  enabled: boolean;
+  busNumber: number; // 1-6 for the 6 available buses
+  label: string; // Custom label (e.g., "CRM")
+  isStereo: boolean; // If true, show L/R for the bus
+}
+
+export interface MainLRConfig {
+  label: string; // Custom label (e.g., "PGM")
+}
+
 export interface AppSettings {
   radioSoftware: RadioSoftwareConfig;
   faderMappings: FaderMapping[];
   speakerMute: SpeakerMuteConfig;
   channelNames: ChannelNameMap; // NEW: store channel names from mixer
+  busMeter?: BusMeterConfig; // Bus meter configuration
+  mainLR?: MainLRConfig; // Main LR label configuration
   lastUpdated: string;
 }
 
@@ -66,6 +79,15 @@ const DEFAULT_SETTINGS: AppSettings = {
     description: 'Mute main speakers when mics are open'
   },
   channelNames: {}, // NEW: empty channel names by default
+  busMeter: {
+    enabled: false,
+    busNumber: 1,
+    label: 'CRM',
+    isStereo: true
+  },
+  mainLR: {
+    label: 'PGM'
+  },
   lastUpdated: new Date().toISOString()
 };
 
@@ -135,6 +157,18 @@ export class SettingsService {
   static updateSpeakerMute(config: SpeakerMuteConfig): void {
     const settings = this.loadSettings();
     settings.speakerMute = config;
+    this.saveSettings(settings);
+  }
+
+  static updateBusMeter(config: BusMeterConfig): void {
+    const settings = this.loadSettings();
+    settings.busMeter = config;
+    this.saveSettings(settings);
+  }
+
+  static updateMainLR(config: MainLRConfig): void {
+    const settings = this.loadSettings();
+    settings.mainLR = config;
     this.saveSettings(settings);
   }
 

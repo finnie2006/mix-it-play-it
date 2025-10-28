@@ -1,5 +1,6 @@
 export interface VUMeterData {
   channels: number[];
+  buses: number[]; // 6 bus meters from /meters/1
   timestamp: number;
 }
 

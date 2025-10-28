@@ -5,6 +5,7 @@ import { AnalogClock } from '@/components/AnalogClock';
 import { PasswordUnlockModal } from '@/components/PasswordUnlockModal';
 import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
 import { faderMappingService } from '@/services/faderMappingService';
+import { SettingsService, BusMeterConfig, MainLRConfig } from '@/services/settingsService';
 import { formatTime, getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
 import { Activity, Clock, Maximize, Minimize, Mic, Settings, VolumeX } from 'lucide-react';
 
@@ -19,6 +20,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [micChannels, setMicChannels] = useState<number[]>([]);
   const [showMicSettings, setShowMicSettings] = useState(false);
+  const [showBusSettings, setShowBusSettings] = useState(false);
   const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
@@ -29,6 +31,15 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     enabled: false,
     isMuted: false,
     triggerChannels: []
+  });
+  const [busMeterConfig, setBusMeterConfig] = useState<BusMeterConfig>({
+    enabled: false,
+    busNumber: 1,
+    label: 'CRM',
+    isStereo: true
+  });
+  const [mainLRConfig, setMainLRConfig] = useState<MainLRConfig>({
+    label: 'PGM'
   });
 
   // Load password protection settings
@@ -59,6 +70,31 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     };
 
     loadPasswordSettings();
+  }, []);
+
+  // Load bus meter and main LR settings
+  useEffect(() => {
+    const loadMeterSettings = () => {
+      const appSettings = SettingsService.loadSettings();
+      if (appSettings.busMeter) {
+        setBusMeterConfig(appSettings.busMeter);
+      }
+      if (appSettings.mainLR) {
+        setMainLRConfig(appSettings.mainLR);
+      }
+    };
+
+    loadMeterSettings();
+
+    // Listen for storage changes to update settings in real-time
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'xair-controller-settings') {
+        loadMeterSettings();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   // Load time settings
@@ -281,6 +317,13 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const displayChannels = getDisplayChannels();
   const mainLR = meterData ? [meterData.channels[36] || -90, meterData.channels[37] || -90] : [-90, -90];
 
+  // Get bus meters (buses are mono, but we can show them as stereo if configured)
+  const busMeters = meterData && busMeterConfig.enabled && meterData.buses 
+    ? (busMeterConfig.isStereo 
+        ? [meterData.buses[busMeterConfig.busNumber - 1] || -90, meterData.buses[busMeterConfig.busNumber - 1] || -90] // Show same level for L/R
+        : [meterData.buses[busMeterConfig.busNumber - 1] || -90])
+    : [];
+
   // Get mic levels for all selected channels
   const micLevels = micChannels.map(channel => ({
     channel,
@@ -339,6 +382,121 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       <button
         onClick={() => setShowMicSettings(false)}
         className="mt-3 w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded text-sm"
+      >
+        Close
+      </button>
+    </div>
+  );
+
+  // Bus meter settings panel
+  const renderBusSettings = () => (
+    <div className="absolute top-full right-0 mt-2 p-4 bg-slate-800 border border-slate-600 rounded-lg shadow-lg z-20 min-w-[320px] max-h-96 overflow-y-auto">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-white font-semibold">Bus & Main Meter Settings</h4>
+      </div>
+      
+      <div className="space-y-4">
+        {/* Main LR Label */}
+        <div>
+          <label className="block text-sm text-slate-300 mb-2">
+            Main LR Label:
+          </label>
+          <input
+            type="text"
+            value={mainLRConfig.label}
+            onChange={(e) => {
+              const newConfig = { label: e.target.value };
+              setMainLRConfig(newConfig);
+              SettingsService.updateMainLR(newConfig);
+            }}
+            className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+            placeholder="e.g., PGM"
+          />
+        </div>
+
+        {/* Enable Bus Meter */}
+        <div className="pt-3 border-t border-slate-600">
+          <label className="flex items-center gap-2 text-sm text-slate-300 mb-3">
+            <input
+              type="checkbox"
+              checked={busMeterConfig.enabled}
+              onChange={(e) => {
+                const newConfig = { ...busMeterConfig, enabled: e.target.checked };
+                setBusMeterConfig(newConfig);
+                SettingsService.updateBusMeter(newConfig);
+              }}
+              className="w-4 h-4"
+            />
+            Enable Bus Meter
+          </label>
+
+          {busMeterConfig.enabled && (
+            <div className="space-y-3 pl-6">
+              {/* Bus Number */}
+              <div>
+                <label className="block text-sm text-slate-300 mb-2">
+                  Bus Number (1-6):
+                </label>
+                <select
+                  value={busMeterConfig.busNumber}
+                  onChange={(e) => {
+                    const newConfig = { ...busMeterConfig, busNumber: parseInt(e.target.value) };
+                    setBusMeterConfig(newConfig);
+                    SettingsService.updateBusMeter(newConfig);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                >
+                  {[1, 2, 3, 4, 5, 6].map(num => (
+                    <option key={num} value={num}>Bus {num}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Bus Label */}
+              <div>
+                <label className="block text-sm text-slate-300 mb-2">
+                  Bus Label:
+                </label>
+                <input
+                  type="text"
+                  value={busMeterConfig.label}
+                  onChange={(e) => {
+                    const newConfig = { ...busMeterConfig, label: e.target.value };
+                    setBusMeterConfig(newConfig);
+                    SettingsService.updateBusMeter(newConfig);
+                  }}
+                  className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white text-sm"
+                  placeholder="e.g., CRM"
+                />
+              </div>
+
+              {/* Display as Stereo */}
+              <div>
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={busMeterConfig.isStereo}
+                    onChange={(e) => {
+                      const newConfig = { ...busMeterConfig, isStereo: e.target.checked };
+                      setBusMeterConfig(newConfig);
+                      SettingsService.updateBusMeter(newConfig);
+                    }}
+                    className="w-4 h-4"
+                  />
+                  Display as Stereo (L/R)
+                </label>
+                <p className="text-xs text-slate-500 mt-1 ml-6">
+                  Note: Buses are mono, but this will show two identical meters
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <button
+        onClick={() => setShowBusSettings(false)}
+        className="mt-4 w-full px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded text-sm"
       >
         Close
       </button>
@@ -417,7 +575,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           </div>
 
           {/* Main content grid - optimized for fullscreen */}
-          <div className={`flex-1 grid gap-8 ${micChannels.length > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
+          <div className={`flex-1 grid gap-8 ${
+            micChannels.length > 0 && busMeterConfig.enabled ? 'grid-cols-5' :
+            micChannels.length > 0 || busMeterConfig.enabled ? 'grid-cols-4' : 
+            'grid-cols-3'
+          }`}>
             {/* Input Channel VU Meters */}
             <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
               <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
@@ -475,7 +637,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
               <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
                 <Activity size={24} />
-                Main LR Output
+                {mainLRConfig.label} Output
               </h3>
               
               <div className="flex-1 flex justify-center items-center">
@@ -484,7 +646,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                     <VUMeter
                       key={`main-${index}`}
                       level={level}
-                      label={getMeterLabel(36 + index)}
+                      label={index === 0 ? 'L' : 'R'}
                       height="extra-tall"
                       className="mx-6"
                     />
@@ -492,6 +654,30 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                 </div>
               </div>
             </Card>
+
+            {/* Bus Output (if enabled) */}
+            {busMeterConfig.enabled && (
+              <Card className="p-8 bg-slate-800/50 border-slate-700 flex flex-col">
+                <h3 className="text-2xl font-semibold text-white mb-6 flex items-center gap-3 justify-center">
+                  <Activity size={24} />
+                  {busMeterConfig.label} Output
+                </h3>
+                
+                <div className="flex-1 flex justify-center items-center">
+                  <div className="flex justify-around items-end w-full max-w-xs">
+                    {busMeters.map((level, index) => (
+                      <VUMeter
+                        key={`bus-${index}`}
+                        level={level}
+                        label={busMeterConfig.isStereo ? (index === 0 ? 'L' : 'R') : busMeterConfig.label}
+                        height="extra-tall"
+                        className="mx-6"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
 
           {/* Fullscreen status bar */}
@@ -546,10 +732,22 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white transition-colors"
               title="Mic Settings"
             >
-              <Settings size={20} />
+              <Mic size={20} />
             </button>
             
             {showMicSettings && renderMicSettings()}
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowBusSettings(!showBusSettings)}
+              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-white transition-colors"
+              title="Bus & Main Meter Settings"
+            >
+              <Settings size={20} />
+            </button>
+            
+            {showBusSettings && renderBusSettings()}
           </div>
           
           <button
@@ -562,7 +760,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         </div>
       </div>
 
-      <div className={`grid grid-cols-1 gap-6 ${micChannels.length > 0 ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+      <div className={`grid grid-cols-1 gap-6 ${
+        micChannels.length > 0 && busMeterConfig.enabled ? 'lg:grid-cols-5' :
+        micChannels.length > 0 || busMeterConfig.enabled ? 'lg:grid-cols-4' : 
+        'lg:grid-cols-3'
+      }`}>
         {/* Input Channel VU Meters */}
         <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
@@ -618,7 +820,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Activity size={20} />
-            Main LR Output
+            {mainLRConfig.label} Output
           </h3>
           
           <div className="flex justify-around items-end">
@@ -626,12 +828,33 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               <VUMeter
                 key={`main-${index}`}
                 level={level}
-                label={getMeterLabel(36 + index)}
+                label={index === 0 ? 'L' : 'R'}
                 className="mx-1"
               />
             ))}
           </div>
         </Card>
+
+        {/* Bus Output (if enabled) */}
+        {busMeterConfig.enabled && (
+          <Card className="lg:col-span-1 p-6 bg-slate-800/50 border-slate-700">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Activity size={20} />
+              {busMeterConfig.label} Output
+            </h3>
+            
+            <div className="flex justify-around items-end">
+              {busMeters.map((level, index) => (
+                <VUMeter
+                  key={`bus-${index}`}
+                  level={level}
+                  label={busMeterConfig.isStereo ? (index === 0 ? 'L' : 'R') : busMeterConfig.label}
+                  className="mx-1"
+                />
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Status Information */}
