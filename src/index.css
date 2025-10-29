@@ -168,3 +168,228 @@ All colors MUST be HSL.
     scrollbar-color: hsl(215 20% 32%) hsl(215 28% 17%); /* thumb track */
   }
 }
+
+/* Color Scheme System - Dynamic theming */
+@layer utilities {
+  /* Apply color scheme variables to common elements */
+  [data-color-scheme] .bg-gradient-to-br {
+    background: linear-gradient(to bottom right, var(--color-bg), var(--color-bg-secondary), var(--color-bg)) !important;
+  }
+  
+  /* Card backgrounds use secondary color */
+  [data-color-scheme] .bg-slate-800,
+  [data-color-scheme] .bg-slate-800\/50 {
+    background-color: var(--color-bg-secondary) !important;
+  }
+  
+  [data-color-scheme] .bg-slate-700 {
+    background-color: var(--color-bg-tertiary) !important;
+  }
+  
+  [data-color-scheme] .bg-slate-900 {
+    background-color: var(--color-bg) !important;
+  }
+  
+  [data-color-scheme] .bg-slate-600 {
+    background-color: var(--color-bg-tertiary) !important;
+  }
+  
+  /* Text colors - all variations */
+  /* Only override text-white on neutral backgrounds, not on colored buttons */
+  [data-color-scheme] h1.text-white,
+  [data-color-scheme] h2.text-white,
+  [data-color-scheme] h3.text-white,
+  [data-color-scheme] h4.text-white,
+  [data-color-scheme] h5.text-white,
+  [data-color-scheme] h6.text-white,
+  [data-color-scheme] p.text-white,
+  [data-color-scheme] span.text-white,
+  [data-color-scheme] div.text-white,
+  [data-color-scheme] label.text-white {
+    color: var(--color-text) !important;
+  }
+  
+  [data-color-scheme] .text-slate-200,
+  [data-color-scheme] .text-slate-300,
+  [data-color-scheme] .text-slate-400,
+  [data-color-scheme] .text-slate-500 {
+    color: var(--color-text-secondary) !important;
+  }
+  
+  /* Border colors - all variations */
+  [data-color-scheme] .border-slate-500,
+  [data-color-scheme] .border-slate-600,
+  [data-color-scheme] .border-slate-700 {
+    border-color: var(--color-border) !important;
+  }
+  
+  /* Primary/accent colors - GREEN ACCENTS (icons, highlights) */
+  [data-color-scheme] .text-green-400,
+  [data-color-scheme] .text-green-500 {
+    color: var(--color-primary) !important;
+  }
+  
+  [data-color-scheme] .bg-green-600,
+  [data-color-scheme] .bg-green-500 {
+    background-color: var(--color-primary) !important;
+  }
+  
+  [data-color-scheme] .hover\:bg-green-700:hover,
+  [data-color-scheme] .hover\:bg-green-600:hover {
+    background-color: var(--color-primary-hover) !important;
+  }
+  
+  /* ORANGE/AMBER ACCENTS - These need to use primary color too */
+  [data-color-scheme] .bg-orange-500,
+  [data-color-scheme] .bg-orange-600,
+  [data-color-scheme] .bg-amber-500,
+  [data-color-scheme] .bg-amber-600 {
+    background-color: var(--color-primary) !important;
+  }
+  
+  [data-color-scheme] .text-orange-500,
+  [data-color-scheme] .text-orange-600,
+  [data-color-scheme] .text-amber-500,
+  [data-color-scheme] .text-amber-600 {
+    color: var(--color-primary) !important;
+  }
+  
+  /* Blue accent colors - don't override button text */
+  [data-color-scheme] .bg-blue-600,
+  [data-color-scheme] .bg-blue-500 {
+    background-color: var(--color-accent) !important;
+  }
+  
+  /* Only override blue text that's NOT on buttons */
+  [data-color-scheme] h1.text-blue-600,
+  [data-color-scheme] h2.text-blue-600,
+  [data-color-scheme] h3.text-blue-600,
+  [data-color-scheme] p.text-blue-600,
+  [data-color-scheme] span.text-blue-600,
+  [data-color-scheme] div.text-blue-600,
+  [data-color-scheme] h1.text-blue-500,
+  [data-color-scheme] h2.text-blue-500,
+  [data-color-scheme] h3.text-blue-500,
+  [data-color-scheme] p.text-blue-500,
+  [data-color-scheme] span.text-blue-500,
+  [data-color-scheme] div.text-blue-500,
+  [data-color-scheme] h1.text-blue-400,
+  [data-color-scheme] h2.text-blue-400,
+  [data-color-scheme] h3.text-blue-400,
+  [data-color-scheme] p.text-blue-400,
+  [data-color-scheme] span.text-blue-400,
+  [data-color-scheme] div.text-blue-400 {
+    color: var(--color-accent) !important;
+  }
+  
+  [data-color-scheme] .hover\:bg-blue-700:hover,
+  [data-color-scheme] .hover\:bg-blue-600:hover {
+    background-color: var(--color-accent-hover) !important;
+  }
+  
+  /* Hover backgrounds */
+  [data-color-scheme] .hover\:bg-slate-700:hover,
+  [data-color-scheme] .hover\:bg-slate-600:hover {
+    background-color: var(--color-bg-tertiary) !important;
+  }
+  
+  [data-color-scheme] .hover\:bg-slate-800:hover {
+    background-color: var(--color-bg-secondary) !important;
+  }
+  
+  /* Button text colors - IMPORTANT: Keep white text on colored buttons */
+  [data-color-scheme] button.text-white,
+  [data-color-scheme] .bg-red-600.text-white,
+  [data-color-scheme] .bg-red-700.text-white,
+  [data-color-scheme] .bg-green-600.text-white,
+  [data-color-scheme] .bg-green-700.text-white,
+  [data-color-scheme] .bg-blue-600.text-white,
+  [data-color-scheme] .bg-blue-700.text-white {
+    color: #ffffff !important;
+  }
+  
+  /* Keep colored text on outline/variant buttons */
+  [data-color-scheme] button.text-blue-400,
+  [data-color-scheme] button.text-yellow-400,
+  [data-color-scheme] button.text-orange-400 {
+    color: currentColor !important;
+  }
+  
+  [data-color-scheme] .border-blue-600 .text-blue-400,
+  [data-color-scheme] .border-yellow-600 .text-yellow-400 {
+    color: inherit !important;
+  }
+  
+  /* Focus borders */
+  [data-color-scheme] .focus\:border-green-500:focus {
+    border-color: var(--color-primary) !important;
+  }
+  
+  /* Ring colors */
+  [data-color-scheme] .ring-green-500,
+  [data-color-scheme] .focus\:ring-green-500:focus {
+    --tw-ring-color: var(--color-primary) !important;
+  }
+  
+  /* Status colors - don't override button text */
+  [data-color-scheme] h1.text-red-500,
+  [data-color-scheme] h2.text-red-500,
+  [data-color-scheme] h3.text-red-500,
+  [data-color-scheme] p.text-red-500,
+  [data-color-scheme] span.text-red-500,
+  [data-color-scheme] div.text-red-500,
+  [data-color-scheme] h1.text-red-400,
+  [data-color-scheme] h2.text-red-400,
+  [data-color-scheme] h3.text-red-400,
+  [data-color-scheme] p.text-red-400,
+  [data-color-scheme] span.text-red-400,
+  [data-color-scheme] div.text-red-400 {
+    color: var(--color-danger) !important;
+  }
+  
+  [data-color-scheme] .bg-red-500,
+  [data-color-scheme] .bg-red-600 {
+    background-color: var(--color-danger) !important;
+  }
+  
+  /* Keep yellow/warning text - don't override button text */
+  [data-color-scheme] h1.text-yellow-500,
+  [data-color-scheme] h2.text-yellow-500,
+  [data-color-scheme] h3.text-yellow-500,
+  [data-color-scheme] p.text-yellow-500,
+  [data-color-scheme] span.text-yellow-500,
+  [data-color-scheme] div.text-yellow-500,
+  [data-color-scheme] h1.text-yellow-400,
+  [data-color-scheme] h2.text-yellow-400,
+  [data-color-scheme] h3.text-yellow-400,
+  [data-color-scheme] p.text-yellow-400,
+  [data-color-scheme] span.text-yellow-400,
+  [data-color-scheme] div.text-yellow-400 {
+    color: var(--color-warning) !important;
+  }
+  
+  /* Placeholder text */
+  [data-color-scheme] ::placeholder,
+  [data-color-scheme] .placeholder\:text-slate-400::placeholder {
+    color: var(--color-text-secondary) !important;
+    opacity: 0.6;
+  }
+  
+  /* Scrollbar theming with color scheme */
+  [data-color-scheme] ::-webkit-scrollbar-track {
+    background: var(--color-bg-secondary);
+  }
+  
+  [data-color-scheme] ::-webkit-scrollbar-thumb {
+    background: var(--color-bg-tertiary);
+    border-color: var(--color-bg-secondary);
+  }
+  
+  [data-color-scheme] ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-border);
+  }
+  
+  [data-color-scheme] ::-webkit-scrollbar-thumb:active {
+    background: var(--color-primary);
+  }
+}

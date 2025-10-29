@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { PasswordUnlockModal } from '@/components/PasswordUnlockModal';
-import { Settings, Shield, Eye, EyeOff, Save, Wifi, Clock } from 'lucide-react';
+import { Settings, Shield, Eye, EyeOff, Save, Wifi, Clock, AlertTriangle, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
+import { silenceDetectionService, SilenceDetectionConfig } from '@/services/silenceDetectionService';
+import { colorSchemeService, ColorScheme } from '@/services/colorSchemeService';
 
 interface AdvancedSettingsModalProps {
   onPasswordProtectionChange?: (enabled: boolean, password: string) => void;
@@ -30,6 +34,17 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
   const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
   const [autoConnectIP, setAutoConnectIP] = useState('192.168.1.10');
   const [timeSettings, setTimeSettings] = useState<TimeSettings>({ use24Hour: true });
+  
+  // Silence detection settings
+  const [silenceDetectionEnabled, setSilenceDetectionEnabled] = useState(false);
+  const [silenceThreshold, setSilenceThreshold] = useState(-60);
+  const [silenceDuration, setSilenceDuration] = useState(5);
+  const [silenceMonitorSource, setSilenceMonitorSource] = useState<'main' | 'bus' | 'channels'>('main');
+  const [silenceBusNumber, setSilenceBusNumber] = useState(1);
+  
+  // Color scheme settings
+  const [selectedColorScheme, setSelectedColorScheme] = useState<string>('default');
+  
   const { toast } = useToast();
 
   // Check if password protection is enabled for this modal
@@ -92,6 +107,18 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
     // Load time settings
     const loadedTimeSettings = getTimeSettings();
     setTimeSettings(loadedTimeSettings);
+    
+    // Load silence detection settings
+    const silenceConfig = silenceDetectionService.getConfig();
+    setSilenceDetectionEnabled(silenceConfig.enabled);
+    setSilenceThreshold(silenceConfig.threshold);
+    setSilenceDuration(silenceConfig.duration / 1000); // Convert ms to seconds
+    setSilenceMonitorSource(silenceConfig.monitorChannels);
+    setSilenceBusNumber(silenceConfig.busNumber || 1);
+    
+    // Load color scheme
+    const currentScheme = colorSchemeService.getCurrentScheme();
+    setSelectedColorScheme(currentScheme.id);
   }, []);
 
   const saveSettings = () => {
@@ -158,6 +185,19 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
 
     // Save time settings separately
     saveTimeSettings(timeSettings);
+    
+    // Save silence detection settings
+    const silenceConfig: SilenceDetectionConfig = {
+      enabled: silenceDetectionEnabled,
+      threshold: silenceThreshold,
+      duration: silenceDuration * 1000, // Convert seconds to ms
+      monitorChannels: silenceMonitorSource,
+      busNumber: silenceMonitorSource === 'bus' ? silenceBusNumber : undefined,
+    };
+    silenceDetectionService.saveConfig(silenceConfig);
+    
+    // Apply color scheme
+    colorSchemeService.setScheme(selectedColorScheme);
 
     // Notify parent components
     if (onPasswordProtectionChange) {
@@ -221,6 +261,143 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
           </DialogHeader>
           
           <div className="space-y-6 py-4">
+            {/* Color Scheme Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium flex items-center gap-2 text-slate-200">
+                    <Palette size={16} />
+                    Color Scheme
+                  </Label>
+                  <p className="text-xs text-slate-400">
+                    Choose a color theme for the application
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 pl-6 border-l-2 border-slate-600">
+                <Select value={selectedColorScheme} onValueChange={setSelectedColorScheme}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Select color scheme" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    {colorSchemeService.getAllSchemes().map((scheme) => (
+                      <SelectItem 
+                        key={scheme.id} 
+                        value={scheme.id}
+                        className="text-white hover:bg-slate-600 focus:bg-slate-600"
+                      >
+                        {scheme.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-400">
+                  Changes take effect immediately when saved
+                </p>
+              </div>
+            </div>
+
+            {/* Silence Detection Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium flex items-center gap-2 text-slate-200">
+                    <AlertTriangle size={16} />
+                    Silence Detection
+                  </Label>
+                  <p className="text-xs text-slate-400">
+                    Alert when audio levels drop below threshold
+                  </p>
+                </div>
+                <Switch
+                  checked={silenceDetectionEnabled}
+                  onCheckedChange={setSilenceDetectionEnabled}
+                />
+              </div>
+
+              {silenceDetectionEnabled && (
+                <div className="space-y-4 pl-6 border-l-2 border-slate-600">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-200">
+                      Monitor Source
+                    </Label>
+                    <Select value={silenceMonitorSource} onValueChange={(value: 'main' | 'bus' | 'channels') => setSilenceMonitorSource(value)}>
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-700 border-slate-600">
+                        <SelectItem value="main" className="text-white hover:bg-slate-600 focus:bg-slate-600">Main LR</SelectItem>
+                        <SelectItem value="bus" className="text-white hover:bg-slate-600 focus:bg-slate-600">Bus Output</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {silenceMonitorSource === 'bus' && (
+                    <div className="space-y-2">
+                      <Label className="text-sm text-slate-200">
+                        Bus Number
+                      </Label>
+                      <Select 
+                        value={silenceBusNumber.toString()} 
+                        onValueChange={(value) => setSilenceBusNumber(parseInt(value))}
+                      >
+                        <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-700 border-slate-600">
+                          {[1, 2, 3, 4, 5, 6].map(num => (
+                            <SelectItem 
+                              key={num} 
+                              value={num.toString()}
+                              className="text-white hover:bg-slate-600 focus:bg-slate-600"
+                            >
+                              Bus {num}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label className="text-sm text-slate-200">
+                      Silence Threshold: {silenceThreshold} dB
+                    </Label>
+                    <Slider
+                      value={[silenceThreshold]}
+                      onValueChange={(values) => setSilenceThreshold(values[0])}
+                      min={-80}
+                      max={-20}
+                      step={1}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-slate-400">
+                      Audio levels below this are considered silence
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="silenceDuration" className="text-sm text-slate-200">
+                      Alert After (seconds)
+                    </Label>
+                    <Input
+                      id="silenceDuration"
+                      type="number"
+                      min={1}
+                      max={60}
+                      value={silenceDuration}
+                      onChange={(e) => setSilenceDuration(parseInt(e.target.value) || 5)}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                    <p className="text-xs text-slate-400">
+                      Trigger alarm after this many seconds of silence
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Time Format Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">

@@ -214,7 +214,10 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
             <Button
               onClick={isConnected ? handleDisconnect : handleConnect}
               disabled={isConnecting}
-              className={isConnected ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}
+              className={isConnected 
+                ? 'bg-red-600 hover:bg-red-700 text-white' 
+                : 'bg-green-600 hover:bg-green-700 text-white'
+              }
             >
               {isConnecting ? 'Connecting...' : (isConnected ? 'Disconnect' : 'Connect')}
             </Button>

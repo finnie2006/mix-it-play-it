@@ -3,7 +3,9 @@ import { Card } from '@/components/ui/card';
 import { VUMeter } from '@/components/VUMeter';
 import { AnalogClock } from '@/components/AnalogClock';
 import { PasswordUnlockModal } from '@/components/PasswordUnlockModal';
+import { SilenceAlarm } from '@/components/SilenceAlarm';
 import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
+import { silenceDetectionService } from '@/services/silenceDetectionService';
 import { faderMappingService } from '@/services/faderMappingService';
 import { SettingsService, BusMeterConfig, MainLRConfig } from '@/services/settingsService';
 import { formatTime, getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
@@ -222,6 +224,12 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           // Subscribe to meter updates
           const unsubscribeMeter = vuMeterService.onMeterUpdate((data) => {
             setMeterData(data);
+            
+            // Update silence detection service with current levels
+            silenceDetectionService.updateLevels({
+              channels: data.channels,
+              buses: data.buses
+            });
           });
 
           // Subscribe to firmware version updates
@@ -549,6 +557,9 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   if (isFullscreen) {
     return (
       <div className="fixed inset-0 z-50 bg-slate-900 p-4 overflow-hidden">
+        {/* Silence Alarm - critical for fullscreen broadcasting */}
+        <SilenceAlarm />
+        
         {/* Fullscreen controls */}
         <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
           <SpeakerMuteIndicator />
@@ -714,6 +725,9 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   // Normal view
   return (
     <div className="space-y-6">
+      {/* Silence Alarm - appears in fullscreen and normal view */}
+      <SilenceAlarm />
+      
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-white flex items-center gap-3">

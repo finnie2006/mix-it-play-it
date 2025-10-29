@@ -65,7 +65,7 @@ export const AnalogClock: React.FC = () => {
                 y1={y1}
                 x2={x2}
                 y2={y2}
-                stroke="#10b981"
+                stroke="var(--color-primary, #10b981)"
                 strokeWidth="2"
               />
             );
@@ -87,7 +87,7 @@ export const AnalogClock: React.FC = () => {
                   y1={y1}
                   x2={x2}
                   y2={y2}
-                  stroke="#10b981"
+                  stroke="var(--color-primary, #10b981)"
                   strokeWidth="1"
                   opacity="0.6"
                 />
@@ -102,7 +102,7 @@ export const AnalogClock: React.FC = () => {
             y1="100"
             x2={100 + Math.cos(hourAngle * Math.PI / 180) * 40}
             y2={100 + Math.sin(hourAngle * Math.PI / 180) * 40}
-            stroke="#f59e0b"
+            stroke="var(--color-primary, #f59e0b)"
             strokeWidth="4"
             strokeLinecap="round"
           />
@@ -113,7 +113,7 @@ export const AnalogClock: React.FC = () => {
             y1="100"
             x2={100 + Math.cos(minuteAngle * Math.PI / 180) * 60}
             y2={100 + Math.sin(minuteAngle * Math.PI / 180) * 60}
-            stroke="#3b82f6"
+            stroke="var(--color-accent, #3b82f6)"
             strokeWidth="3"
             strokeLinecap="round"
           />
@@ -124,7 +124,7 @@ export const AnalogClock: React.FC = () => {
             y1="100"
             x2={100 + Math.cos(secondAngle * Math.PI / 180) * 70}
             y2={100 + Math.sin(secondAngle * Math.PI / 180) * 70}
-            stroke="#ef4444"
+            stroke="var(--color-danger, #ef4444)"
             strokeWidth="1"
             strokeLinecap="round"
           />
@@ -134,7 +134,7 @@ export const AnalogClock: React.FC = () => {
             cx="100"
             cy="100"
             r="4"
-            fill="#10b981"
+            fill="var(--color-primary, #10b981)"
           />
         </svg>
       </div>

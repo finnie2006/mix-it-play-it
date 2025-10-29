@@ -6,6 +6,7 @@ import { VUMeterDashboard } from '@/components/VUMeterDashboard';
 import { HelpModal } from '@/components/HelpModal';
 import { AdvancedSettingsModal } from '@/components/AdvancedSettingsModal';
 import { SceneQuickSwitcher } from '@/components/SceneQuickSwitcher';
+import { SilenceAlarm } from '@/components/SilenceAlarm';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Radio, Volume2, Settings, Activity, Shield, ShieldOff } from 'lucide-react';
@@ -87,6 +88,9 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Silence Alarm - Global overlay */}
+      <SilenceAlarm />
+      
       <div className="container mx-auto p-6">
         <div className="mb-8 flex justify-between items-start">
           <div>
