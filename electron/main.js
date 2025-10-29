@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, globalShortcut } from 'electron';
+import { app, BrowserWindow, Menu, globalShortcut, ipcMain } from 'electron';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { dirname, join } from 'path';
 import { spawn } from 'child_process';
@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 let mainWindow;
+let cloudSyncServer = null;
 
 const isDev = !app.isPackaged;
 
@@ -77,6 +78,50 @@ function startBridgeServer() {
   }
 }
 
+// Cloud Sync Server IPC handlers
+ipcMain.handle('cloud-sync-start-server', async (event, port = 8081) => {
+  try {
+    if (cloudSyncServer) {
+      return { success: false, message: 'Server already running' };
+    }
+
+    const require = createRequire(import.meta.url);
+    const CloudSyncServer = require(join(__dirname, 'cloudSyncServer.js'));
+    cloudSyncServer = new CloudSyncServer(port);
+    cloudSyncServer.start();
+
+    return { success: true, message: `Cloud sync server started on port ${port}` };
+  } catch (error) {
+    console.error('Failed to start cloud sync server:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('cloud-sync-stop-server', async () => {
+  try {
+    if (cloudSyncServer) {
+      cloudSyncServer.stop();
+      cloudSyncServer = null;
+      return { success: true, message: 'Cloud sync server stopped' };
+    }
+    return { success: false, message: 'Server not running' };
+  } catch (error) {
+    console.error('Failed to stop cloud sync server:', error);
+    return { success: false, message: error.message };
+  }
+});
+
+ipcMain.handle('cloud-sync-server-status', async () => {
+  if (cloudSyncServer && cloudSyncServer.isRunning) {
+    return {
+      running: true,
+      port: cloudSyncServer.port,
+      configCount: cloudSyncServer.getConfigCount()
+    };
+  }
+  return { running: false };
+});
+
 app.whenReady().then(() => {
   createWindow();
   startBridgeServer();
@@ -118,5 +163,9 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  // Stop cloud sync server
+  if (cloudSyncServer) {
+    cloudSyncServer.stop();
+  }
   // Bridge server will be cleaned up automatically when the main process exits
 });

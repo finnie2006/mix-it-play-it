@@ -7,7 +7,8 @@ import { RadioSoftwareConfig } from '@/components/RadioSoftwareConfig';
 import { FaderMappingConfig } from '@/components/FaderMappingConfig';
 import { SpeakerMuteConfig } from '@/components/SpeakerMuteConfig';
 import { SceneManager } from '@/components/SceneManager';
-import { Settings, Radio, Volume2, VolumeX, Film } from 'lucide-react';
+import { ChannelNamingConfig } from '@/components/ChannelNamingConfig';
+import { Settings, Radio, Volume2, VolumeX, Film, Tag } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
@@ -27,12 +28,31 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleBackup = () => {
-    const settings = SettingsService.loadSettings();
-    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
+    // Gather ALL settings from localStorage
+    const comprehensiveBackup = {
+      // Core settings from SettingsService
+      coreSettings: SettingsService.loadSettings(),
+      
+      // Additional settings from other services
+      silenceDetection: JSON.parse(localStorage.getItem('silence-detection-config') || 'null'),
+      colorScheme: localStorage.getItem('color-scheme'),
+      channelNames: JSON.parse(localStorage.getItem('channel-names') || 'null'),
+      cloudSyncSettings: JSON.parse(localStorage.getItem('cloud-sync-settings') || 'null'),
+      advancedSettings: JSON.parse(localStorage.getItem('advancedSettings') || 'null'),
+      
+      // Scene configurations
+      scenes: JSON.parse(localStorage.getItem('mixer-scenes') || 'null'),
+      
+      // Backup metadata
+      backupDate: new Date().toISOString(),
+      backupVersion: '2.0', // Version to track backup format changes
+    };
+
+    const blob = new Blob([JSON.stringify(comprehensiveBackup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `xair-settings-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+    a.download = `xair-complete-backup-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -52,12 +72,54 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
     reader.onload = (event) => {
       try {
         const imported = JSON.parse(event.target?.result as string);
-        // Optionally validate structure here
-        SettingsService.saveSettings(imported);
+        
+        // Check if this is a comprehensive backup (v2.0+) or legacy backup
+        if (imported.backupVersion && imported.coreSettings) {
+          // New comprehensive backup format
+          console.log('📦 Restoring comprehensive backup from', imported.backupDate);
+          
+          // Restore core settings
+          if (imported.coreSettings) {
+            SettingsService.saveSettings(imported.coreSettings);
+          }
+          
+          // Restore additional settings
+          if (imported.silenceDetection) {
+            localStorage.setItem('silence-detection-config', JSON.stringify(imported.silenceDetection));
+          }
+          if (imported.colorScheme) {
+            localStorage.setItem('color-scheme', imported.colorScheme);
+          }
+          if (imported.channelNames) {
+            localStorage.setItem('channel-names', JSON.stringify(imported.channelNames));
+          }
+          if (imported.cloudSyncSettings) {
+            localStorage.setItem('cloud-sync-settings', JSON.stringify(imported.cloudSyncSettings));
+          }
+          if (imported.advancedSettings) {
+            localStorage.setItem('advancedSettings', JSON.stringify(imported.advancedSettings));
+          }
+          if (imported.scenes) {
+            localStorage.setItem('mixer-scenes', JSON.stringify(imported.scenes));
+          }
+          
+          alert('✅ Complete backup restored successfully! Page will reload.');
+        } else {
+          // Legacy backup format (just core settings)
+          console.log('📦 Restoring legacy backup');
+          SettingsService.saveSettings(imported);
+          alert('✅ Settings restored successfully! Page will reload.');
+        }
+        
         if (onSettingsUpdate) onSettingsUpdate();
-        window.location.reload(); // Ensure all settings reload
+        
+        // Reload to apply all changes
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } catch (err) {
-        alert('Failed to import settings: ' + err);
+        alert('❌ Failed to import settings: ' + err);
+        console.error('Import error:', err);
       }
     };
     reader.readAsText(file);
@@ -76,11 +138,11 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <p className="text-slate-300">Configure radio software integration, fader mappings, and speaker mute</p>
         </div>
         <div className="flex gap-2 items-center">
-          <Button variant="outline" className="flex items-center gap-2" onClick={handleBackup} title="Download settings backup">
+          <Button variant="outline" className="flex items-center gap-2" onClick={handleBackup} title="Download complete backup (all settings, scenes, and configurations)">
             <Download size={16} />
-            Backup Settings
+            Backup All Settings
           </Button>
-          <Button variant="outline" className="flex items-center gap-2" onClick={handleImportClick} title="Import settings backup">
+          <Button variant="outline" className="flex items-center gap-2" onClick={handleImportClick} title="Import settings backup (supports both new and legacy formats)">
             <Upload size={16} />
             Import Backup
           </Button>
@@ -95,7 +157,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       </div>
 
       <Tabs defaultValue="radio" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 bg-slate-800/50 border-slate-700">
+        <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-slate-700">
           <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
             Radio Software
@@ -107,6 +169,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <TabsTrigger value="speakers" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <VolumeX size={16} />
             Speaker Mute
+          </TabsTrigger>
+          <TabsTrigger value="channels" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+            <Tag size={16} />
+            Channel Names
           </TabsTrigger>
           <TabsTrigger value="scenes" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Film size={16} />
@@ -131,6 +197,13 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             mixerModel={mixerModel} 
             channelNames={channelNames}
             onSettingsUpdate={onSettingsUpdate} 
+          />
+        </TabsContent>
+
+        <TabsContent value="channels" className="mt-6">
+          <ChannelNamingConfig 
+            mixerModel={mixerModel}
+            isConnected={isConnected} 
           />
         </TabsContent>
 

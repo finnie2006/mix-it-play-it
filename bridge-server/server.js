@@ -924,6 +924,35 @@ function setupOSCHandlers() {
             }
         }
 
+        // Handle channel name responses: /ch/01/config/name through /ch/16/config/name
+        if (oscMessage.address && oscMessage.address.match(/^\/ch\/\d+\/config\/name$/)) {
+            const channelMatch = oscMessage.address.match(/^\/ch\/(\d+)\/config\/name$/);
+            if (channelMatch) {
+                const channel = parseInt(channelMatch[1]);
+                const channelName = oscMessage.args && oscMessage.args.length > 0 ? oscMessage.args[0].value : '';
+                
+                console.log(`🏷️ Received channel ${channel} name from mixer: "${channelName}"`);
+                
+                // Broadcast to all clients
+                const nameMsg = JSON.stringify({
+                    type: 'channel-name',
+                    channel: channel,
+                    name: channelName,
+                    timestamp: Date.now()
+                });
+                
+                clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        try {
+                            client.send(nameMsg);
+                        } catch (error) {
+                            console.error('Error sending channel name to client:', error);
+                        }
+                    }
+                });
+            }
+        }
+        
         // Handle scene name responses: /-snap/001/name through /-snap/064/name
         if (oscMessage.address && oscMessage.address.match(/^\/-snap\/\d+\/name$/)) {
             const sceneMatch = oscMessage.address.match(/^\/-snap\/(\d+)\/name$/);
@@ -1214,6 +1243,44 @@ wss.on('connection', (ws) => {
           mappings: activeMappings,
           timestamp: Date.now()
         }));
+      } else if (message.type === 'set-channel-name' && message.channel && message.name) {
+        // Set channel name on mixer
+        if (oscPort && oscPort.socket) {
+          const paddedChannel = String(message.channel).padStart(2, '0');
+          const address = `/ch/${paddedChannel}/config/name`;
+          
+          oscPort.send({
+            address: address,
+            args: [{ type: 's', value: message.name }]
+          });
+          
+          console.log(`🏷️ Set channel ${message.channel} name: "${message.name}"`);
+          
+          // Send confirmation back to client
+          ws.send(JSON.stringify({
+            type: 'channel_name_set',
+            channel: message.channel,
+            name: message.name,
+            success: true,
+            timestamp: Date.now()
+          }));
+        }
+      } else if (message.type === 'get-channel-names') {
+        // Request all channel names from mixer
+        if (oscPort && oscPort.socket) {
+          // Request names for channels 1-16
+          for (let ch = 1; ch <= 16; ch++) {
+            const paddedChannel = String(ch).padStart(2, '0');
+            const address = `/ch/${paddedChannel}/config/name`;
+            
+            oscPort.send({
+              address: address,
+              args: []
+            });
+          }
+          
+          console.log('🏷️ Requested all channel names from mixer');
+        }
       }
     } catch (error) {
       console.error('❌ Error parsing WebSocket message:', error);

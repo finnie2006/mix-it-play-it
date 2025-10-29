@@ -7,6 +7,7 @@ import { HelpModal } from '@/components/HelpModal';
 import { AdvancedSettingsModal } from '@/components/AdvancedSettingsModal';
 import { SceneQuickSwitcher } from '@/components/SceneQuickSwitcher';
 import { SilenceAlarm } from '@/components/SilenceAlarm';
+import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Radio, Volume2, Settings, Activity, Shield, ShieldOff } from 'lucide-react';
@@ -101,6 +102,7 @@ const Index = () => {
             <p className="text-slate-300">Professional X-Air 16/18 Control for Radio Broadcasting</p>
           </div>
           <div className="flex gap-2">
+            <CloudSyncModal />
             <AdvancedSettingsModal 
               onPasswordProtectionChange={handlePasswordProtectionChange}
               onAutoConnectChange={handleAutoConnectChange}
