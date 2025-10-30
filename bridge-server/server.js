@@ -88,6 +88,7 @@ let firmwareVersion = null;
 // Scene state
 let sceneList = []; // Will be populated when mixer connects
 let currentSceneId = null;
+let sceneListRequesting = false; // Prevent simultaneous requests
 
 // Mixer validation state
 let mixerConnected = false;
@@ -390,7 +391,9 @@ function subscribeToMeters() {
         return;
     }
 
-    console.log('📊 Subscribing to VU meters (/meters/1)');
+    if (!metersSubscribed) {
+        console.log('📊 VU meters subscribed');
+    }
     
     // Send meter subscription message
     oscPort.send({
@@ -498,18 +501,35 @@ function requestSceneList() {
         return;
     }
 
-    console.log('🎬 Requesting scene list from mixer (64 snapshots)');
+    // Prevent multiple simultaneous requests
+    if (sceneListRequesting) {
+        console.log('🎬 Scene list request already in progress, skipping...');
+        // If someone calls refresh again, broadcast what we have
+        if (sceneList.length > 0) {
+            broadcastSceneList();
+        }
+        return;
+    }
+
+    sceneListRequesting = true;
+    console.log('🎬 Requesting scene list from mixer...');
     
-    // X-Air stores up to 64 scenes (0-63)
-    // Request scene names: /-snap/01/name through /-snap/64/name
-    sceneList = [];
+    // Only initialize scene list if it's empty or this is the first request
+    if (sceneList.length === 0) {
+        sceneList = Array.from({ length: 64 }, (_, i) => ({
+            id: i,
+            name: '',
+            timestamp: Date.now()
+        }));
+    }
     
+    // Request scene names with proper X-Air format
     for (let i = 0; i < 64; i++) {
         const sceneIndex = String(i + 1).padStart(2, '0');
-        const address = `/-snap/${sceneIndex}/name`;
-        console.log(`🎬 Requesting: ${address}`);
+        
+        // Use only the format that works based on documentation
         oscPort.send({
-            address: address,
+            address: `/-snap/${sceneIndex}/name`,
             args: []
         });
     }
@@ -519,8 +539,6 @@ function requestSceneList() {
         address: '/-snap/index',
         args: []
     });
-    
-    console.log('🎬 Scene list request sent, waiting for responses...');
 }
 
 function broadcastSceneList() {
@@ -1137,8 +1155,6 @@ function setupOSCHandlers() {
                 const channel = parseInt(channelMatch[1]);
                 const channelName = oscMessage.args && oscMessage.args.length > 0 ? oscMessage.args[0].value : '';
                 
-                console.log(`🏷️ Received channel ${channel} name from mixer: "${channelName}"`);
-                
                 // Broadcast to all clients
                 const nameMsg = JSON.stringify({
                     type: 'channel-name',
@@ -1159,35 +1175,42 @@ function setupOSCHandlers() {
             }
         }
         
-        // Handle scene name responses: /-snap/01/name through /-snap/64/name
-        if (oscMessage.address && oscMessage.address.match(/^\/-snap\/\d+\/name$/)) {
-            const sceneMatch = oscMessage.address.match(/^\/-snap\/(\d+)\/name$/);
+        // Handle scene name responses: /-snap/01/name or /-snap/01/name/01
+        if (oscMessage.address && (oscMessage.address.match(/^\/-snap\/\d+\/name$/) || oscMessage.address.match(/^\/-snap\/\d+\/name\/\d+$/))) {
+            const sceneMatch = oscMessage.address.match(/^\/-snap\/(\d+)\/name/);
             if (sceneMatch) {
                 const sceneIndex = parseInt(sceneMatch[1]) - 1; // Convert to 0-based index
                 const sceneName = oscMessage.args && oscMessage.args.length > 0 ? oscMessage.args[0].value : '';
                 
-                console.log(`🎬 Received scene name: Scene ${sceneIndex} = "${sceneName}"`);
+                // Only log scenes with actual names (not empty)
+                if (sceneName && sceneName.trim() !== '') {
+                    console.log(`🎬 Scene ${sceneIndex + 1}: "${sceneName}"`);
+                }
                 
-                // Update scene list
-                const existingIndex = sceneList.findIndex(s => s.id === sceneIndex);
-                if (existingIndex >= 0) {
-                    sceneList[existingIndex].name = sceneName;
-                } else {
-                    sceneList.push({
-                        id: sceneIndex,
-                        name: sceneName,
-                        timestamp: Date.now()
-                    });
+                // Update the scene in the list (list is pre-initialized with all 64 slots)
+                if (sceneIndex >= 0 && sceneIndex < sceneList.length) {
+                    sceneList[sceneIndex].name = sceneName;
+                    sceneList[sceneIndex].timestamp = Date.now();
                 }
 
-                // Broadcast updated scene list after we've received most scenes
-                // Use a debounced approach to avoid spamming
-                if (sceneList.length >= 60) {
-                    setTimeout(() => {
-                        console.log(`🎬 Broadcasting scene list with ${sceneList.length} scenes`);
-                        broadcastSceneList();
-                    }, 500);
+                // Use a debounced approach to broadcast after all responses are received
+                // Clear any existing timeout and set a new one
+                if (global.sceneListBroadcastTimeout) {
+                    clearTimeout(global.sceneListBroadcastTimeout);
                 }
+                
+                global.sceneListBroadcastTimeout = setTimeout(() => {
+                    const namedScenes = sceneList.filter(s => s.name && s.name.trim() !== '').length;
+                    console.log(`🎬 Scene list ready: ${namedScenes} named scenes`);
+                    broadcastSceneList();
+                    
+                    // Allow new requests after broadcasting
+                    setTimeout(() => {
+                        sceneListRequesting = false;
+                    }, 500);
+                    
+                    global.sceneListBroadcastTimeout = null;
+                }, 2000); // Wait 2 seconds after last response to ensure all data received
             }
         }
 
@@ -1242,8 +1265,8 @@ oscPort.open();
 
 // Handle WebSocket connections
 wss.on('connection', (ws) => {
-  console.log('🔗 WebSocket client connected');
   clients.add(ws);
+  console.log(`🔗 WebSocket client connected (${clients.size} total)`);
 
   // Send connection status
   ws.send(JSON.stringify({
@@ -1548,8 +1571,8 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
-    console.log('❌ WebSocket client disconnected');
     clients.delete(ws);
+    console.log(`🔗 Client disconnected (${clients.size} remaining)`);
   });
 
   ws.on('error', (error) => {
