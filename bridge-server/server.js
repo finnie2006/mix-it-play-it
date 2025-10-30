@@ -523,6 +523,20 @@ function requestSceneList() {
         }));
     }
     
+    // Add a timeout to reset the request flag if no responses are received
+    // This prevents the flag from getting stuck
+    if (global.sceneListRequestTimeout) {
+        clearTimeout(global.sceneListRequestTimeout);
+    }
+    
+    global.sceneListRequestTimeout = setTimeout(() => {
+        if (sceneListRequesting) {
+            console.log('⚠️ Scene list request timed out - no responses received');
+            sceneListRequesting = false;
+            global.sceneListRequestTimeout = null;
+        }
+    }, 10000); // 10 second timeout
+    
     // Request scene names with proper X-Air format
     for (let i = 0; i < 64; i++) {
         const sceneIndex = String(i + 1).padStart(2, '0');
@@ -1191,6 +1205,12 @@ function setupOSCHandlers() {
                 if (sceneIndex >= 0 && sceneIndex < sceneList.length) {
                     sceneList[sceneIndex].name = sceneName;
                     sceneList[sceneIndex].timestamp = Date.now();
+                }
+
+                // Clear the request timeout since we're getting responses
+                if (global.sceneListRequestTimeout) {
+                    clearTimeout(global.sceneListRequestTimeout);
+                    global.sceneListRequestTimeout = null;
                 }
 
                 // Use a debounced approach to broadcast after all responses are received
