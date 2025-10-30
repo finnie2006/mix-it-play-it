@@ -20,6 +20,7 @@ const Index = () => {
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
   const [isEndUserMode, setIsEndUserMode] = useState(false);
+  const [configPanelTab, setConfigPanelTab] = useState('radio');
   
   const { 
     isConnected, 
@@ -82,9 +83,9 @@ const Index = () => {
 
   // Handle quick channel configuration from dashboard
   const handleConfigureChannel = (channel: number) => {
+    setConfigPanelTab('faders'); // Set to fader mappings tab
     setCurrentTab('config');
-    // TODO: Could add specific channel focus/scroll functionality here
-    console.log(`Navigating to configuration for channel ${channel}`);
+    console.log(`Navigating to fader configuration for channel ${channel}`);
   };
 
   return (
@@ -200,6 +201,7 @@ const Index = () => {
                 channelNames={channelNames}
                 onSettingsUpdate={reloadMappings}
                 isConnected={isConnected && mixerValidated}
+                initialTab={configPanelTab}
               />
             </TabsContent>
           </Tabs>

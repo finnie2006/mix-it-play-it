@@ -15,13 +15,15 @@ interface ConfigurationPanelProps {
   channelNames?: ChannelNameMap;
   onSettingsUpdate?: () => void;
   isConnected?: boolean;
+  initialTab?: string;
 }
 
 export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   mixerModel,
   channelNames = {},
   onSettingsUpdate,
-  isConnected = false
+  isConnected = false,
+  initialTab = 'radio'
 }) => {
 
   // Backup logic
@@ -156,7 +158,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         </div>
       </div>
 
-      <Tabs defaultValue="radio" className="w-full">
+      <Tabs defaultValue={initialTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-slate-700">
           <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
