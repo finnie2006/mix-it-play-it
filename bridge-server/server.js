@@ -423,10 +423,10 @@ function loadScene(sceneId) {
 
     console.log(`🎬 Loading scene ${sceneId}`);
     
-    // Send scene load command: /-snap/load with scene index
+    // Send scene load command: /-snap/load with scene index (1-64, not 0-63)
     oscPort.send({
         address: '/-snap/load',
-        args: [{ type: 'i', value: sceneId }]
+        args: [{ type: 'i', value: sceneId + 1 }]
     });
 
     currentSceneId = sceneId;
@@ -457,15 +457,15 @@ function saveScene(sceneId, name) {
 
     console.log(`🎬 Saving current state to scene ${sceneId}${name ? ` as "${name}"` : ''}`);
     
-    // Send scene save command: /-snap/save with scene index
+    // Send scene save command: /-snap/save with scene index (1-64, not 0-63)
     oscPort.send({
         address: '/-snap/save',
-        args: [{ type: 'i', value: sceneId }]
+        args: [{ type: 'i', value: sceneId + 1 }]
     });
 
     // If name is provided, also set the scene name
     if (name) {
-        // Set scene name: /-snap/01/name (note: scenes are 1-indexed in naming, but 0-indexed in load/save)
+        // Set scene name: /-snap/01/name (scenes use 1-64 indexing)
         const sceneIndex = String(sceneId + 1).padStart(2, '0');
         oscPort.send({
             address: `/-snap/${sceneIndex}/name`,
@@ -1237,8 +1237,9 @@ function setupOSCHandlers() {
         // Handle current scene index response: /-snap/index
         if (oscMessage.address === '/-snap/index') {
             if (oscMessage.args && oscMessage.args.length > 0) {
-                currentSceneId = oscMessage.args[0].value;
-                console.log(`🎬 Current scene: ${currentSceneId}`);
+                // Mixer sends 1-64, convert to 0-63 for internal use
+                currentSceneId = oscMessage.args[0].value - 1;
+                console.log(`🎬 Current scene: ${currentSceneId} (mixer value: ${oscMessage.args[0].value})`);
                 
                 // Broadcast current scene to clients
                 const message = JSON.stringify({
