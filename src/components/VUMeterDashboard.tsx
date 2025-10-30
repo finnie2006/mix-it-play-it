@@ -167,6 +167,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isFullscreen) {
+        // If password protected in end-user mode, prevent default browser behavior
+        if (endUserMode && passwordProtectionEnabled) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
         // Use the same logic as fullscreen toggle for consistency
         toggleFullscreen();
       }
@@ -176,9 +181,9 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       }
     };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isFullscreen, toggleFullscreen]);
+    window.addEventListener('keydown', handleKeyPress, true); // Use capture phase
+    return () => window.removeEventListener('keydown', handleKeyPress, true);
+  }, [isFullscreen, toggleFullscreen, endUserMode, passwordProtectionEnabled]);
 
   useEffect(() => {
     console.log('State changed - isFullscreen:', isFullscreen);
@@ -188,14 +193,24 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && isFullscreen) {
-        console.log('Browser exited fullscreen, updating component state');
-        setIsFullscreen(false);
+        // If password protected in end-user mode, re-enter fullscreen
+        if (endUserMode && passwordProtectionEnabled) {
+          console.log('Password protected mode - preventing fullscreen exit, re-entering');
+          document.documentElement.requestFullscreen?.().catch((err) => {
+            console.log('Could not re-enter fullscreen:', err);
+            // If we can't re-enter fullscreen, show the password modal
+            setIsPasswordModalOpen(true);
+          });
+        } else {
+          console.log('Browser exited fullscreen, updating component state');
+          setIsFullscreen(false);
+        }
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [isFullscreen]);
+  }, [isFullscreen, endUserMode, passwordProtectionEnabled]);
 
   // Load speaker mute status from fader mapping service
   useEffect(() => {

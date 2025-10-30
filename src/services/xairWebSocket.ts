@@ -70,8 +70,14 @@ export class XAirWebSocket {
   }
 
   async connect(): Promise<boolean> {
-    if (this.isConnecting || this.isConnectedState) {
-      return Promise.resolve(this.isConnectedState);
+    if (this.isConnecting) {
+      console.log('⏳ Connection already in progress, waiting...');
+      return Promise.resolve(false);
+    }
+
+    if (this.isConnectedState && this.integratedBridge?.isActive()) {
+      console.log('✅ Already connected to mixer');
+      return Promise.resolve(true);
     }
 
     this.isConnecting = true;
@@ -330,18 +336,14 @@ export class XAirWebSocket {
     this.isConnectedState = false;
     this.reconnectAttempts = 0;
 
-    // Clear all subscription sets
-    this.subscribers.clear();
-    this.muteSubscribers.clear();
-    this.channelNameSubscribers.clear();
-    this.statusSubscribers.clear();
-    this.mixerStatusSubscribers.clear();
-
     // Reset fader log state
     this.lastFaderLog = {};
 
     // Notify all status subscribers that we're disconnected
     this.notifyStatusSubscribers(false);
+    
+    // Reset mixer validation status
+    this.notifyMixerStatusSubscribers(false, 'Disconnected');
 
     console.log('✅ Mixer disconnect completed');
   }

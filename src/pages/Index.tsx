@@ -172,7 +172,7 @@ const Index = () => {
                     </h2>
                     <p className="text-slate-400">
                       {isEndUserMode 
-                        ? 'Protected mode with working password exit functionality' 
+                        ? 'Protected mode' 
                         : 'Full admin access mode'
                       }
                     </p>

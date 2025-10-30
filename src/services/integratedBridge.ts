@@ -11,6 +11,7 @@ export class IntegratedOSCBridge {
   private ws: WebSocket | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private isActiveState = false;
+  private isStopped = false;
   private messageHandlers: Set<(message: XAirMessage) => void> = new Set();
   private statusHandlers: Set<(validated: boolean, message: string) => void> = new Set();
   private mixerValidated = false;
@@ -27,6 +28,9 @@ export class IntegratedOSCBridge {
       try {
         const wsUrl = `ws://${this.bridgeHost}:${this.bridgePort}`;
         console.log(`🌉 Connecting to OSC bridge at ${wsUrl}`);
+        
+        // Reset stopped flag when starting
+        this.isStopped = false;
         
         this.ws = new WebSocket(wsUrl);
         
@@ -61,7 +65,10 @@ export class IntegratedOSCBridge {
           console.log('❌ OSC bridge connection closed');
           this.isActiveState = false;
           this.mixerValidated = false;
-          this.attemptReconnect();
+          // Only attempt reconnect if we weren't explicitly stopped
+          if (!this.isStopped) {
+            this.attemptReconnect();
+          }
         };
 
         this.ws.onerror = (error) => {
@@ -102,6 +109,8 @@ export class IntegratedOSCBridge {
   stop() {
     console.log('🛑 Stopping OSC bridge connection');
     this.isActiveState = false;
+    this.isStopped = true;
+    this.mixerValidated = false;
     
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -109,6 +118,11 @@ export class IntegratedOSCBridge {
     }
     
     if (this.ws) {
+      // Remove event listeners to prevent any callbacks after stop
+      this.ws.onopen = null;
+      this.ws.onmessage = null;
+      this.ws.onclose = null;
+      this.ws.onerror = null;
       this.ws.close();
       this.ws = null;
     }
