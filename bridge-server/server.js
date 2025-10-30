@@ -541,6 +541,208 @@ function broadcastSceneList() {
     });
 }
 
+// Channel properties to copy/swap
+const CHANNEL_PROPERTIES = [
+    'config/name',
+    'config/color',
+    'config/insrc',
+    'preamp/hpf',
+    'preamp/hpon',
+    'preamp/invert',
+    'gate/on',
+    'gate/mode',
+    'gate/thr',
+    'gate/range',
+    'gate/attack',
+    'gate/hold',
+    'gate/release',
+    'gate/keysrc',
+    'gate/filter/on',
+    'gate/filter/type',
+    'gate/filter/f',
+    'dyn/on',
+    'dyn/mode',
+    'dyn/det',
+    'dyn/env',
+    'dyn/thr',
+    'dyn/ratio',
+    'dyn/knee',
+    'dyn/mgain',
+    'dyn/attack',
+    'dyn/hold',
+    'dyn/release',
+    'dyn/mix',
+    'dyn/auto',
+    'dyn/keysrc',
+    'dyn/filter/on',
+    'dyn/filter/type',
+    'dyn/filter/f',
+    'insert/on',
+    'insert/fxslot',
+    'eq/on',
+    'eq/1/type',
+    'eq/1/f',
+    'eq/1/g',
+    'eq/1/q',
+    'eq/2/type',
+    'eq/2/f',
+    'eq/2/g',
+    'eq/2/q',
+    'eq/3/type',
+    'eq/3/f',
+    'eq/3/g',
+    'eq/3/q',
+    'eq/4/type',
+    'eq/4/f',
+    'eq/4/g',
+    'eq/4/q',
+    'mix/on',
+    'mix/fader',
+    'mix/pan',
+    'mix/lr',
+    'grp/dca',
+    'grp/mute',
+    'automix/group',
+    'automix/weight'
+];
+
+// Bus send properties for each channel (1-6)
+const BUS_SEND_PROPERTIES = [
+    'mix/01/on',
+    'mix/01/level',
+    'mix/01/pan',
+    'mix/01/tap',
+    'mix/01/grpon',
+    'mix/02/on',
+    'mix/02/level',
+    'mix/02/pan',
+    'mix/02/tap',
+    'mix/02/grpon',
+    'mix/03/on',
+    'mix/03/level',
+    'mix/03/pan',
+    'mix/03/tap',
+    'mix/03/grpon',
+    'mix/04/on',
+    'mix/04/level',
+    'mix/04/pan',
+    'mix/04/tap',
+    'mix/04/grpon',
+    'mix/05/on',
+    'mix/05/level',
+    'mix/05/pan',
+    'mix/05/tap',
+    'mix/05/grpon',
+    'mix/06/on',
+    'mix/06/level',
+    'mix/06/pan',
+    'mix/06/tap',
+    'mix/06/grpon'
+];
+
+// All properties combined
+const ALL_CHANNEL_PROPERTIES = [...CHANNEL_PROPERTIES, ...BUS_SEND_PROPERTIES];
+
+// Read all properties of a channel
+async function readChannelProperties(channelIndex) {
+    return new Promise((resolve, reject) => {
+        if (!oscPort || !oscPort.socket) {
+            reject(new Error('OSC port not ready'));
+            return;
+        }
+
+        const channelNum = String(channelIndex + 1).padStart(2, '0');
+        const properties = {};
+        let responsesReceived = 0;
+        const totalProperties = ALL_CHANNEL_PROPERTIES.length;
+
+        console.log(`🔍 Reading ${totalProperties} properties from Channel ${channelIndex + 1}...`);
+
+        const timeout = setTimeout(() => {
+            console.log(`⏱️ Read timeout for Channel ${channelIndex + 1}, received ${responsesReceived}/${totalProperties} responses`);
+            resolve(properties); // Return what we have
+        }, 5000);
+
+        const listener = (oscMessage) => {
+            const addressPrefix = `/ch/${channelNum}/`;
+            if (oscMessage.address && oscMessage.address.startsWith(addressPrefix)) {
+                const propPath = oscMessage.address.substring(addressPrefix.length);
+                if (ALL_CHANNEL_PROPERTIES.includes(propPath)) {
+                    properties[propPath] = oscMessage.args;
+                    responsesReceived++;
+
+                    if (responsesReceived >= totalProperties) {
+                        clearTimeout(timeout);
+                        oscPort.off('message', listener);
+                        console.log(`✅ Read complete for Channel ${channelIndex + 1}: ${responsesReceived} properties`);
+                        resolve(properties);
+                    }
+                }
+            }
+        };
+
+        oscPort.on('message', listener);
+
+        // Request all properties
+        ALL_CHANNEL_PROPERTIES.forEach(prop => {
+            oscPort.send({
+                address: `/ch/${channelNum}/${prop}`,
+                args: []
+            });
+        });
+    });
+}
+
+// Write properties to a channel
+async function writeChannelProperties(channelIndex, properties) {
+    if (!oscPort || !oscPort.socket) {
+        throw new Error('OSC port not ready');
+    }
+
+    const channelNum = String(channelIndex + 1).padStart(2, '0');
+    console.log(`📝 Writing ${Object.keys(properties).length} properties to Channel ${channelIndex + 1}...`);
+
+    for (const [propPath, args] of Object.entries(properties)) {
+        oscPort.send({
+            address: `/ch/${channelNum}/${propPath}`,
+            args: args || []
+        });
+        // Small delay to avoid overwhelming the mixer
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
+
+    console.log(`✅ Write complete for Channel ${channelIndex + 1}`);
+}
+
+// Copy channel from source to target
+async function copyChannel(sourceIndex, targetIndex) {
+    console.log(`📋 Copying Channel ${sourceIndex + 1} → Channel ${targetIndex + 1}`);
+    
+    const sourceProperties = await readChannelProperties(sourceIndex);
+    await writeChannelProperties(targetIndex, sourceProperties);
+    
+    console.log(`✅ Copy complete: Channel ${sourceIndex + 1} → Channel ${targetIndex + 1}`);
+}
+
+// Swap two channels
+async function swapChannels(channel1Index, channel2Index) {
+    console.log(`🔀 Swapping Channel ${channel1Index + 1} ↔ Channel ${channel2Index + 1}`);
+    
+    // Read both channels
+    const [channel1Props, channel2Props] = await Promise.all([
+        readChannelProperties(channel1Index),
+        readChannelProperties(channel2Index)
+    ]);
+    
+    // Write them swapped
+    await Promise.all([
+        writeChannelProperties(channel1Index, channel2Props),
+        writeChannelProperties(channel2Index, channel1Props)
+    ]);
+    
+    console.log(`✅ Swap complete: Channel ${channel1Index + 1} ↔ Channel ${channel2Index + 1}`);
+}
+
 // Function to send HTTP request to radio software
 async function sendRadioCommand(command, config) {
     return new Promise((resolve, reject) => {
@@ -1290,6 +1492,54 @@ wss.on('connection', (ws) => {
           }
           
           console.log('🏷️ Requested all channel names from mixer');
+        }
+      } else if (message.type === 'swap_channels' && typeof message.sourceChannel === 'number' && typeof message.targetChannel === 'number') {
+        // Swap two channels with all their properties
+        console.log(`🔀 Swapping Channel ${message.sourceChannel + 1} ↔ Channel ${message.targetChannel + 1}`);
+        
+        try {
+          await swapChannels(message.sourceChannel, message.targetChannel);
+          
+          ws.send(JSON.stringify({
+            type: 'channel_operation_complete',
+            operation: 'swap',
+            sourceChannel: message.sourceChannel,
+            targetChannel: message.targetChannel,
+            success: true,
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error('❌ Channel swap failed:', error);
+          ws.send(JSON.stringify({
+            type: 'channel_operation_error',
+            operation: 'swap',
+            error: error.message,
+            timestamp: Date.now()
+          }));
+        }
+      } else if (message.type === 'copy_channel' && typeof message.sourceChannel === 'number' && typeof message.targetChannel === 'number') {
+        // Copy source channel to target channel
+        console.log(`📋 Copying Channel ${message.sourceChannel + 1} → Channel ${message.targetChannel + 1}`);
+        
+        try {
+          await copyChannel(message.sourceChannel, message.targetChannel);
+          
+          ws.send(JSON.stringify({
+            type: 'channel_operation_complete',
+            operation: 'copy',
+            sourceChannel: message.sourceChannel,
+            targetChannel: message.targetChannel,
+            success: true,
+            timestamp: Date.now()
+          }));
+        } catch (error) {
+          console.error('❌ Channel copy failed:', error);
+          ws.send(JSON.stringify({
+            type: 'channel_operation_error',
+            operation: 'copy',
+            error: error.message,
+            timestamp: Date.now()
+          }));
         }
       }
     } catch (error) {
