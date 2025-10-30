@@ -462,8 +462,8 @@ function saveScene(sceneId, name) {
 
     // If name is provided, also set the scene name
     if (name) {
-        // Set scene name: /-snap/001/name (note: scenes are 1-indexed in naming, but 0-indexed in load/save)
-        const sceneIndex = String(sceneId + 1).padStart(3, '0');
+        // Set scene name: /-snap/01/name (note: scenes are 1-indexed in naming, but 0-indexed in load/save)
+        const sceneIndex = String(sceneId + 1).padStart(2, '0');
         oscPort.send({
             address: `/-snap/${sceneIndex}/name`,
             args: [{ type: 's', value: name }]
@@ -498,16 +498,18 @@ function requestSceneList() {
         return;
     }
 
-    console.log('🎬 Requesting scene list from mixer');
+    console.log('🎬 Requesting scene list from mixer (64 snapshots)');
     
     // X-Air stores up to 64 scenes (0-63)
-    // Request scene names: /-snap/001/name through /-snap/064/name
+    // Request scene names: /-snap/01/name through /-snap/64/name
     sceneList = [];
     
     for (let i = 0; i < 64; i++) {
-        const sceneIndex = String(i + 1).padStart(3, '0');
+        const sceneIndex = String(i + 1).padStart(2, '0');
+        const address = `/-snap/${sceneIndex}/name`;
+        console.log(`🎬 Requesting: ${address}`);
         oscPort.send({
-            address: `/-snap/${sceneIndex}/name`,
+            address: address,
             args: []
         });
     }
@@ -517,6 +519,8 @@ function requestSceneList() {
         address: '/-snap/index',
         args: []
     });
+    
+    console.log('🎬 Scene list request sent, waiting for responses...');
 }
 
 function broadcastSceneList() {
@@ -953,12 +957,14 @@ function setupOSCHandlers() {
             }
         }
         
-        // Handle scene name responses: /-snap/001/name through /-snap/064/name
+        // Handle scene name responses: /-snap/01/name through /-snap/64/name
         if (oscMessage.address && oscMessage.address.match(/^\/-snap\/\d+\/name$/)) {
             const sceneMatch = oscMessage.address.match(/^\/-snap\/(\d+)\/name$/);
             if (sceneMatch) {
                 const sceneIndex = parseInt(sceneMatch[1]) - 1; // Convert to 0-based index
                 const sceneName = oscMessage.args && oscMessage.args.length > 0 ? oscMessage.args[0].value : '';
+                
+                console.log(`🎬 Received scene name: Scene ${sceneIndex} = "${sceneName}"`);
                 
                 // Update scene list
                 const existingIndex = sceneList.findIndex(s => s.id === sceneIndex);
@@ -972,9 +978,13 @@ function setupOSCHandlers() {
                     });
                 }
 
-                // Broadcast updated scene list if we've received a reasonable number
-                if (sceneList.length >= 10) {
-                    broadcastSceneList();
+                // Broadcast updated scene list after we've received most scenes
+                // Use a debounced approach to avoid spamming
+                if (sceneList.length >= 60) {
+                    setTimeout(() => {
+                        console.log(`🎬 Broadcasting scene list with ${sceneList.length} scenes`);
+                        broadcastSceneList();
+                    }, 500);
                 }
             }
         }

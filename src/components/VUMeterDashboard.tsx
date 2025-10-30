@@ -874,41 +874,39 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       {/* Status Information */}
       <Card className="p-4 bg-slate-800/50 border-slate-700">
         <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${serviceConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                <span className="text-slate-300">{serviceConnected ? 'VU Meters Active' : 'VU Meters Disconnected'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Clock size={14} />
-                <span className="text-slate-300">
-                  {firmwareVersion ? `Firmware: ${firmwareVersion}` : 'Firmware: ...'}
-                </span>
-              </div>
-              {faderMappingService.getAllMappings().length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Activity size={14} />
-                  <span className="text-slate-300">{faderMappingService.getAllMappings().length} fader mappings loaded</span>
-                </div>
-              )}
-              {micChannels.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <Mic size={14} />
-                  <span className="text-slate-300">Mic channels: {micChannels.join(', ')}</span>
-                </div>
-              )}
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${serviceConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+              <span className="text-slate-300">{serviceConnected ? 'VU Meters Active' : 'VU Meters Disconnected'}</span>
             </div>
-            
-            <div className="flex items-center gap-4">
-              {meterData && (
-                <div className="text-slate-500">
-                  Last update: {formatTime(new Date(meterData.timestamp), timeSettings.use24Hour)}
-                </div>
-              )}
-              <div className="text-slate-500">
-                {meterData?.channels.length || 0} channels monitored
+            <div className="flex items-center gap-2">
+              <Clock size={14} />
+              <span className="text-slate-300">
+                {firmwareVersion ? `Firmware: ${firmwareVersion}` : 'Firmware: ...'}
+              </span>
+            </div>
+            {faderMappingService.getAllMappings().length > 0 && (
+              <div className="flex items-center gap-2">
+                <Activity size={14} />
+                <span className="text-slate-300">{faderMappingService.getAllMappings().length} fader mappings loaded</span>
               </div>
+            )}
+            {micChannels.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Mic size={14} />
+                <span className="text-slate-300">Mic channels: {micChannels.join(', ')}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-4">
+            {meterData && (
+              <div className="text-slate-500">
+                Last update: {formatTime(new Date(meterData.timestamp), timeSettings.use24Hour)}
+              </div>
+            )}
+            <div className="text-slate-500">
+              {meterData?.channels.length || 0} channels monitored
             </div>
           </div>
         </div>
