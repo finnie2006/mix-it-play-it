@@ -15,7 +15,7 @@ import { useMixer } from '@/hooks/useMixer';
 import { FullscreenButton } from '@/components/FullscreenButton';
 
 const Index = () => {
-  const [mixerIP, setMixerIP] = useState('192.168.1.10');
+  const [mixerIP, setMixerIP] = useState('');
   const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
