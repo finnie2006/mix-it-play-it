@@ -79,9 +79,13 @@ function startBridgeServer() {
 }
 
 // Fullscreen control IPC handlers (for password protection)
+let isPasswordProtectionEnabled = false;
+
 ipcMain.handle('set-fullscreen', async (event, fullscreen) => {
   if (mainWindow) {
     mainWindow.setFullScreen(fullscreen);
+    // Broadcast fullscreen state change to all listeners
+    mainWindow.webContents.send('fullscreen-changed', fullscreen);
     return { success: true };
   }
   return { success: false };
@@ -92,6 +96,13 @@ ipcMain.handle('get-fullscreen-state', async () => {
     return { isFullScreen: mainWindow.isFullScreen() };
   }
   return { isFullScreen: false };
+});
+
+// New handler to update password protection state from renderer
+ipcMain.handle('set-password-protection-state', async (event, enabled) => {
+  isPasswordProtectionEnabled = enabled;
+  console.log('Password protection state updated:', enabled);
+  return { success: true };
 });
 
 // Cloud Sync Server IPC handlers
@@ -159,7 +170,8 @@ app.whenReady().then(() => {
 
   globalShortcut.register('Escape', () => {
     if (mainWindow && mainWindow.isFullScreen()) {
-      // Check with renderer if password protection is enabled
+      // Always check with renderer if password protection is enabled
+      // The renderer will handle whether to show password modal or exit
       mainWindow.webContents.send('request-fullscreen-exit');
     }
   });

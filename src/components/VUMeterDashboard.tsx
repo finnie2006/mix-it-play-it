@@ -17,6 +17,7 @@ declare global {
       fullscreen: {
         setFullscreen: (enabled: boolean) => Promise<{ success: boolean }>;
         getState: () => Promise<{ isFullScreen: boolean }>;
+        setPasswordProtectionState: (enabled: boolean) => Promise<{ success: boolean }>;
         onRequestExit: (callback: () => void) => void;
         onFullscreenChanged: (callback: (event: any, isFullScreen: boolean) => void) => void;
       };
@@ -77,6 +78,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           
           console.log('Password protection enabled:', isEnabled);
           console.log('Has password:', hasPassword);
+          
+          // Notify Electron of password protection state
+          if (isElectron && window.electronAPI?.fullscreen.setPasswordProtectionState) {
+            window.electronAPI.fullscreen.setPasswordProtectionState(isEnabled && endUserMode);
+          }
         } catch (error) {
           console.error('Failed to parse settings:', error);
         }
@@ -86,7 +92,17 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     };
 
     loadPasswordSettings();
-  }, []);
+    
+    // Listen for settings changes
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'advancedSettings') {
+        loadPasswordSettings();
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [isElectron, endUserMode]);
 
   // Load bus meter and main LR settings
   useEffect(() => {

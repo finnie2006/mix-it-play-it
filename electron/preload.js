@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fullscreen: {
     setFullscreen: (enabled) => ipcRenderer.invoke('set-fullscreen', enabled),
     getState: () => ipcRenderer.invoke('get-fullscreen-state'),
+    setPasswordProtectionState: (enabled) => ipcRenderer.invoke('set-password-protection-state', enabled),
     onRequestExit: (callback) => ipcRenderer.on('request-fullscreen-exit', callback),
     onFullscreenChanged: (callback) => ipcRenderer.on('fullscreen-changed', callback)
   },

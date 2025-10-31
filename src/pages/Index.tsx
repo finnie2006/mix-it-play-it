@@ -108,7 +108,7 @@ const Index = () => {
               onPasswordProtectionChange={handlePasswordProtectionChange}
               onAutoConnectChange={handleAutoConnectChange}
             />
-            <FullscreenButton />
+            <FullscreenButton endUserMode={isEndUserMode} />
             <HelpModal />
           </div>
         </div>
