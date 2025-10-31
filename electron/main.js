@@ -78,6 +78,22 @@ function startBridgeServer() {
   }
 }
 
+// Fullscreen control IPC handlers (for password protection)
+ipcMain.handle('set-fullscreen', async (event, fullscreen) => {
+  if (mainWindow) {
+    mainWindow.setFullScreen(fullscreen);
+    return { success: true };
+  }
+  return { success: false };
+});
+
+ipcMain.handle('get-fullscreen-state', async () => {
+  if (mainWindow) {
+    return { isFullScreen: mainWindow.isFullScreen() };
+  }
+  return { isFullScreen: false };
+});
+
 // Cloud Sync Server IPC handlers
 ipcMain.handle('cloud-sync-start-server', async (event, port = 8081) => {
   try {
@@ -126,23 +142,25 @@ app.whenReady().then(() => {
   createWindow();
   startBridgeServer();
 
-  // Register global shortcuts
+  // Register global shortcuts with password protection support
   globalShortcut.register('F11', () => {
     if (mainWindow) {
       const isFullScreen = mainWindow.isFullScreen();
-      mainWindow.setFullScreen(!isFullScreen);
       
-      // Send fullscreen state to renderer process
-      mainWindow.webContents.send('fullscreen-changed', !isFullScreen);
+      // Check with renderer if password protection is enabled before exiting fullscreen
+      if (isFullScreen) {
+        mainWindow.webContents.send('request-fullscreen-exit');
+      } else {
+        mainWindow.setFullScreen(true);
+        mainWindow.webContents.send('fullscreen-changed', true);
+      }
     }
   });
 
   globalShortcut.register('Escape', () => {
     if (mainWindow && mainWindow.isFullScreen()) {
-      mainWindow.setFullScreen(false);
-      
-      // Send fullscreen state to renderer process
-      mainWindow.webContents.send('fullscreen-changed', false);
+      // Check with renderer if password protection is enabled
+      mainWindow.webContents.send('request-fullscreen-exit');
     }
   });
 

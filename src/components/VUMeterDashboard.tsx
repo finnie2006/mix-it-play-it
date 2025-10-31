@@ -11,6 +11,19 @@ import { SettingsService, BusMeterConfig, MainLRConfig } from '@/services/settin
 import { formatTime, getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
 import { Activity, Clock, Maximize, Minimize, Mic, Settings, VolumeX } from 'lucide-react';
 
+declare global {
+  interface Window {
+    electronAPI?: {
+      fullscreen: {
+        setFullscreen: (enabled: boolean) => Promise<{ success: boolean }>;
+        getState: () => Promise<{ isFullScreen: boolean }>;
+        onRequestExit: (callback: () => void) => void;
+        onFullscreenChanged: (callback: (event: any, isFullScreen: boolean) => void) => void;
+      };
+    };
+  }
+}
+
 interface VUMeterDashboardProps {
   isConnected?: boolean;
   endUserMode?: boolean;
@@ -29,6 +42,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [passwordProtectionEnabled, setPasswordProtectionEnabled] = useState(false);
   const [savedPassword, setSavedPassword] = useState('');
   const [timeSettings, setTimeSettings] = useState<TimeSettings>({ use24Hour: true });
+  const isElectron = typeof window !== 'undefined' && window.electronAPI;
   const [speakerMuteConfig, setSpeakerMuteConfig] = useState<{ enabled: boolean; isMuted: boolean; triggerChannels: number[] }>({
     enabled: false,
     isMuted: false,
@@ -116,11 +130,54 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  // Electron fullscreen state synchronization
+  useEffect(() => {
+    if (!isElectron) return;
+
+    // Get initial fullscreen state
+    const syncElectronFullscreen = async () => {
+      const state = await window.electronAPI!.fullscreen.getState();
+      setIsFullscreen(state.isFullScreen);
+    };
+
+    syncElectronFullscreen();
+
+    // Listen for fullscreen changes from Electron
+    const handleElectronFullscreenChange = (_event: any, isFullScreen: boolean) => {
+      console.log('Electron fullscreen changed:', isFullScreen);
+      setIsFullscreen(isFullScreen);
+      
+      // If entering fullscreen in end-user mode, lock the interface
+      if (isFullScreen && endUserMode && passwordProtectionEnabled) {
+        setIsLocked(true);
+      }
+    };
+
+    // Listen for fullscreen exit requests (from F11/Escape)
+    const handleElectronRequestExit = () => {
+      console.log('Electron requesting fullscreen exit');
+      
+      // If password protected, show modal
+      if (endUserMode && passwordProtectionEnabled) {
+        console.log('Password protected - showing modal');
+        setIsPasswordModalOpen(true);
+      } else {
+        // No password protection, allow exit
+        console.log('No password protection - exiting');
+        window.electronAPI!.fullscreen.setFullscreen(false);
+      }
+    };
+
+    window.electronAPI!.fullscreen.onFullscreenChanged(handleElectronFullscreenChange);
+    window.electronAPI!.fullscreen.onRequestExit(handleElectronRequestExit);
+  }, [isElectron, endUserMode, passwordProtectionEnabled]);
+
   // Handle fullscreen toggle
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = useCallback(async () => {
     console.log('toggleFullscreen called, current isFullscreen:', isFullscreen);
     console.log('End user mode:', endUserMode);
     console.log('Password protection enabled:', passwordProtectionEnabled);
+    console.log('Is Electron:', isElectron);
     
     if (isFullscreen) {
       // Exiting fullscreen
@@ -131,8 +188,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       } else {
         console.log('Admin mode or no password - exiting directly');
         setIsFullscreen(false);
-        // Also exit browser fullscreen
-        if (document.fullscreenElement) {
+        
+        // Exit fullscreen in appropriate environment
+        if (isElectron) {
+          await window.electronAPI!.fullscreen.setFullscreen(false);
+        } else if (document.fullscreenElement) {
           document.exitFullscreen?.();
         }
       }
@@ -140,22 +200,32 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       // Entering fullscreen
       console.log('Entering fullscreen');
       setIsFullscreen(true);
-      // Also enter browser fullscreen
-      document.documentElement.requestFullscreen?.();
+      
+      // Enter fullscreen in appropriate environment
+      if (isElectron) {
+        await window.electronAPI!.fullscreen.setFullscreen(true);
+      } else {
+        document.documentElement.requestFullscreen?.();
+      }
     }
-  }, [isFullscreen, endUserMode, passwordProtectionEnabled]);
+  }, [isFullscreen, endUserMode, passwordProtectionEnabled, isElectron]);
 
   // Handle password verification
-  const handlePasswordSubmit = (enteredPassword: string): boolean => {
+  const handlePasswordSubmit = async (enteredPassword: string): Promise<boolean> => {
     console.log('Password submitted for verification');
     if (enteredPassword === savedPassword) {
       console.log('Password correct - exiting fullscreen');
       setIsPasswordModalOpen(false);
+      setIsLocked(false);
       setIsFullscreen(false);
-      // Also exit browser fullscreen
-      if (document.fullscreenElement) {
+      
+      // Exit fullscreen in appropriate environment
+      if (isElectron) {
+        await window.electronAPI!.fullscreen.setFullscreen(false);
+      } else if (document.fullscreenElement) {
         document.exitFullscreen?.();
       }
+      
       return true;
     } else {
       console.log('Password incorrect');
@@ -163,8 +233,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     }
   };
 
-  // Handle escape key to exit fullscreen
+  // Handle escape key to exit fullscreen (only for browser, Electron handles via IPC)
   useEffect(() => {
+    // Skip keyboard handling in Electron - it's handled via IPC
+    if (isElectron) return;
+
     const handleKeyPress = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isFullscreen) {
         // If password protected in end-user mode, prevent default browser behavior
@@ -183,7 +256,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
     window.addEventListener('keydown', handleKeyPress, true); // Use capture phase
     return () => window.removeEventListener('keydown', handleKeyPress, true);
-  }, [isFullscreen, toggleFullscreen, endUserMode, passwordProtectionEnabled]);
+  }, [isFullscreen, toggleFullscreen, endUserMode, passwordProtectionEnabled, isElectron]);
 
   useEffect(() => {
     console.log('State changed - isFullscreen:', isFullscreen);

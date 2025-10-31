@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface PasswordUnlockModalProps {
   isOpen: boolean;
-  onUnlock: (password: string) => boolean;
+  onUnlock: (password: string) => boolean | Promise<boolean>;
   onClose?: () => void;
   allowClose?: boolean;
 }
@@ -32,7 +32,7 @@ export const PasswordUnlockModal: React.FC<PasswordUnlockModalProps> = ({
     }
   }, [isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!password.trim()) {
@@ -44,7 +44,8 @@ export const PasswordUnlockModal: React.FC<PasswordUnlockModalProps> = ({
       return;
     }
 
-    const success = onUnlock(password);
+    const result = onUnlock(password);
+    const success = result instanceof Promise ? await result : result;
     
     if (success) {
       setPassword('');
