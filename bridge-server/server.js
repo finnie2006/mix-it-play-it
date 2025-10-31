@@ -89,6 +89,7 @@ let firmwareVersion = null;
 let sceneList = []; // Will be populated when mixer connects
 let currentSceneId = null;
 let sceneListRequesting = false; // Prevent simultaneous requests
+let sceneResponseCount = 0; // Track how many responses we've received
 
 // Mixer validation state
 let mixerConnected = false;
@@ -504,49 +505,63 @@ function requestSceneList() {
     // Prevent multiple simultaneous requests
     if (sceneListRequesting) {
         console.log('🎬 Scene list request already in progress, skipping...');
-        // If someone calls refresh again, broadcast what we have
-        if (sceneList.length > 0) {
-            broadcastSceneList();
-        }
         return;
     }
 
     sceneListRequesting = true;
+    sceneResponseCount = 0;
     console.log('🎬 Requesting scene list from mixer...');
     
-    // Only initialize scene list if it's empty or this is the first request
-    if (sceneList.length === 0) {
-        sceneList = Array.from({ length: 64 }, (_, i) => ({
-            id: i,
-            name: '',
-            timestamp: Date.now()
-        }));
-    }
+    // Initialize scene list with empty entries
+    sceneList = Array.from({ length: 64 }, (_, i) => ({
+        id: i,
+        name: '',
+        timestamp: Date.now()
+    }));
     
-    // Add a timeout to reset the request flag if no responses are received
-    // This prevents the flag from getting stuck
+    // Clear any existing timeouts
     if (global.sceneListRequestTimeout) {
         clearTimeout(global.sceneListRequestTimeout);
     }
+    if (global.sceneListBroadcastTimeout) {
+        clearTimeout(global.sceneListBroadcastTimeout);
+    }
     
+    // Set a timeout to finalize the request even if we don't get all responses
     global.sceneListRequestTimeout = setTimeout(() => {
-        if (sceneListRequesting) {
-            console.log('⚠️ Scene list request timed out - no responses received');
-            sceneListRequesting = false;
-            global.sceneListRequestTimeout = null;
-        }
-    }, 10000); // 10 second timeout
+        const namedScenes = sceneList.filter(s => s.name && s.name.trim() !== '').length;
+        console.log(`⏰ Scene list request timeout - received ${sceneResponseCount} responses, ${namedScenes} with names`);
+        console.log('🎬 Broadcasting scene list with available data');
+        broadcastSceneList();
+        sceneListRequesting = false;
+        global.sceneListRequestTimeout = null;
+    }, 8000); // 8 second timeout to allow for slower responses
     
     // Request scene names with proper X-Air format
-    for (let i = 0; i < 64; i++) {
-        const sceneIndex = String(i + 1).padStart(2, '0');
+    // Send requests in batches with delays to avoid overwhelming the mixer
+    let batchIndex = 0;
+    const batchSize = 8; // Send 8 requests at a time
+    const batchDelay = 100; // 100ms delay between batches
+    
+    const sendBatch = () => {
+        const startIdx = batchIndex * batchSize;
+        const endIdx = Math.min(startIdx + batchSize, 64);
         
-        // Use only the format that works based on documentation
-        oscPort.send({
-            address: `/-snap/${sceneIndex}/name`,
-            args: []
-        });
-    }
+        for (let i = startIdx; i < endIdx; i++) {
+            const sceneIndex = String(i + 1).padStart(2, '0');
+            oscPort.send({
+                address: `/-snap/${sceneIndex}/name`,
+                args: []
+            });
+        }
+        
+        batchIndex++;
+        if (batchIndex * batchSize < 64) {
+            setTimeout(sendBatch, batchDelay);
+        }
+    };
+    
+    sendBatch();
 
     // Also request current scene index
     oscPort.send({
@@ -1196,6 +1211,9 @@ function setupOSCHandlers() {
                 const sceneIndex = parseInt(sceneMatch[1]) - 1; // Convert to 0-based index
                 const sceneName = oscMessage.args && oscMessage.args.length > 0 ? oscMessage.args[0].value : '';
                 
+                // Increment response count
+                sceneResponseCount++;
+                
                 // Only log scenes with actual names (not empty)
                 if (sceneName && sceneName.trim() !== '') {
                     console.log(`🎬 Scene ${sceneIndex + 1}: "${sceneName}"`);
@@ -1207,30 +1225,28 @@ function setupOSCHandlers() {
                     sceneList[sceneIndex].timestamp = Date.now();
                 }
 
-                // Clear the request timeout since we're getting responses
-                if (global.sceneListRequestTimeout) {
-                    clearTimeout(global.sceneListRequestTimeout);
-                    global.sceneListRequestTimeout = null;
-                }
-
-                // Use a debounced approach to broadcast after all responses are received
-                // Clear any existing timeout and set a new one
+                // Clear any existing broadcast timeout and set a new one
                 if (global.sceneListBroadcastTimeout) {
                     clearTimeout(global.sceneListBroadcastTimeout);
                 }
                 
+                // Debounced broadcast - wait for responses to stop coming
                 global.sceneListBroadcastTimeout = setTimeout(() => {
                     const namedScenes = sceneList.filter(s => s.name && s.name.trim() !== '').length;
-                    console.log(`🎬 Scene list ready: ${namedScenes} named scenes`);
+                    console.log(`🎬 Scene list ready: received ${sceneResponseCount}/64 responses, ${namedScenes} with names`);
+                    
+                    // Cancel the timeout since we're broadcasting now
+                    if (global.sceneListRequestTimeout) {
+                        clearTimeout(global.sceneListRequestTimeout);
+                        global.sceneListRequestTimeout = null;
+                    }
+                    
                     broadcastSceneList();
                     
                     // Allow new requests after broadcasting
-                    setTimeout(() => {
-                        sceneListRequesting = false;
-                    }, 500);
-                    
+                    sceneListRequesting = false;
                     global.sceneListBroadcastTimeout = null;
-                }, 2000); // Wait 2 seconds after last response to ensure all data received
+                }, 1500); // Wait 1.5 seconds after last response to ensure batch processing completes
             }
         }
 

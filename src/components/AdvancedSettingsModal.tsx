@@ -252,7 +252,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
 
       {/* Settings modal - only show when unlocked */}
       <Dialog open={isOpen && isUnlocked} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md bg-slate-800 border-slate-600 text-white">
+        <DialogContent className="sm:max-w-md bg-slate-800 border-slate-600 text-white max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-white">
               <Settings size={20} />
@@ -260,7 +260,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
             </DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-6 py-4">
+          <div className="space-y-6 py-4 overflow-y-auto pr-2 -mr-2">
             {/* Color Scheme Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
