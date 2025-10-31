@@ -8,7 +8,8 @@ import { FaderMappingConfig } from '@/components/FaderMappingConfig';
 import { SpeakerMuteConfig } from '@/components/SpeakerMuteConfig';
 import { SceneManager } from '@/components/SceneManager';
 import { ChannelNamingConfig } from '@/components/ChannelNamingConfig';
-import { Settings, Radio, Volume2, VolumeX, Film, Tag } from 'lucide-react';
+import { LedControlConfig } from '@/components/LedControlConfig';
+import { Settings, Radio, Volume2, VolumeX, Film, Tag, Lightbulb } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
@@ -41,13 +42,14 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       channelNames: JSON.parse(localStorage.getItem('channel-names') || 'null'),
       cloudSyncSettings: JSON.parse(localStorage.getItem('cloud-sync-settings') || 'null'),
       advancedSettings: JSON.parse(localStorage.getItem('advancedSettings') || 'null'),
+      ledControl: JSON.parse(localStorage.getItem('xair-led-control-config') || 'null'),
       
       // Scene configurations
       scenes: JSON.parse(localStorage.getItem('mixer-scenes') || 'null'),
       
       // Backup metadata
       backupDate: new Date().toISOString(),
-      backupVersion: '2.0', // Version to track backup format changes
+      backupVersion: '2.1', // Version to track backup format changes
     };
 
     const blob = new Blob([JSON.stringify(comprehensiveBackup, null, 2)], { type: 'application/json' });
@@ -100,6 +102,9 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           }
           if (imported.advancedSettings) {
             localStorage.setItem('advancedSettings', JSON.stringify(imported.advancedSettings));
+          }
+          if (imported.ledControl) {
+            localStorage.setItem('xair-led-control-config', JSON.stringify(imported.ledControl));
           }
           if (imported.scenes) {
             localStorage.setItem('mixer-scenes', JSON.stringify(imported.scenes));
@@ -159,7 +164,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       </div>
 
       <Tabs defaultValue={initialTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-slate-700">
+        <TabsList className="grid w-full grid-cols-6 bg-slate-800/50 border-slate-700">
           <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
             Radio Software
@@ -171,6 +176,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <TabsTrigger value="speakers" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <VolumeX size={16} />
             Speaker Mute
+          </TabsTrigger>
+          <TabsTrigger value="led" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+            <Lightbulb size={16} />
+            LED Control
           </TabsTrigger>
           <TabsTrigger value="channels" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Tag size={16} />
@@ -200,6 +209,10 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             channelNames={channelNames}
             onSettingsUpdate={onSettingsUpdate} 
           />
+        </TabsContent>
+
+        <TabsContent value="led" className="mt-6">
+          <LedControlConfig />
         </TabsContent>
 
         <TabsContent value="channels" className="mt-6">

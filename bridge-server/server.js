@@ -1,12 +1,11 @@
 const osc = require('osc');
 const WebSocket = require('ws');
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
-
-// Add HTTP client for radio software requests
-const https = require('https');
 const { URL } = require('url');
+const fetch = require('node-fetch'); // For LED control HTTP requests
 
 // Settings file path
 const SETTINGS_FILE = path.join(__dirname, '..', 'bridge-settings.json');
@@ -45,6 +44,16 @@ function loadSettings() {
       muteGroupNumber: 1,
       threshold: 10,
       description: 'Mute main speakers when mics are open'
+    },
+    ledControl: settings.ledControl || {
+      devices: [],
+      speakerMuteIndicator: {
+        enabled: false,
+        deviceIds: [],
+        onColor: { r: 255, g: 0, b: 0 },
+        offDelay: 0,
+        animation: 'solid'
+      }
     }
   };
 }
@@ -223,8 +232,136 @@ function sendSpeakerMuteCommand(mute) {
   oscPort.send(oscCommand);
   console.log(`🔇 Sent speaker ${mute ? 'mute' : 'unmute'} command: ${oscCommand.address}`);
 
+  // Control LED indicators
+  if (mute) {
+    turnOnLedIndicators();
+  } else {
+    turnOffLedIndicators();
+  }
+
   // Broadcast speaker mute status to clients
   broadcastSpeakerMuteStatus(mute);
+}
+
+// LED Control Functions
+let ledOffTimers = new Map();
+
+async function sendLedCommand(device, endpoint, params = {}) {
+  try {
+    const url = new URL(`http://${device.ipAddress}:${device.port}${endpoint}`);
+    
+    // Add query parameters
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.append(key, String(value));
+    });
+
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      timeout: 3000
+    });
+
+    if (response.ok) {
+      return { success: true };
+    } else {
+      console.error(`LED command failed for ${device.name}: ${response.statusText}`);
+      return { success: false, error: response.statusText };
+    }
+  } catch (error) {
+    console.error(`Failed to send LED command to ${device.name}:`, error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+function getActiveLedDevices() {
+  if (!config.ledControl || !config.ledControl.speakerMuteIndicator.enabled) {
+    return [];
+  }
+
+  const deviceIds = config.ledControl.speakerMuteIndicator.deviceIds || [];
+  return config.ledControl.devices.filter(
+    device => device.enabled && deviceIds.includes(device.id)
+  );
+}
+
+async function turnOnLedIndicators() {
+  const devices = getActiveLedDevices();
+  if (devices.length === 0) return;
+
+  console.log(`💡 Turning ON LED indicators for ${devices.length} device(s)`);
+
+  // Clear any pending off timers
+  devices.forEach(device => {
+    const timer = ledOffTimers.get(device.id);
+    if (timer) {
+      clearTimeout(timer);
+      ledOffTimers.delete(device.id);
+    }
+  });
+
+  const ledConfig = config.ledControl.speakerMuteIndicator;
+  const color = ledConfig.onColor;
+  const animation = ledConfig.animation;
+
+  // Send commands to all devices
+  for (const device of devices) {
+    try {
+      // Set color
+      await sendLedCommand(device, '/color', {
+        r: color.r,
+        g: color.g,
+        b: color.b
+      });
+
+      // Set animation mode
+      if (animation !== 'solid') {
+        await sendLedCommand(device, '/animation', { mode: animation });
+      }
+
+      // Turn on
+      await sendLedCommand(device, '/on');
+    } catch (error) {
+      console.error(`Error controlling LED device ${device.name}:`, error);
+    }
+  }
+}
+
+async function turnOffLedIndicators() {
+  const devices = getActiveLedDevices();
+  if (devices.length === 0) return;
+
+  const ledConfig = config.ledControl.speakerMuteIndicator;
+  const delay = ledConfig.offDelay || 0;
+
+  console.log(
+    `💡 Turning OFF LED indicators for ${devices.length} device(s) ` +
+    `(delay: ${delay}ms)`
+  );
+
+  devices.forEach(device => {
+    // Clear any existing timer for this device
+    const existingTimer = ledOffTimers.get(device.id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    if (delay > 0) {
+      // Schedule turn-off after delay
+      const timer = setTimeout(async () => {
+        try {
+          await sendLedCommand(device, '/off');
+          ledOffTimers.delete(device.id);
+        } catch (error) {
+          console.error(`Error turning off LED device ${device.name}:`, error);
+        }
+      }, delay);
+      ledOffTimers.set(device.id, timer);
+    } else {
+      // Turn off immediately
+      sendLedCommand(device, '/off').catch(error => {
+        console.error(`Error turning off LED device ${device.name}:`, error);
+      });
+    }
+  });
 }
 
 // Fader mapping processing function
@@ -1452,11 +1589,12 @@ wss.on('connection', (ws) => {
         // Reload settings from file
         try {
           const newConfig = loadSettings();
+          config = newConfig; // Update global config
           radioConfig = newConfig.radioSoftware.enabled ? newConfig.radioSoftware : null;
           activeMappings = newConfig.faderMappings.filter(m => m.enabled);
           speakerMuteConfig = newConfig.speakerMute.enabled ? newConfig.speakerMute : null;
 
-          console.log(`⚙️ Settings reloaded: ${activeMappings.length} active mappings, radio ${radioConfig ? 'enabled' : 'disabled'}, speaker mute ${speakerMuteConfig ? 'enabled' : 'disabled'}`);
+          console.log(`⚙️ Settings reloaded: ${activeMappings.length} active mappings, radio ${radioConfig ? 'enabled' : 'disabled'}, speaker mute ${speakerMuteConfig ? 'enabled' : 'disabled'}, LED devices ${config.ledControl?.devices?.length || 0}`);
 
           // Broadcast updated fader mappings to all clients
           const mappingUpdateMessage = JSON.stringify({
