@@ -1,7 +1,7 @@
 export interface ChannelName {
   channel: number;
   name: string;
-  color?: string; // Optional color coding
+  color?: number; // Optional color coding (0-15 OSC values)
 }
 
 const STORAGE_KEY = 'channel-names';
@@ -38,21 +38,26 @@ export class ChannelNamingService {
     }
   }
 
-  public setChannelName(channel: number, name: string, color?: string): void {
+  public setChannelName(channel: number, name: string, color?: number): void {
     this.channelNames.set(channel, { channel, name, color });
     this.saveChannelNames();
     
     // Send to mixer via WebSocket
     this.sendToMixer(channel, name);
     
-    console.log(`🏷️ Set channel ${channel} name: "${name}"`);
+    // Send color to mixer if specified
+    if (color !== undefined) {
+      this.sendColorToMixer(channel, color);
+    }
+    
+    console.log(`🏷️ Set channel ${channel} name: "${name}"${color !== undefined ? ` with color ${color}` : ''}`);
   }
 
   public getChannelName(channel: number): string {
     return this.channelNames.get(channel)?.name || `Ch ${channel}`;
   }
 
-  public getChannelColor(channel: number): string | undefined {
+  public getChannelColor(channel: number): number | undefined {
     return this.channelNames.get(channel)?.color;
   }
 
@@ -111,6 +116,29 @@ export class ChannelNamingService {
       console.log(`🏷️ Sent channel ${channel} name to mixer: "${name}"`);
     } catch (error) {
       console.error('🏷️ Failed to send channel name to mixer:', error);
+    }
+  }
+
+  private sendColorToMixer(channel: number, color: number): void {
+    if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+      console.warn('🎨 Cannot send color to mixer: WebSocket not connected');
+      return;
+    }
+
+    // X-Air OSC command to set channel color
+    // Format: /ch/XX/config/color with integer value 0-15
+    const paddedChannel = String(channel).padStart(2, '0');
+    const command = {
+      type: 'osc',
+      address: `/ch/${paddedChannel}/config/color`,
+      args: [{ type: 'i', value: color }],
+    };
+
+    try {
+      this.websocket.send(JSON.stringify(command));
+      console.log(`🎨 Sent channel ${channel} color to mixer: ${color}`);
+    } catch (error) {
+      console.error('🎨 Failed to send channel color to mixer:', error);
     }
   }
 

@@ -20,14 +20,24 @@ interface ChannelNamingConfigProps {
   isConnected: boolean;
 }
 
+// X-Air color mapping: OSC values 0-15
 const COLOR_OPTIONS = [
-  { value: '#10b981', label: 'Green' },
-  { value: '#3b82f6', label: 'Blue' },
-  { value: '#f59e0b', label: 'Amber' },
-  { value: '#ef4444', label: 'Red' },
-  { value: '#8b5cf6', label: 'Purple' },
-  { value: '#14b8a6', label: 'Teal' },
-  { value: '#f97316', label: 'Orange' },
+  { value: 0, label: 'OFF', hex: '#64748b' },
+  { value: 1, label: 'Red', hex: '#ef4444' },
+  { value: 2, label: 'Green', hex: '#10b981' },
+  { value: 3, label: 'Yellow', hex: '#eab308' },
+  { value: 4, label: 'Blue', hex: '#3b82f6' },
+  { value: 5, label: 'Magenta', hex: '#d946ef' },
+  { value: 6, label: 'Cyan', hex: '#06b6d4' },
+  { value: 7, label: 'White', hex: '#f1f5f9' },
+  { value: 8, label: 'OFF Inv', hex: '#475569' },
+  { value: 9, label: 'Red Inv', hex: '#991b1b' },
+  { value: 10, label: 'Green Inv', hex: '#065f46' },
+  { value: 11, label: 'Yellow Inv', hex: '#854d0e' },
+  { value: 12, label: 'Blue Inv', hex: '#1e3a8a' },
+  { value: 13, label: 'Magenta Inv', hex: '#701a75' },
+  { value: 14, label: 'Cyan Inv', hex: '#164e63' },
+  { value: 15, label: 'White Inv', hex: '#cbd5e1' },
 ];
 
 export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerModel, isConnected }) => {
@@ -35,7 +45,7 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
   const [channelNames, setChannelNames] = useState<Map<number, ChannelName>>(new Map());
   const [editingChannel, setEditingChannel] = useState<number | null>(null);
   const [tempName, setTempName] = useState('');
-  const [tempColor, setTempColor] = useState<string | undefined>();
+  const [tempColor, setTempColor] = useState<number | undefined>();
   const [isSyncing, setIsSyncing] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [isSwapDialogOpen, setIsSwapDialogOpen] = useState(false);
@@ -391,7 +401,10 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
             <Card
               key={channel}
               className="p-3 bg-slate-800 border-slate-600"
-              style={channelData?.color ? { borderLeftColor: channelData.color, borderLeftWidth: '4px' } : {}}
+              style={channelData?.color !== undefined ? {
+                borderLeftColor: COLOR_OPTIONS.find(c => c.value === channelData.color)?.hex || '#64748b',
+                borderLeftWidth: '4px'
+              } : {}}
             >
               {isEditing ? (
                 <div className="space-y-2">
@@ -416,19 +429,10 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
                         className={`w-6 h-6 rounded-full border-2 ${
                           tempColor === color.value ? 'border-white' : 'border-slate-600'
                         }`}
-                        style={{ backgroundColor: color.value }}
+                        style={{ backgroundColor: color.hex }}
                         title={color.label}
                       />
                     ))}
-                    <button
-                      onClick={() => setTempColor(undefined)}
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                        !tempColor ? 'border-white' : 'border-slate-600'
-                      } bg-slate-700`}
-                      title="No color"
-                    >
-                      <span className="text-xs text-slate-400">✕</span>
-                    </button>
                   </div>
 
                   <div className="flex gap-1">
