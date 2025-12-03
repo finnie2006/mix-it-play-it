@@ -18,7 +18,7 @@ declare global {
         setFullscreen: (enabled: boolean) => Promise<{ success: boolean }>;
         getState: () => Promise<{ isFullScreen: boolean }>;
         onRequestExit: (callback: () => void) => void;
-        onFullscreenChanged: (callback: (event: any, isFullScreen: boolean) => void) => void;
+        onFullscreenChanged: (callback: (event: unknown, isFullScreen: boolean) => void) => void;
       };
     };
   }
@@ -143,7 +143,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     syncElectronFullscreen();
 
     // Listen for fullscreen changes from Electron
-    const handleElectronFullscreenChange = (_event: any, isFullScreen: boolean) => {
+    const handleElectronFullscreenChange = (_event: unknown, isFullScreen: boolean) => {
       console.log('Electron fullscreen changed:', isFullScreen);
       setIsFullscreen(isFullScreen);
       

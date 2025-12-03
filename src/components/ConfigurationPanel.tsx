@@ -8,7 +8,9 @@ import { FaderMappingConfig } from '@/components/FaderMappingConfig';
 import { SpeakerMuteConfig } from '@/components/SpeakerMuteConfig';
 import { SceneManager } from '@/components/SceneManager';
 import { ChannelNamingConfig } from '@/components/ChannelNamingConfig';
-import { Settings, Radio, Volume2, VolumeX, Film, Tag } from 'lucide-react';
+import { ChannelProcessingConfig } from '@/components/ChannelProcessingConfig';
+import { MonitorConfig } from '@/components/MonitorConfig';
+import { Settings, Radio, Volume2, VolumeX, Film, Tag, Sliders, Headphones } from 'lucide-react';
 
 interface ConfigurationPanelProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
@@ -159,7 +161,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
       </div>
 
       <Tabs defaultValue={initialTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border-slate-700">
+        <TabsList className="grid w-full grid-cols-7 bg-slate-800/50 border-slate-700">
           <TabsTrigger value="radio" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Radio size={16} />
             Radio Software
@@ -175,6 +177,14 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           <TabsTrigger value="channels" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Tag size={16} />
             Channel Names
+          </TabsTrigger>
+          <TabsTrigger value="processing" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+            <Sliders size={16} />
+            Processing
+          </TabsTrigger>
+          <TabsTrigger value="monitor" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
+            <Headphones size={16} />
+            Monitor
           </TabsTrigger>
           <TabsTrigger value="scenes" className="flex items-center gap-2 text-slate-300 data-[state=active]:bg-slate-700 data-[state=active]:text-white">
             <Film size={16} />
@@ -207,6 +217,17 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
             mixerModel={mixerModel}
             isConnected={isConnected} 
           />
+        </TabsContent>
+
+        <TabsContent value="processing" className="mt-6">
+          <ChannelProcessingConfig 
+            mixerModel={mixerModel}
+            isConnected={isConnected} 
+          />
+        </TabsContent>
+
+        <TabsContent value="monitor" className="mt-6">
+          <MonitorConfig isConnected={isConnected} />
         </TabsContent>
 
         <TabsContent value="scenes" className="mt-6">

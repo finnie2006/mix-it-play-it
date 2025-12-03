@@ -10,7 +10,7 @@ import { SilenceAlarm } from '@/components/SilenceAlarm';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Radio, Volume2, Settings, Activity, Shield, ShieldOff } from 'lucide-react';
+import { Radio, Volume2, Settings, Shield, ShieldOff } from 'lucide-react';
 import { useMixer } from '@/hooks/useMixer';
 import { FullscreenButton } from '@/components/FullscreenButton';
 
@@ -141,7 +141,7 @@ const Index = () => {
                 Mixer Dashboard
               </TabsTrigger>
               <TabsTrigger value="meters" className="flex items-center gap-2">
-                <Activity size={16} />
+                <Volume2 size={16} />
                 VU Meters & Clock
               </TabsTrigger>
               <TabsTrigger value="config" className="flex items-center gap-2">
@@ -159,6 +159,7 @@ const Index = () => {
                 vuLevels={vuLevels}
                 mixerModel={mixerModel}
                 onConfigureChannel={handleConfigureChannel}
+                channelNames={channelNames}
               />
             </TabsContent>
             

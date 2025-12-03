@@ -19,10 +19,9 @@ function loadSettings() {
     if (fs.existsSync(SETTINGS_FILE)) {
       const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
       settings = JSON.parse(data);
-      console.log('📋 Loaded settings from bridge-settings.json');
     }
   } catch (error) {
-    console.warn('⚠️ Could not load bridge-settings.json:', error.message);
+    console.warn('⚠️ Could not load settings:', error.message);
   }
 
   return {
@@ -58,10 +57,7 @@ const MIXER_PORT = config.mixer.port;
 const BRIDGE_PORT = parseInt(process.env.BRIDGE_PORT) || 8080;
 const LOCAL_OSC_PORT = 10023;
 
-console.log(`🎛️ X-Air OSC-WebSocket Bridge`);
-console.log(`📡 Mixer: ${MIXER_IP}:${MIXER_PORT}`);
-console.log(`🌐 WebSocket: localhost:${BRIDGE_PORT}`);
-console.log(`🔌 Local OSC: localhost:${LOCAL_OSC_PORT}`);
+console.log(`🎛️ X-Air Bridge starting on port ${BRIDGE_PORT}...`);
 
 // Radio software configuration - Load from settings
 let radioConfig = config.radioSoftware.enabled ? config.radioSoftware : null;
@@ -79,6 +75,13 @@ let metersSubscribed = false;
 let lastMeterData = {
     channels: Array(40).fill(-90), // Initialize with -90dB (silence)
     buses: Array(6).fill(-90), // Initialize 6 bus meters with -90dB (silence)
+    timestamp: Date.now()
+};
+
+// Dynamics meter state (gate and compressor reduction)
+let dynamicsSubscribed = false;
+let lastDynamicsData = {
+    channels: Array(16).fill(null).map(() => ({ gate: 0, comp: 0 })),
     timestamp: Date.now()
 };
 
@@ -112,6 +115,32 @@ function parseMeterBlob(blob) {
         // Read 16-bit value as little-endian and treat as signed
         const val = buffer.readInt16LE(offset);
         values.push(val / 256.0); // Convert to dB (adjusted for 16-bit values)
+    }
+
+    return values;
+}
+
+// Parse dynamics meter blob for /meters/6 (gate and compressor reduction)
+// /meters/6 structure: 39 values total
+// Values 0-15: Channel 1-16 gate reduction
+// Values 16-31: Channel 1-16 compressor reduction
+// Values 32-37: Bus 1-6 compressor reduction
+// Value 38: LR main compressor reduction
+function parseDynamicsBlob(blob) {
+    const buffer = Buffer.from(blob);
+    if (buffer.length < 4) return null;
+
+    // First 4 bytes = count of meter values (big-endian)
+    const count = buffer.readInt32BE(0);
+    
+    const values = [];
+    for (let i = 0; i < count; i++) {
+        const offset = 4 + i * 2; // Each meter value is 2 bytes
+        if (offset + 2 > buffer.length) break;
+        
+        // Read 16-bit value as little-endian and treat as signed
+        const val = buffer.readInt16LE(offset);
+        values.push(val / 256.0); // Convert to dB (gain reduction)
     }
 
     return values;
@@ -385,6 +414,25 @@ function broadcastMeterUpdate(meterData) {
     });
 }
 
+// Broadcast dynamics meter update to all clients
+function broadcastDynamicsUpdate(dynamicsData) {
+    const updateMessage = JSON.stringify({
+        type: 'dynamics_meters',
+        channels: dynamicsData.channels,
+        timestamp: Date.now()
+    });
+
+    clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            try {
+                client.send(updateMessage);
+            } catch (error) {
+                console.error('Error sending dynamics update to client:', error);
+            }
+        }
+    });
+}
+
 // Subscribe to VU meters - IMPLEMENT
 function subscribeToMeters() {
     if (!oscPort || !oscPort.socket) {
@@ -392,10 +440,6 @@ function subscribeToMeters() {
         return;
     }
 
-    if (!metersSubscribed) {
-        console.log('📊 VU meters subscribed');
-    }
-    
     // Send meter subscription message
     oscPort.send({
         address: '/meters',
@@ -410,6 +454,34 @@ function subscribeToMeters() {
             oscPort.send({
                 address: '/meters',
                 args: [{ type: 's', value: '/meters/1' }]
+            });
+        }
+    }, 5000);
+}
+
+// Subscribe to dynamics meters (gate and compressor reduction)
+// /meters/6 returns 39 values: 16 gate + 16 channel comp + 6 bus comp + 1 LR comp
+// NO channel argument - this endpoint returns ALL dynamics at once
+function subscribeToDynamics() {
+    if (!oscPort || !oscPort.socket) {
+        console.log('📊 Cannot subscribe to dynamics - OSC port not ready');
+        return;
+    }
+
+    // Send dynamics meter subscription message - NO channel argument
+    oscPort.send({
+        address: '/meters',
+        args: [{ type: 's', value: '/meters/6' }]
+    });
+
+    dynamicsSubscribed = true;
+
+    // Re-subscribe every 5 seconds to maintain connection
+    setInterval(() => {
+        if (oscPort && oscPort.socket && mixerConnected) {
+            oscPort.send({
+                address: '/meters',
+                args: [{ type: 's', value: '/meters/6' }]
             });
         }
     }, 5000);
@@ -510,7 +582,6 @@ function requestSceneList() {
 
     sceneListRequesting = true;
     sceneResponseCount = 0;
-    console.log('🎬 Requesting scene list from mixer...');
     
     // Initialize scene list with empty entries
     sceneList = Array.from({ length: 64 }, (_, i) => ({
@@ -529,9 +600,6 @@ function requestSceneList() {
     
     // Set a timeout to finalize the request even if we don't get all responses
     global.sceneListRequestTimeout = setTimeout(() => {
-        const namedScenes = sceneList.filter(s => s.name && s.name.trim() !== '').length;
-        console.log(`⏰ Scene list request timeout - received ${sceneResponseCount} responses, ${namedScenes} with names`);
-        console.log('🎬 Broadcasting scene list with available data');
         broadcastSceneList();
         sceneListRequesting = false;
         global.sceneListRequestTimeout = null;
@@ -982,8 +1050,6 @@ function validateMixerConnection() {
 // Set up OSC port event handlers
 function setupOSCHandlers() {
     oscPort.on('ready', () => {
-        console.log(`✅ OSC UDP port ready, connected to ${MIXER_IP}:${MIXER_PORT}`);
-
         // Start mixer validation
         validateMixerConnection();
 
@@ -1024,7 +1090,6 @@ function setupOSCHandlers() {
         // Update mixer connection status
         lastMixerResponse = Date.now();
         if (!mixerConnected) {
-            console.log('✅ Mixer connection validated');
             mixerConnected = true;
             broadcastMixerStatus(true, 'Mixer responding to OSC commands');
 
@@ -1036,6 +1101,9 @@ function setupOSCHandlers() {
 
             // Auto-subscribe to meters when connection is established
             setTimeout(() => subscribeToMeters(), 1000);
+
+            // Auto-subscribe to dynamics meters when connection is established
+            setTimeout(() => subscribeToDynamics(), 1500);
 
             // Request scene list when connection is established
             setTimeout(() => requestSceneList(), 2000);
@@ -1085,6 +1153,52 @@ function setupOSCHandlers() {
             }
         }
 
+        // DYNAMICS METER HANDLING - /meters/6 contains gate and compressor reduction
+        // Structure: 39 values total
+        // Values 0-15: Channel 1-16 gate reduction
+        // Values 16-31: Channel 1-16 compressor reduction
+        // Values 32-37: Bus 1-6 compressor reduction
+        // Value 38: LR main compressor reduction
+        if (oscMessage.address === '/meters/6') {
+            try {
+                const blob = oscMessage.args.find(arg => arg.type === 'b')?.value;
+                if (blob) {
+                    const values = parseDynamicsBlob(blob);
+                    if (values) {
+                        // Log received count for debugging
+                        if (!global.dynamicsCountLogged) {
+                            console.log(`📊 /meters/6 received ${values.length} values (expected 39: 16 gate + 16 comp + 6 bus comp + 1 LR comp)`);
+                            global.dynamicsCountLogged = true;
+                        }
+                        
+                        if (values.length >= 32) {
+                            // Extract channel dynamics (first 32 values)
+                            const channels = [];
+                            
+                            for (let i = 0; i < 16; i++) {
+                                channels.push({
+                                    gate: values[i] || 0,           // Gate reduction at index 0-15
+                                    comp: values[16 + i] || 0       // Comp reduction at index 16-31
+                                });
+                            }
+
+                            lastDynamicsData = {
+                                channels: channels,
+                                buses: values.slice(32, 38) || [],  // Bus comp at index 32-37 (6 values)
+                                mainLR: values[38] || 0,            // Main LR comp at index 38
+                                timestamp: Date.now()
+                            };
+
+                            // Broadcast to clients
+                            broadcastDynamicsUpdate(lastDynamicsData);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error parsing dynamics data:', error);
+            }
+        }
+
         // Handle /xinfo response for firmware version
         if (oscMessage.address === '/xinfo') {
             try {
@@ -1101,6 +1215,7 @@ function setupOSCHandlers() {
 
                 if (fw) {
                     firmwareVersion = fw;
+                    console.log(`✅ Connected to mixer at ${MIXER_IP}:${MIXER_PORT} | Firmware: ${firmwareVersion}`);
                     const fwMsg = JSON.stringify({
                         type: 'firmware_version',
                         version: firmwareVersion,
@@ -1111,12 +1226,10 @@ function setupOSCHandlers() {
                             try {
                                 client.send(fwMsg);
                             } catch (error) {
-                                console.error('Error sending firmware version to client:', error);
+                                // Silent error
                             }
                         }
                     });
-                } else {
-                    console.warn('⚠️ Firmware version not found in /xinfo response');
                 }
             } catch (error) {
                 console.error('❌ Error parsing /xinfo firmware version:', error);
@@ -1214,11 +1327,6 @@ function setupOSCHandlers() {
                 // Increment response count
                 sceneResponseCount++;
                 
-                // Only log scenes with actual names (not empty)
-                if (sceneName && sceneName.trim() !== '') {
-                    console.log(`🎬 Scene ${sceneIndex + 1}: "${sceneName}"`);
-                }
-                
                 // Update the scene in the list (list is pre-initialized with all 64 slots)
                 if (sceneIndex >= 0 && sceneIndex < sceneList.length) {
                     sceneList[sceneIndex].name = sceneName;
@@ -1232,9 +1340,6 @@ function setupOSCHandlers() {
                 
                 // Debounced broadcast - wait for responses to stop coming
                 global.sceneListBroadcastTimeout = setTimeout(() => {
-                    const namedScenes = sceneList.filter(s => s.name && s.name.trim() !== '').length;
-                    console.log(`🎬 Scene list ready: received ${sceneResponseCount}/64 responses, ${namedScenes} with names`);
-                    
                     // Cancel the timeout since we're broadcasting now
                     if (global.sceneListRequestTimeout) {
                         clearTimeout(global.sceneListRequestTimeout);
@@ -1255,7 +1360,6 @@ function setupOSCHandlers() {
             if (oscMessage.args && oscMessage.args.length > 0) {
                 // Mixer sends 1-64, convert to 0-63 for internal use
                 currentSceneId = oscMessage.args[0].value - 1;
-                console.log(`🎬 Current scene: ${currentSceneId} (mixer value: ${oscMessage.args[0].value})`);
                 
                 // Broadcast current scene to clients
                 const message = JSON.stringify({
@@ -1303,7 +1407,6 @@ oscPort.open();
 // Handle WebSocket connections
 wss.on('connection', (ws) => {
   clients.add(ws);
-  console.log(`🔗 WebSocket client connected (${clients.size} total)`);
 
   // Send connection status
   ws.send(JSON.stringify({
@@ -1393,6 +1496,9 @@ wss.on('connection', (ws) => {
       } else if (message.type === 'subscribe_meters') {
         // Handle VU meter subscription
         subscribeToMeters();
+      } else if (message.type === 'subscribe_dynamics') {
+        // Handle dynamics meter subscription
+        subscribeToDynamics();
       } else if (message.type === 'validate_mixer') {
         // Manual mixer validation request
         validateMixerConnection();
@@ -1609,7 +1715,6 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     clients.delete(ws);
-    console.log(`🔗 Client disconnected (${clients.size} remaining)`);
   });
 
   ws.on('error', (error) => {
@@ -1618,21 +1723,9 @@ wss.on('connection', (ws) => {
   });
 });
 
-console.log('🚀 Bridge server ready!');
-console.log('📋 Features:');
-console.log('  • X-Air OSC bridge');
-console.log('  • WebSocket API on localhost:8080');
-console.log('  • VU meter monitoring');
-if (radioConfig) {
-    console.log(`  • Radio software integration (${radioConfig.type})`);
-}
-if (activeMappings.length > 0) {
-    console.log(`  • Fader mappings (${activeMappings.length} active)`);
-}
-if (speakerMuteConfig) {
-    console.log(`  • Speaker mute protection`);
-}
-console.log('💡 Tips:');
-console.log('  • Settings can be updated via the web interface');
-console.log('  • Use /reload_settings WebSocket message to refresh configuration');
-console.log('  • Use /reload_settings WebSocket message to refresh configuration');
+const features = [];
+if (radioConfig) features.push(`radio integration`);
+if (activeMappings.length > 0) features.push(`${activeMappings.length} fader mappings`);
+if (speakerMuteConfig) features.push(`speaker mute`);
+
+console.log(`🚀 Bridge ready | Features: ${features.length > 0 ? features.join(', ') : 'none'}`);
