@@ -79,9 +79,13 @@ function startBridgeServer() {
 }
 
 // Fullscreen control IPC handlers (for password protection)
+let isPasswordProtectionEnabled = false;
+
 ipcMain.handle('set-fullscreen', async (event, fullscreen) => {
   if (mainWindow) {
     mainWindow.setFullScreen(fullscreen);
+    // Broadcast fullscreen state change to all listeners
+    mainWindow.webContents.send('fullscreen-changed', fullscreen);
     return { success: true };
   }
   return { success: false };
@@ -92,6 +96,13 @@ ipcMain.handle('get-fullscreen-state', async () => {
     return { isFullScreen: mainWindow.isFullScreen() };
   }
   return { isFullScreen: false };
+});
+
+// Handler to update password protection state from renderer
+ipcMain.handle('set-password-protection-state', async (event, enabled) => {
+  isPasswordProtectionEnabled = enabled;
+  console.log('Password protection state updated:', enabled);
+  return { success: true };
 });
 
 // Cloud Sync Server IPC handlers
@@ -142,24 +153,29 @@ app.whenReady().then(() => {
   createWindow();
   startBridgeServer();
 
-  // Register global shortcuts with password protection support
-  globalShortcut.register('F11', () => {
-    if (mainWindow) {
+  // Handle keyboard shortcuts only when window has focus
+  // Using 'before-input-event' ensures keys only trigger when the app window is focused
+  // This prevents interference with other applications on multi-monitor setups
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    // F11 for fullscreen toggle
+    if (input.key === 'F11' && input.type === 'keyDown') {
+      event.preventDefault();
       const isFullScreen = mainWindow.isFullScreen();
       
-      // Check with renderer if password protection is enabled before exiting fullscreen
       if (isFullScreen) {
+        // Request exit - renderer will handle password protection if enabled
         mainWindow.webContents.send('request-fullscreen-exit');
       } else {
+        // Enter fullscreen
         mainWindow.setFullScreen(true);
         mainWindow.webContents.send('fullscreen-changed', true);
       }
     }
-  });
-
-  globalShortcut.register('Escape', () => {
-    if (mainWindow && mainWindow.isFullScreen()) {
-      // Check with renderer if password protection is enabled
+    
+    // Escape to exit fullscreen (only when in fullscreen mode)
+    if (input.key === 'Escape' && input.type === 'keyDown' && mainWindow.isFullScreen()) {
+      event.preventDefault();
+      // Request exit - renderer will handle password protection if enabled
       mainWindow.webContents.send('request-fullscreen-exit');
     }
   });
