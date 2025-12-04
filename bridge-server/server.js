@@ -208,10 +208,11 @@ function processSpeakerMute() {
   // Get effective trigger channels (supporting name-based mapping)
   const effectiveTriggerChannels = getEffectiveSpeakerMuteTriggerChannels();
 
-  // Check if any trigger channels are above threshold
+  // Check if any trigger channels are above threshold AND not muted
   const shouldMute = effectiveTriggerChannels.some(channel => {
     const state = faderStates.get(channel);
-    return state && state.value >= speakerMuteConfig.threshold;
+    // Only trigger if fader is above threshold AND channel is NOT muted
+    return state && state.value >= speakerMuteConfig.threshold && !state.muted;
   });
 
   // Only send command if mute state has changed
@@ -1261,6 +1262,9 @@ function setupOSCHandlers() {
                 const state = faderStates.get(channel) || { channel, value: 0, isActive: false, commandExecuted: false };
                 state.muted = muted;
                 faderStates.set(channel, state);
+
+                // Process speaker mute logic (mute/unmute affects speaker mute trigger)
+                processSpeakerMute();
 
                 // Process mute change for mappings that listen to mute
                 const relevantMappings = activeMappings.filter(
