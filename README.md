@@ -3,7 +3,7 @@
 🎙️ Professional X-Air mixer control software designed specifically for radio broadcasting environments.
 
 [![Build Status](https://github.com/finnie2006/mix-it-play-it/workflows/Build%20X-Air%20radio%20App/badge.svg)](https://github.com/finnie2006/mix-it-play-it/actions)
-[![License](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/finnie2006/mix-it-play-it/releases)
 
 ## 🎯 Overview
@@ -141,13 +141,16 @@ See `assets/logo-design.txt` for design specifications.
 
 ## 🤝 Contributing
 
-This is a proprietary project. For bug reports or feature requests, please open an issue on GitHub.
+Contributions are welcome! Feel free to:
+- Report bugs or request features via [GitHub Issues](https://github.com/finnie2006/mix-it-play-it/issues)
+- Submit pull requests with improvements
+- Fork the project for your own use (attribution required per MIT License)
 
 ## 📝 License
 
-© 2024 - 2025 Mix It Play It. All rights reserved.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-This software is proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
+Copyright (c) 2024 - 2025 Mix It Play It
 
 ## 🆘 Support
 

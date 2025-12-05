@@ -2,6 +2,7 @@
   "name": "xair-radio-control",
   "description": "X-Air Radio Control - Professional mixer control for radio broadcasting",
   "author": "Mix It Play It",
+  "license": "MIT",
   "private": true,
   "version": "1.0.0",
   "type": "module",
