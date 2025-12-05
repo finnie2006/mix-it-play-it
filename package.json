@@ -7,6 +7,22 @@
   "type": "module",
   "main": "electron/main.js",
   "homepage": "./",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/finnie2006/mix-it-play-it.git"
+  },
+  "keywords": [
+    "x-air",
+    "behringer",
+    "mixer",
+    "radio",
+    "broadcasting",
+    "audio",
+    "osc",
+    "electron",
+    "professional",
+    "vu-meter"
+  ],
   "scripts": {
     "dev": "vite",
     "dev:all": "node start-dev.js",

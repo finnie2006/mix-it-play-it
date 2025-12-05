@@ -1,5 +1,6 @@
 import React from 'react';
 import { Radio, Volume2, Waves } from 'lucide-react';
+import packageJson from '../../package.json';
 
 interface LoadingScreenProps {
   isVisible: boolean;
@@ -69,6 +70,11 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
               }}
             ></div>
           ))}
+        </div>
+
+        {/* Version number */}
+        <div className="absolute bottom-8 text-slate-500 text-xs">
+          v{packageJson.version}
         </div>
       </div>
     </div>
