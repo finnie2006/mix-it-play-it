@@ -6,6 +6,9 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/finnie2006/mix-it-play-it/releases)
 
+<img width="1917" height="1080" alt="image" src="https://github.com/user-attachments/assets/8b6e75ec-5a4d-4561-b434-d5a9133b9989" />
+
+
 ## 🎯 Overview
 
 X-Air Radio Control is a professional desktop application that provides comprehensive control and monitoring of Behringer X-Air 16/18 digital mixers, tailored for radio broadcasting workflows. Built with modern web technologies and packaged as a cross-platform Electron application.
