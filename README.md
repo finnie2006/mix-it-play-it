@@ -6,7 +6,8 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/finnie2006/mix-it-play-it/releases)
 
-<img width="1917" height="1080" alt="image" src="https://github.com/user-attachments/assets/8b6e75ec-5a4d-4561-b434-d5a9133b9989" />
+<img width="1917" height="1080" alt="image" src="https://github.com/user-attachments/assets/976d5293-3ac5-4ad3-a7bc-c4c0f9a3d9b0" />
+
 
 
 ## 🎯 Overview
