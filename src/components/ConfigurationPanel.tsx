@@ -222,7 +222,8 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
         <TabsContent value="processing" className="mt-6">
           <ChannelProcessingConfig 
             mixerModel={mixerModel}
-            isConnected={isConnected} 
+            isConnected={isConnected}
+            channelNames={channelNames}
           />
         </TabsContent>
 

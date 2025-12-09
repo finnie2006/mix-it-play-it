@@ -39,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Filter, Gauge, Sliders, Power, RotateCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ChannelNameMap } from '@/services/settingsService';
 import {
   Select,
   SelectContent,
@@ -56,6 +57,7 @@ import {
 interface ChannelProcessingConfigProps {
   mixerModel: 'X-Air 16' | 'X-Air 18';
   isConnected: boolean;
+  channelNames?: ChannelNameMap;
 }
 
 interface HPFSettings {
@@ -308,6 +310,7 @@ const BROADCAST_PRESETS = {
 export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = ({
   mixerModel,
   isConnected,
+  channelNames = {},
 }) => {
   const maxChannels = 16;
   const [selectedChannel, setSelectedChannel] = useState(1);
@@ -377,6 +380,42 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
     });
   }, []);
 
+  const updateGateSettings = useCallback((channel: number, settings: Partial<GateSettings>) => {
+    setGateSettings((prev) => {
+      const current = prev.get(channel) || {
+        enabled: false,
+        threshold: -50,
+        mode: 'GATE' as const,
+        attack: 5,
+        hold: 100,
+        release: 200,
+        range: 30,
+      };
+      const updated = new Map(prev);
+      updated.set(channel, { ...current, ...settings });
+      return updated;
+    });
+  }, []);
+
+  const updateCompressorSettings = useCallback((channel: number, settings: Partial<CompressorSettings>) => {
+    setCompressorSettings((prev) => {
+      const current = prev.get(channel) || {
+        enabled: false,
+        threshold: -20,
+        ratio: 3,
+        attack: 10,
+        hold: 0.02,
+        release: 150,
+        knee: 2,
+        makeupGain: 4,
+        mode: 'COMP' as const,
+      };
+      const updated = new Map(prev);
+      updated.set(channel, { ...current, ...settings });
+      return updated;
+    });
+  }, []);
+
   // Handle mixer responses
   const handleMixerResponse = useCallback((data: { type: string; address?: string; args?: unknown[] }) => {
     if (!data.address) return;
@@ -397,8 +436,110 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
         updateHPFEnabled(channel, value.value === 1);
       }
     }
-    // Add more response handlers as needed
-  }, [updateHPFFrequency, updateHPFEnabled]);
+    // Parse Gate responses
+    else if (data.address.match(/\/ch\/\d+\/gate\/on$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/gate\/on/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateGateSettings(channel, { enabled: value.value === 1 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/gate\/thr$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/gate\/thr/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateGateSettings(channel, { threshold: value.value * 80 - 80 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/gate\/mode$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/gate\/mode/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        const modes = ['GATE', 'EXP2', 'EXP3', 'EXP4', 'DUCK'] as const;
+        updateGateSettings(channel, { mode: modes[value.value] || 'GATE' });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/gate\/attack$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/gate\/attack/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateGateSettings(channel, { attack: value.value * 120 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/gate\/release$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/gate\/release/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateGateSettings(channel, { release: value.value * (4000 - 5) + 5 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/gate\/range$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/gate\/range/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateGateSettings(channel, { range: value.value * (60 - 3) + 3 });
+      }
+    }
+    // Parse Compressor responses
+    else if (data.address.match(/\/ch\/\d+\/dyn\/on$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/on/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { enabled: value.value === 1 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/thr$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/thr/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { threshold: value.value * 60 - 60 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/ratio$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/ratio/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { ratio: value.value });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/attack$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/attack/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { attack: value.value * 120 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/release$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/release/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { release: value.value * (4000 - 5) + 5 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/knee$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/knee/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { knee: value.value * 5 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/mgain$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/mgain/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { makeupGain: value.value * 24 });
+      }
+    } else if (data.address.match(/\/ch\/\d+\/dyn\/mode$/)) {
+      const match = data.address.match(/\/ch\/(\d+)\/dyn\/mode/);
+      if (match && data.args && data.args.length > 0) {
+        const channel = parseInt(match[1]);
+        const value = data.args[0] as { value: number };
+        updateCompressorSettings(channel, { mode: value.value === 0 ? 'COMP' : 'EXP' });
+      }
+    }
+  }, [updateHPFFrequency, updateHPFEnabled, updateGateSettings, updateCompressorSettings]);
 
   // Connect to bridge WebSocket
   useEffect(() => {
@@ -448,7 +589,7 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
   }, [handleMixerResponse]);
 
   // Send OSC command to mixer
-  const sendOSC = (address: string, args: { type: string; value: number | string }[]) => {
+  const sendOSC = useCallback((address: string, args: { type: string; value: number | string }[]) => {
     if (!websocket || websocket.readyState !== WebSocket.OPEN) {
       console.warn('Cannot send to mixer: WebSocket not connected');
       return;
@@ -461,7 +602,51 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
         args,
       })
     );
-  };
+  }, [websocket]);
+
+  // Request current values from mixer for a channel
+  const requestChannelValues = useCallback((channel: number) => {
+    if (!websocket || websocket.readyState !== WebSocket.OPEN) return;
+
+    const paddedChannel = String(channel).padStart(2, '0');
+
+    // Request HPF values
+    sendOSC(`/ch/${paddedChannel}/preamp/hpf`, []);
+    sendOSC(`/ch/${paddedChannel}/preamp/hpon`, []);
+
+    // Request Gate values
+    sendOSC(`/ch/${paddedChannel}/gate/on`, []);
+    sendOSC(`/ch/${paddedChannel}/gate/mode`, []);
+    sendOSC(`/ch/${paddedChannel}/gate/thr`, []);
+    sendOSC(`/ch/${paddedChannel}/gate/attack`, []);
+    sendOSC(`/ch/${paddedChannel}/gate/hold`, []);
+    sendOSC(`/ch/${paddedChannel}/gate/release`, []);
+    sendOSC(`/ch/${paddedChannel}/gate/range`, []);
+
+    // Request Compressor values
+    sendOSC(`/ch/${paddedChannel}/dyn/on`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/mode`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/thr`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/ratio`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/attack`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/hold`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/release`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/knee`, []);
+    sendOSC(`/ch/${paddedChannel}/dyn/mgain`, []);
+
+    console.log(`🎛️ Requested current values for Channel ${channel}`);
+  }, [websocket, sendOSC]);
+
+  // Request current values when channel changes or becomes connected
+  useEffect(() => {
+    if (wsConnected && isConnected && selectedChannel) {
+      // Small delay to ensure websocket is ready
+      const timer = setTimeout(() => {
+        requestChannelValues(selectedChannel);
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [selectedChannel, wsConnected, isConnected, requestChannelValues]);
 
   // HPF Controls
   const setHPF = (channel: number, enabled: boolean, frequency: number) => {
@@ -627,15 +812,18 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
               value={String(selectedChannel)}
               onValueChange={(val) => setSelectedChannel(parseInt(val))}
             >
-              <SelectTrigger className="w-32 bg-slate-700 border-slate-600 text-white">
+              <SelectTrigger className="w-64 bg-slate-700 border-slate-600 text-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
-                {Array.from({ length: maxChannels }, (_, i) => i + 1).map((ch) => (
-                  <SelectItem key={ch} value={String(ch)} className="text-white">
-                    Channel {ch}
-                  </SelectItem>
-                ))}
+                {Array.from({ length: maxChannels }, (_, i) => i + 1).map((ch) => {
+                  const channelName = channelNames[ch];
+                  return (
+                    <SelectItem key={ch} value={String(ch)} className="text-white">
+                      Channel {ch}{channelName ? ` (${channelName})` : ''}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
