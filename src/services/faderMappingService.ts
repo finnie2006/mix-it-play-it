@@ -249,10 +249,11 @@ export class FaderMappingService {
     // Get effective trigger channels (supporting name-based mapping)
     const effectiveTriggerChannels = this.getEffectiveSpeakerMuteTriggerChannels();
 
-    // Check if any trigger channels are above threshold
+    // Check if any trigger channels are above threshold AND not muted
     const shouldMute = effectiveTriggerChannels.some(channel => {
       const state = this.faderStates.get(channel);
-      return state && state.value >= this.speakerMuteConfig!.threshold;
+      // Only trigger if channel is above threshold AND not muted
+      return state && state.value >= this.speakerMuteConfig!.threshold && !state.muted;
     });
 
     // Only send command if mute state has changed
@@ -271,6 +272,12 @@ export class FaderMappingService {
 
   private sendSpeakerMuteCommand(mute: boolean) {
     if (!this.speakerMuteConfig || !this.bridgeConnection || this.bridgeConnection.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    // If mute type is 'none', don't send any OSC command (indicator only)
+    if (this.speakerMuteConfig.muteType === 'none') {
+      console.log(`🔇 Speaker mute in indicator-only mode - no command sent (state: ${mute ? 'muted' : 'unmuted'})`);
       return;
     }
 
@@ -373,6 +380,9 @@ export class FaderMappingService {
     const state = this.faderStates.get(channel) || { channel, value: 0, isActive: false, commandExecuted: false };
     state.muted = muted;
     this.faderStates.set(channel, state);
+
+    // Process speaker mute logic when mute state changes
+    this.processSpeakerMute();
 
     // Find mappings for this channel that listen to mute
     const relevantMappings = this.mappings.filter(

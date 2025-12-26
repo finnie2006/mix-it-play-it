@@ -5,19 +5,20 @@ interface VUMeterProps {
   label: string;
   className?: string;
   height?: 'normal' | 'tall' | 'extra-tall';
+  showScale?: boolean;
 }
 
-export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', height = 'normal' }) => {
+export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', height = 'normal', showScale = true }) => {
   const [peakHold, setPeakHold] = useState(-90); // Initialize to minimum dB level
   const [isShowingPeak, setIsShowingPeak] = useState(false);
   const peakTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPeakTimeRef = useRef<number>(0);
 
   // Convert dB level to percentage for display
-  // Typical range is -60dB to 0dB, so we'll map this to 0-100%
+  // Professional broadcast range: -50dB to +5dB
   const normalizeLevel = (db: number) => {
-    const minDb = -60;
-    const maxDb = 0;
+    const minDb = -50;
+    const maxDb = 5;
     const normalized = Math.max(0, Math.min(100, ((db - minDb) / (maxDb - minDb)) * 100));
     return normalized;
   };
@@ -116,7 +117,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
     const isPeakHold = isShowingPeak && 
                        peakPercentage > segmentThreshold && 
                        peakPercentage <= nextSegmentThreshold && 
-                       peakHold > -60 && 
+                       peakHold > -50 && 
                        !isActive; // Only show peak hold if segment is not already active
     
     let colorClass;
@@ -150,19 +151,26 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
         </div>
         
         {/* dB scale markers - positioned to the left of the meter */}
-        <div className={`absolute -left-8 top-0 ${heightClass} w-6 pointer-events-none`}>
-          <div className="relative h-full text-xs text-slate-500">
-            <div className="absolute top-0 left-0">0</div>
-            <div className="absolute top-1/4 left-0">-15</div>
-            <div className="absolute top-2/4 left-0">-30</div>
-            <div className="absolute top-3/4 left-0">-45</div>
-            <div className="absolute bottom-0 left-0">-60</div>
+        {showScale && (
+          <div className={`absolute -left-10 top-0 ${heightClass} w-9 pointer-events-none`}>
+            <div className="relative h-full text-[10px] text-slate-500 font-mono">
+              <div className="absolute" style={{ top: '0%', transform: 'translateY(-50%)' }}>+5</div>
+              <div className="absolute" style={{ top: '9.09%', transform: 'translateY(-50%)' }}>0</div>
+              <div className="absolute" style={{ top: '18.18%', transform: 'translateY(-50%)' }}>-5</div>
+              <div className="absolute" style={{ top: '27.27%', transform: 'translateY(-50%)' }}>-10</div>
+              <div className="absolute" style={{ top: '36.36%', transform: 'translateY(-50%)' }}>-15</div>
+              <div className="absolute" style={{ top: '45.45%', transform: 'translateY(-50%)' }}>-20</div>
+              <div className="absolute" style={{ top: '54.54%', transform: 'translateY(-50%)' }}>-25</div>
+              <div className="absolute" style={{ top: '63.64%', transform: 'translateY(-50%)' }}>-30</div>
+              <div className="absolute" style={{ top: '81.82%', transform: 'translateY(-50%)' }}>-40</div>
+              <div className="absolute" style={{ top: '100%', transform: 'translateY(-50%)' }}>-50</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
       <div className="text-xs font-mono text-slate-400 text-center">
-        {level > -60 ? `${level.toFixed(1)}` : '-∞'}
+        {level > -50 ? `${level.toFixed(1)}` : '-∞'}
       </div>
     </div>
   );

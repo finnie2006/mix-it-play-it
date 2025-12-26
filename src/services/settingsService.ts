@@ -27,7 +27,7 @@ export interface SpeakerMuteConfig {
   triggerChannels: number[];
   followChannelNames?: boolean; // NEW: if true, follow channel names instead of positions
   triggerChannelNames?: string[]; // NEW: channel names to follow (when followChannelNames is true)
-  muteType: 'bus' | 'muteGroup';
+  muteType: 'bus' | 'muteGroup' | 'none';
   busNumber?: number;
   muteGroupNumber?: number;
   threshold: number;

@@ -57,6 +57,10 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [mainLRConfig, setMainLRConfig] = useState<MainLRConfig>({
     label: 'PGM'
   });
+  const [showStereoFaderMappings, setShowStereoFaderMappings] = useState<boolean>(() => {
+    const saved = localStorage.getItem('vuMeter_showStereoFaderMappings');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   // Load password protection settings
   useEffect(() => {
@@ -390,7 +394,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   };
 
   // Get channels based on fader mappings
-  const getDisplayChannels = () => {
+  const getDisplayChannels = (): Array<{ level: number; channel: number; label: string; isStereo: boolean; levelR?: number; labelR?: string }> => {
     const mappings = faderMappingService.getAllMappings();
     
     if (mappings.length === 0) {
@@ -398,16 +402,39 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       return meterData?.channels.slice(0, 4).map((level, index) => ({
         level,
         channel: index,
-        label: getMeterLabel(index)
+        label: getMeterLabel(index),
+        isStereo: false
       })) || [];
     }
 
-    // Use first 4 fader mappings
-    return mappings.slice(0, 4).map(mapping => ({
-      level: meterData?.channels[mapping.channel - 1] || -90,
-      channel: mapping.channel - 1,
-      label: getMeterLabel(mapping.channel - 1)
-    }));
+    // Build display array considering stereo mappings
+    const displayArray: Array<{ level: number; channel: number; label: string; isStereo: boolean; levelR?: number; labelR?: string }> = [];
+    
+    for (let i = 0; i < Math.min(4, mappings.length); i++) {
+      const mapping = mappings[i];
+      
+      if (showStereoFaderMappings && mapping.isStereo) {
+        // Show as stereo meter (L/R)
+        displayArray.push({
+          level: meterData?.channels[mapping.channel - 1] || -90,
+          levelR: meterData?.channels[mapping.channel] || -90, // Next channel
+          channel: mapping.channel - 1,
+          label: getMeterLabel(mapping.channel - 1),
+          labelR: getMeterLabel(mapping.channel),
+          isStereo: true
+        });
+      } else {
+        // Show as mono meter
+        displayArray.push({
+          level: meterData?.channels[mapping.channel - 1] || -90,
+          channel: mapping.channel - 1,
+          label: getMeterLabel(mapping.channel - 1),
+          isStereo: false
+        });
+      }
+    }
+    
+    return displayArray;
   };
 
   const displayChannels = getDisplayChannels();
@@ -421,11 +448,15 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     : [];
 
   // Get mic levels for all selected channels
-  const micLevels = micChannels.map(channel => ({
-    channel,
-    level: meterData?.channels[channel - 1] || -90,
-    label: `MIC ${channel}`
-  }));
+  const micLevels = micChannels.map(channel => {
+    // Try to get the actual channel name from settings
+    const channelName = SettingsService.getChannelName(channel);
+    return {
+      channel,
+      level: meterData?.channels[channel - 1] || -90,
+      label: channelName || `Mic ${channel}`
+    };
+  });
 
   // Enhanced mic settings panel 
   const renderMicSettings = () => (
@@ -443,6 +474,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             {Array.from({ length: 16 }, (_, i) => {
               const channel = i + 1;
               const isSelected = micChannels.includes(channel);
+              const channelName = SettingsService.getChannelName(channel);
               return (
                 <button
                   key={channel}
@@ -453,7 +485,12 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                       : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600'
                   }`}
                 >
-                  CH {channel}
+                  <div>CH {channel}</div>
+                  {channelName && (
+                    <div className="text-[10px] opacity-75 truncate mt-0.5">
+                      {channelName}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -492,8 +529,28 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       </div>
       
       <div className="space-y-4">
-        {/* Main LR Label */}
+        {/* Stereo Fader Mapping Display */}
         <div>
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={showStereoFaderMappings}
+              onChange={(e) => {
+                const newValue = e.target.checked;
+                setShowStereoFaderMappings(newValue);
+                localStorage.setItem('vuMeter_showStereoFaderMappings', JSON.stringify(newValue));
+              }}
+              className="w-4 h-4"
+            />
+            Show Stereo Meters for Stereo Mappings
+          </label>
+          <p className="text-xs text-slate-500 mt-1">
+            Display stereo fader mappings as L/R meters (uses channel + next channel)
+          </p>
+        </div>
+
+        {/* Main LR Label */}
+        <div className="pt-3 border-t border-slate-600">
           <label className="block text-sm text-slate-300 mb-2">
             Main LR Label:
           </label>
@@ -687,15 +744,37 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               </h3>
               
               <div className="flex-1 flex justify-center items-center">
-                <div className="flex justify-around items-end w-full max-w-md">
+                <div className={`${displayChannels.length >= 4 ? 'grid grid-cols-2 gap-4' : 'flex justify-around items-end'} w-full max-w-md`}>
                   {displayChannels.map((channel, index) => (
-                    <VUMeter
-                      key={`input-${index}`}
-                      level={channel.level}
-                      label={channel.label}
-                      height="extra-tall"
-                      className="mx-3"
-                    />
+                    channel.isStereo ? (
+                      <div key={`input-stereo-${index}`} className="flex flex-col items-center">
+                        <div className="text-xs text-slate-400 mb-1">{channel.label}</div>
+                        <div className="flex gap-1 pl-9">
+                          <VUMeter
+                            level={channel.level}
+                            label="L"
+                            height="tall"
+                            showScale={true}
+                            className=""
+                          />
+                          <VUMeter
+                            level={channel.levelR || -90}
+                            label="R"
+                            height="tall"
+                            showScale={false}
+                            className=""
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <VUMeter
+                        key={`input-${index}`}
+                        level={channel.level}
+                        label={channel.label}
+                        height="tall"
+                        className="mx-3"
+                      />
+                    )
                   ))}
                 </div>
               </div>
@@ -710,16 +789,33 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
                 </h3>
                 
                 <div className="flex-1 flex justify-center items-center">
-                  <div className="flex justify-around items-end w-full">
-                    {micLevels.slice(0, 4).map((mic, index) => (
-                      <VUMeter
-                        key={`mic-${index}`}
-                        level={mic.level}
-                        label={mic.label}
-                        height="extra-tall"
-                        className="mx-2"
-                      />
-                    ))}
+                  <div className="flex flex-col gap-4 w-full max-w-md">
+                    {/* First row - first 4 mics */}
+                    <div className="flex justify-around items-end">
+                      {micLevels.slice(0, 4).map((mic, index) => (
+                        <VUMeter
+                          key={`mic-${index}`}
+                          level={mic.level}
+                          label={mic.label}
+                          height={micLevels.length > 4 ? 'tall' : 'extra-tall'}
+                          className="mx-2"
+                        />
+                      ))}
+                    </div>
+                    {/* Second row - remaining mics (5-8) */}
+                    {micLevels.length > 4 && (
+                      <div className="flex justify-around items-end">
+                        {micLevels.slice(4, 8).map((mic, index) => (
+                          <VUMeter
+                            key={`mic-${index + 4}`}
+                            level={mic.level}
+                            label={mic.label}
+                            height="tall"
+                            className="mx-2"
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -874,14 +970,34 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             {faderMappingService.getAllMappings().length > 0 ? 'Mapped Channels' : 'Input Channels'}
           </h3>
           
-          <div className="flex justify-around items-end">
+          <div className={`${displayChannels.length >= 4 ? 'grid grid-cols-2 gap-3' : 'flex justify-around items-end'}`}>
             {displayChannels.map((channel, index) => (
-              <VUMeter
-                key={`input-${index}`}
-                level={channel.level}
-                label={channel.label}
-                className="mx-1"
-              />
+              channel.isStereo ? (
+                <div key={`input-stereo-${index}`} className="flex flex-col items-center">
+                  <div className="text-xs text-slate-400 mb-1">{channel.label}</div>
+                  <div className="flex gap-1 pl-9">
+                    <VUMeter
+                      level={channel.level}
+                      label="L"
+                      showScale={true}
+                      className=""
+                    />
+                    <VUMeter
+                      level={channel.levelR || -90}
+                      label="R"
+                      showScale={false}
+                      className=""
+                    />
+                  </div>
+                </div>
+              ) : (
+                <VUMeter
+                  key={`input-${index}`}
+                  level={channel.level}
+                  label={channel.label}
+                  className="mx-1"
+                />
+              )
             ))}
           </div>
         </Card>
@@ -894,20 +1010,36 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
               Microphones ({micChannels.length})
             </h3>
             
-            <div className="flex justify-around items-end">
-              {micLevels.slice(0, 4).map((mic, index) => (
-                <VUMeter
-                  key={`mic-${index}`}
-                  level={mic.level}
-                  label={mic.label}
-                  className="mx-1"
-                />
-              ))}
+            <div className="flex flex-col gap-3">
+              {/* First row - first 4 mics */}
+              <div className="flex justify-around items-end">
+                {micLevels.slice(0, 4).map((mic, index) => (
+                  <VUMeter
+                    key={`mic-${index}`}
+                    level={mic.level}
+                    label={mic.label}
+                    className="mx-1"
+                  />
+                ))}
+              </div>
+              {/* Second row - remaining mics (5-8) */}
+              {micLevels.length > 4 && (
+                <div className="flex justify-around items-end">
+                  {micLevels.slice(4, 8).map((mic, index) => (
+                    <VUMeter
+                      key={`mic-${index + 4}`}
+                      level={mic.level}
+                      label={mic.label}
+                      className="mx-1"
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             
-            {micLevels.length > 4 && (
+            {micLevels.length > 8 && (
               <div className="text-xs text-slate-400 mt-2 text-center">
-                +{micLevels.length - 4} more channels (see fullscreen)
+                +{micLevels.length - 8} more channels
               </div>
             )}
           </Card>

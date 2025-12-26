@@ -42,7 +42,7 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
     });
   };
 
-  const handleConfigChange = (key: keyof SpeakerConfig, value: boolean | number | number[] | string | string[] | 'bus' | 'muteGroup') => {
+  const handleConfigChange = (key: keyof SpeakerConfig, value: boolean | number | number[] | string | string[] | 'bus' | 'muteGroup' | 'none') => {
     setConfig(prev => ({ ...prev, [key]: value }));
   };
 
@@ -111,6 +111,7 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
                 <div className="text-xs text-slate-400 space-y-1">
                   <div><strong>Bus Mute:</strong> Mutes a specific bus output (e.g., Bus 1 for main speakers)</div>
                   <div><strong>Mute Group:</strong> Activates a mute group that can control multiple channels</div>
+                  <div><strong>None:</strong> Shows talking indicator only, no muting action taken</div>
                 </div>
               </div>
             </div>
@@ -262,7 +263,7 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
               <Label className="text-slate-200">Mute Method</Label>
               <Select
                 value={config.muteType}
-                onValueChange={(value: 'bus' | 'muteGroup') => handleConfigChange('muteType', value)}
+                onValueChange={(value: 'bus' | 'muteGroup' | 'none') => handleConfigChange('muteType', value)}
               >
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                   <SelectValue />
@@ -274,11 +275,15 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
                   <SelectItem value="muteGroup" className="text-white hover:bg-slate-600">
                     Mute Group
                   </SelectItem>
+                  <SelectItem value="none" className="text-white hover:bg-slate-600">
+                    None (Indicator Only)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Bus/Mute Group Number */}
+            {config.muteType !== 'none' && (
             <div className="space-y-2">
               <Label className="text-slate-200">
                 {config.muteType === 'bus' ? 'Bus Number' : 'Mute Group Number'}
@@ -312,6 +317,7 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
                 }
               </p>
             </div>
+            )}
 
             {/* Description */}
             <div className="space-y-2">
@@ -331,13 +337,18 @@ export const SpeakerMuteConfig: React.FC<SpeakerMuteConfigProps> = ({
                 <div className="space-y-2">
                   <Label className="text-slate-300 font-medium">OSC Command Preview</Label>
                   <div className="text-xs font-mono text-slate-400 bg-slate-800 p-2 rounded">
-                    {config.muteType === 'bus' 
-                      ? `/bus/${config.busNumber || 1}/mix/on 0` 
-                      : `/config/mute/${config.muteGroupNumber || 1} 1`
+                    {config.muteType === 'none'
+                      ? 'No OSC command - indicator only'
+                      : config.muteType === 'bus' 
+                        ? `/bus/${config.busNumber || 1}/mix/on 0` 
+                        : `/config/mute/${config.muteGroupNumber || 1} 1`
                     }
                   </div>
                   <p className="text-xs text-slate-500">
-                    This command will be sent to mute when trigger channels are above threshold
+                    {config.muteType === 'none'
+                      ? 'Talking indicator will still be shown when mics are active, but no mute command will be sent'
+                      : 'This command will be sent to mute when trigger channels are above threshold'
+                    }
                   </p>
                 </div>
               </CardContent>
