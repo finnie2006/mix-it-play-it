@@ -151,7 +151,7 @@ export const FaderMappingConfig: React.FC<FaderMappingConfigProps> = ({
         title: "JSON Copied!",
         description: `Configuration with ${mappings.length} fader mappings copied to clipboard. Paste this into bridge-settings.json for bridge-only mode.`,
       });
-    } catch (error) {
+    } catch (_error) {
       // Fallback for browsers that don't support clipboard API
       const textArea = document.createElement('textarea');
       textArea.value = JSON.stringify(bridgeSettings, null, 2);

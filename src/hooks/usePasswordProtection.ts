@@ -22,8 +22,8 @@ export const usePasswordProtection = () => {
           enabled: parsed.passwordProtectionEnabled || false,
           password: parsed.password || '',
         });
-      } catch (error) {
-        console.error('Failed to load password protection settings:', error);
+      } catch (_error) {
+        // Silent fail - use defaults
       }
     }
   }, []);

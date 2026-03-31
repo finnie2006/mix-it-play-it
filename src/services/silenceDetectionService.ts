@@ -48,7 +48,7 @@ export class SilenceDetectionService {
       if (stored) {
         return { ...DEFAULT_CONFIG, ...JSON.parse(stored) };
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load silence detection config:', error);
     }
     return DEFAULT_CONFIG;

@@ -55,7 +55,7 @@ export const SceneManager: React.FC<SceneManagerProps> = ({ isConnected = false 
         title: "Scene Loaded",
         description: `Successfully loaded scene: ${sceneName || `Scene ${sceneId + 1}`}`,
       });
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load scene",
@@ -76,7 +76,7 @@ export const SceneManager: React.FC<SceneManagerProps> = ({ isConnected = false 
       });
       setIsSaveDialogOpen(false);
       setSaveSceneName('');
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to save scene",

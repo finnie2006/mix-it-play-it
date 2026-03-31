@@ -37,7 +37,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   const [showMicSettings, setShowMicSettings] = useState(false);
   const [showBusSettings, setShowBusSettings] = useState(false);
   const [firmwareVersion, setFirmwareVersion] = useState<string | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
+  const [_isLocked, setIsLocked] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [passwordProtectionEnabled, setPasswordProtectionEnabled] = useState(false);
   const [savedPassword, setSavedPassword] = useState('');
@@ -66,26 +66,19 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
   useEffect(() => {
     const loadPasswordSettings = () => {
       const savedSettings = localStorage.getItem('advancedSettings');
-      console.log('Loading advanced settings:', savedSettings);
       
       if (savedSettings) {
         try {
           const settings = JSON.parse(savedSettings);
-          console.log('Parsed settings:', settings);
           
           const hasPassword = settings.password && settings.password.trim() !== '';
           const isEnabled = settings.passwordProtectionEnabled && hasPassword;
           
           setPasswordProtectionEnabled(isEnabled);
           setSavedPassword(settings.password || '');
-          
-          console.log('Password protection enabled:', isEnabled);
-          console.log('Has password:', hasPassword);
-        } catch (error) {
+        } catch (_error) {
           console.error('Failed to parse settings:', error);
         }
-      } else {
-        console.log('No advanced settings found');
       }
     };
 
@@ -148,7 +141,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
     // Listen for fullscreen changes from Electron
     const handleElectronFullscreenChange = (_event: unknown, isFullScreen: boolean) => {
-      console.log('Electron fullscreen changed:', isFullScreen);
       setIsFullscreen(isFullScreen);
       
       // If entering fullscreen in end-user mode, lock the interface
@@ -159,15 +151,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
     // Listen for fullscreen exit requests (from F11/Escape)
     const handleElectronRequestExit = () => {
-      console.log('Electron requesting fullscreen exit');
-      
       // If password protected, show modal
       if (endUserMode && passwordProtectionEnabled) {
-        console.log('Password protected - showing modal');
         setIsPasswordModalOpen(true);
       } else {
         // No password protection, allow exit
-        console.log('No password protection - exiting');
         window.electronAPI!.fullscreen.setFullscreen(false);
       }
     };
@@ -178,19 +166,12 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
   // Handle fullscreen toggle
   const toggleFullscreen = useCallback(async () => {
-    console.log('toggleFullscreen called, current isFullscreen:', isFullscreen);
-    console.log('End user mode:', endUserMode);
-    console.log('Password protection enabled:', passwordProtectionEnabled);
-    console.log('Is Electron:', isElectron);
-    
     if (isFullscreen) {
       // Exiting fullscreen
       if (endUserMode && passwordProtectionEnabled) {
-        console.log('End user mode with password - showing modal');
         setIsPasswordModalOpen(true);
         return; // Important: stop here and wait for password
       } else {
-        console.log('Admin mode or no password - exiting directly');
         setIsFullscreen(false);
         
         // Exit fullscreen in appropriate environment
@@ -202,7 +183,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       }
     } else {
       // Entering fullscreen
-      console.log('Entering fullscreen');
       setIsFullscreen(true);
       
       // Enter fullscreen in appropriate environment
@@ -216,9 +196,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
 
   // Handle password verification
   const handlePasswordSubmit = async (enteredPassword: string): Promise<boolean> => {
-    console.log('Password submitted for verification');
     if (enteredPassword === savedPassword) {
-      console.log('Password correct - exiting fullscreen');
       setIsPasswordModalOpen(false);
       setIsLocked(false);
       setIsFullscreen(false);
@@ -232,7 +210,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       
       return true;
     } else {
-      console.log('Password incorrect');
       return false;
     }
   };
@@ -262,9 +239,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
     return () => window.removeEventListener('keydown', handleKeyPress, true);
   }, [isFullscreen, toggleFullscreen, endUserMode, passwordProtectionEnabled, isElectron]);
 
-  useEffect(() => {
-    console.log('State changed - isFullscreen:', isFullscreen);
-  }, [isFullscreen]);
+
 
   // Handle browser fullscreen changes
   useEffect(() => {
@@ -272,14 +247,11 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
       if (!document.fullscreenElement && isFullscreen) {
         // If password protected in end-user mode, re-enter fullscreen
         if (endUserMode && passwordProtectionEnabled) {
-          console.log('Password protected mode - preventing fullscreen exit, re-entering');
-          document.documentElement.requestFullscreen?.().catch((err) => {
-            console.log('Could not re-enter fullscreen:', err);
+          document.documentElement.requestFullscreen?.().catch(() => {
             // If we can't re-enter fullscreen, show the password modal
             setIsPasswordModalOpen(true);
           });
         } else {
-          console.log('Browser exited fullscreen, updating component state');
           setIsFullscreen(false);
         }
       }
@@ -334,7 +306,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
             unsubscribeFw();
           };
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to connect VU meter service:', error);
         setServiceConnected(false);
       }
@@ -357,7 +329,7 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
         if (Array.isArray(channels)) {
           setMicChannels(channels);
         }
-      } catch (error) {
+      } catch (_error) {
         console.warn('Error parsing saved mic channels:', error);
         setMicChannels([]);
       }
@@ -710,7 +682,6 @@ export const VUMeterDashboard: React.FC<VUMeterDashboardProps> = ({ isConnected 
           <SpeakerMuteIndicator />
           <button
             onClick={() => {
-              console.log('Custom exit button clicked!');
               toggleFullscreen();
             }}
             className="p-2 bg-slate-800/80 hover:bg-slate-700/80 rounded-lg text-white transition-colors border-2 border-red-500"

@@ -54,7 +54,7 @@ export class SceneService {
           // Refresh scene list to get updated metadata
           this.requestSceneList();
         }
-      } catch (error) {
+      } catch (_error) {
         console.error('🎬 Error parsing scene service message:', error);
       }
     };
@@ -105,7 +105,7 @@ export class SceneService {
             this.bridgeConnection?.removeEventListener('message', listener);
             resolve();
           }
-        } catch (error) {
+        } catch (_error) {
           // Ignore parse errors
         }
       };
@@ -142,7 +142,7 @@ export class SceneService {
             this.bridgeConnection?.removeEventListener('message', listener);
             resolve();
           }
-        } catch (error) {
+        } catch (_error) {
           // Ignore parse errors
         }
       };

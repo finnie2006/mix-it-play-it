@@ -123,8 +123,8 @@ export const useMixer = (config: MixerConfig) => {
 
     // Connect to VU meter service when mixer is connected
     if (isConnected && mixerValidated) {
-      vuMeterService.connect().catch(error => {
-        console.error('Failed to connect to VU meter service:', error);
+      vuMeterService.connect().catch(() => {
+        // Silent fail - VU meter service is optional
       });
 
       // NEW: Request channel names when mixer is validated

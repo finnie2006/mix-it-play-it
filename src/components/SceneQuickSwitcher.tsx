@@ -54,7 +54,7 @@ export const SceneQuickSwitcher: React.FC<SceneQuickSwitcherProps> = ({ isConnec
         title: "Scene Loaded",
         description: `Switched to: ${scene?.name || `Scene ${sceneId + 1}`}`,
       });
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to load scene",

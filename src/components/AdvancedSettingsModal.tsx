@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -54,7 +54,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
       try {
         const settings = JSON.parse(savedSettings);
         return settings.passwordProtectionEnabled && settings.password;
-      } catch (error) {
+      } catch (_error) {
         return false;
       }
     }
@@ -81,7 +81,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
           setIsUnlocked(true);
           return true;
         }
-      } catch (error) {
+      } catch (_error) {
         // Handle error
       }
     }
@@ -99,7 +99,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({
         setConfirmPassword(settings.password || '');
         setAutoConnectEnabled(settings.autoConnectEnabled || false);
         setAutoConnectIP(settings.autoConnectIP || '192.168.1.10');
-      } catch (error) {
+      } catch (_error) {
         console.error('Failed to load advanced settings:', error);
       }
     }

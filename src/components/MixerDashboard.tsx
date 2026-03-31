@@ -30,7 +30,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
   const maxChannels = mixerModel === 'X-Air 16' ? 12 : 16;
   
   // Dynamics meter state
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [_websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [dynamicsData, setDynamicsData] = useState<{ gate: number; comp: number }[]>(() =>
     Array(16)
       .fill(null)
@@ -64,7 +64,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
                     .map(() => ({ gate: 0, comp: 0 }))
               );
             }
-          } catch (error) {
+          } catch (_error) {
             // Ignore non-JSON messages
           }
         };
@@ -77,7 +77,7 @@ export const MixerDashboard: React.FC<MixerDashboardProps> = ({
           setWebsocket(null);
           setTimeout(connectWebSocket, 3000);
         };
-      } catch (error) {
+      } catch (_error) {
         setTimeout(connectWebSocket, 3000);
       }
     };

@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(({ _mode }) => ({
   server: {
     host: "0.0.0.0",
     port: 8081,
@@ -19,8 +19,8 @@ export default defineConfig(({ mode }) => ({
         target: 'http://localhost:9300',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/radio/, ''),
-        configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
             // Add any necessary headers for radio software communication
             if (req.headers.authorization) {
               proxyReq.setHeader('Authorization', req.headers.authorization);

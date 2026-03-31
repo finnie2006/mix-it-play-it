@@ -22,7 +22,7 @@ export const DynamicsMeterDashboard: React.FC<DynamicsMeterDashboardProps> = ({
   channelNames,
 }) => {
   const maxChannels = 16;
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [_websocket, setWebsocket] = useState<WebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [dynamicsData, setDynamicsData] = useState<DynamicsData>(() => ({
     channels: Array(maxChannels)
@@ -65,7 +65,7 @@ export const DynamicsMeterDashboard: React.FC<DynamicsMeterDashboardProps> = ({
                 timestamp: data.timestamp || Date.now(),
               });
             }
-          } catch (error) {
+          } catch (_error) {
             // Ignore non-JSON messages
           }
         };
@@ -83,7 +83,7 @@ export const DynamicsMeterDashboard: React.FC<DynamicsMeterDashboardProps> = ({
           // Attempt to reconnect after 3 seconds
           setTimeout(connectWebSocket, 3000);
         };
-      } catch (error) {
+      } catch (_error) {
         console.error('📊 Failed to connect dynamics meter WebSocket:', error);
         setTimeout(connectWebSocket, 3000);
       }

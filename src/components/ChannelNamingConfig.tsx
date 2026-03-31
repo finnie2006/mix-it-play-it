@@ -73,7 +73,7 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
           try {
             const data = JSON.parse(event.data);
             channelNamingService.handleMixerResponse(data);
-          } catch (error) {
+          } catch (_error) {
             // Ignore non-JSON messages
           }
         };
@@ -88,7 +88,7 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
           setWsConnected(false);
           channelNamingService.disconnect();
         };
-      } catch (error) {
+      } catch (_error) {
         console.error('🏷️ Failed to connect WebSocket:', error);
       }
     };
@@ -217,7 +217,7 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
           title: 'Imported',
           description: `Imported ${data.length} channel names`,
         });
-      } catch (error) {
+      } catch (_error) {
         toast({
           title: 'Import Failed',
           description: 'Invalid channel names file',
@@ -287,7 +287,7 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
                 ws.close();
                 reject(new Error(message.error || 'Operation failed'));
               }
-            } catch (error) {
+            } catch (_error) {
               // Ignore parse errors
             }
           };
@@ -312,7 +312,7 @@ export const ChannelNamingConfig: React.FC<ChannelNamingConfigProps> = ({ mixerM
       setTimeout(() => {
         channelNamingService.syncFromMixer();
       }, 1000);
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Operation Failed',
         description: error instanceof Error ? error.message : 'Failed to perform channel operation',

@@ -18,7 +18,7 @@ const Index = () => {
   const [mixerIP, setMixerIP] = useState('');
   const [mixerModel, setMixerModel] = useState<'X-Air 16' | 'X-Air 18'>('X-Air 18');
   const [currentTab, setCurrentTab] = useState('dashboard');
-  const [autoConnectEnabled, setAutoConnectEnabled] = useState(false);
+  const [_autoConnectEnabled, setAutoConnectEnabled] = useState(false);
   const [isEndUserMode, setIsEndUserMode] = useState(false);
   const [configPanelTab, setConfigPanelTab] = useState('radio');
   
@@ -52,8 +52,8 @@ const Index = () => {
             connect();
           }, 1000);
         }
-      } catch (error) {
-        console.error('Failed to load auto-connect settings:', error);
+      } catch (_error) {
+        // Silent fail for auto-connect settings
       }
     }
   }, [connect]);
@@ -76,16 +76,14 @@ const Index = () => {
   };
 
   // Handle password protection settings change
-  const handlePasswordProtectionChange = (enabled: boolean, password: string) => {
+  const handlePasswordProtectionChange = (_enabled: boolean, _password: string) => {
     // This is handled within the VUMeterDashboard component now
-    // Just acknowledge the change
   };
 
   // Handle quick channel configuration from dashboard
-  const handleConfigureChannel = (channel: number) => {
+  const handleConfigureChannel = (_channel: number) => {
     setConfigPanelTab('faders'); // Set to fader mappings tab
     setCurrentTab('config');
-    console.log(`Navigating to fader configuration for channel ${channel}`);
   };
 
   return (

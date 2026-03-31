@@ -49,7 +49,7 @@ export class FaderMappingService {
             console.log('📻 Radio configuration updated on bridge server');
             this.radioConfigSent = true;
           }
-        } catch (error) {
+        } catch (_error) {
           console.error('❌ Error parsing bridge message:', error);
         }
       };
@@ -64,7 +64,7 @@ export class FaderMappingService {
         console.error('❌ Bridge connection error:', error);
       };
 
-    } catch (error) {
+    } catch (_error) {
       console.error('❌ Failed to connect to bridge:', error);
       setTimeout(() => this.connectToBridge(), 3000);
     }
@@ -224,7 +224,7 @@ export class FaderMappingService {
 
       await this.sendRadioCommandThroughBridge(command);
 
-    } catch (error) {
+    } catch (_error) {
       console.error('❌ Failed to execute radio command:', error);
     }
   }

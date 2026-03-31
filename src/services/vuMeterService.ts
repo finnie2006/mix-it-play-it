@@ -74,7 +74,7 @@ export class VUMeterService {
                 timestamp: message.timestamp || Date.now()
               });
             }
-          } catch (error) {
+          } catch (_error) {
             console.error('📊 Error parsing VU meter message:', error);
           }
         };
@@ -98,7 +98,7 @@ export class VUMeterService {
           }
         }, 5000);
       });
-    } catch (error) {
+    } catch (_error) {
       console.error('📊 Failed to connect to VU meter service:', error);
       return false;
     }

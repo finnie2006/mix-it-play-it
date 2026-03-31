@@ -70,7 +70,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       } else {
         throw new Error('Connection failed');
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Connection Failed",
         description: "Failed to start integrated bridge. Check mixer network connection.",
@@ -105,7 +105,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({
       } else {
         throw new Error('Refresh failed');
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Refresh Failed",
         description: "Failed to refresh connection. Try disconnecting and reconnecting manually.",

@@ -54,7 +54,7 @@ export class CloudSyncService {
       if (stored) {
         return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load cloud sync settings:', error);
     }
     return DEFAULT_SETTINGS;
@@ -95,7 +95,7 @@ export class CloudSyncService {
       } else {
         console.error(`☁️ Failed to start server: ${result.message}`);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('☁️ Error starting server:', error);
     }
   }
@@ -111,7 +111,7 @@ export class CloudSyncService {
       if (result.success) {
         console.log(`☁️ ${result.message}`);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('☁️ Error stopping server:', error);
     }
   }
@@ -124,7 +124,7 @@ export class CloudSyncService {
 
     try {
       return await electronAPI.cloudSync.getStatus();
-    } catch (error) {
+    } catch (_error) {
       console.error('☁️ Error getting server status:', error);
       return { running: false };
     }
@@ -197,7 +197,7 @@ export class CloudSyncService {
       console.log('☁️ Synced to cloud successfully');
       this.notifyListeners(true);
       return true;
-    } catch (error) {
+    } catch (_error) {
       console.error('☁️ Failed to sync to cloud:', error);
       this.notifyListeners(false);
       return false;
@@ -245,7 +245,7 @@ export class CloudSyncService {
       console.log('☁️ Synced from cloud successfully');
       this.notifyListeners(true);
       return true;
-    } catch (error) {
+    } catch (_error) {
       console.error('☁️ Failed to sync from cloud:', error);
       this.notifyListeners(false);
       return false;
@@ -280,7 +280,7 @@ export class CloudSyncService {
       // Filter out our own device
       const deviceId = this.getDeviceId();
       return configs.filter((config: SyncConfig) => config.id !== deviceId);
-    } catch (error) {
+    } catch (_error) {
       console.error('☁️ Failed to list configs:', error);
       return [];
     }
@@ -336,7 +336,7 @@ export class CloudSyncService {
     try {
       const stored = localStorage.getItem(key || SYNC_DATA_KEY);
       return stored ? JSON.parse(stored) as Record<string, unknown> : (key ? null : {});
-    } catch (error) {
+    } catch (_error) {
       return key ? null : {};
     }
   }

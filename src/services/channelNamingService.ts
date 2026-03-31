@@ -23,7 +23,7 @@ export class ChannelNamingService {
         this.channelNames = new Map(data.map(ch => [ch.channel, ch]));
         console.log(`🏷️ Loaded ${data.length} channel names`);
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load channel names:', error);
     }
   }
@@ -33,7 +33,7 @@ export class ChannelNamingService {
       const data = Array.from(this.channelNames.values());
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
       this.notifyListeners();
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to save channel names:', error);
     }
   }
@@ -114,7 +114,7 @@ export class ChannelNamingService {
     try {
       this.websocket.send(JSON.stringify(command));
       console.log(`🏷️ Sent channel ${channel} name to mixer: "${name}"`);
-    } catch (error) {
+    } catch (_error) {
       console.error('🏷️ Failed to send channel name to mixer:', error);
     }
   }
@@ -137,7 +137,7 @@ export class ChannelNamingService {
     try {
       this.websocket.send(JSON.stringify(command));
       console.log(`🎨 Sent channel ${channel} color to mixer: ${color}`);
-    } catch (error) {
+    } catch (_error) {
       console.error('🎨 Failed to send channel color to mixer:', error);
     }
   }
@@ -169,7 +169,7 @@ export class ChannelNamingService {
     try {
       this.websocket.send(JSON.stringify(command));
       console.log('🏷️ Requested channel names from mixer');
-    } catch (error) {
+    } catch (_error) {
       console.error('🏷️ Failed to request channel names from mixer:', error);
     }
   }

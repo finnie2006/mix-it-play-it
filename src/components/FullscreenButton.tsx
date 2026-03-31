@@ -63,7 +63,7 @@ export const FullscreenButton = () => {
           await document.exitFullscreen();
         }
       }
-    } catch (error) {
+    } catch (_error) {
       console.log('Fullscreen not supported or failed:', error);
     }
   };

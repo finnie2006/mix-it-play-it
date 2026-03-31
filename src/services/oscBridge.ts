@@ -29,7 +29,7 @@ export class OSCBridge {
       
       this.isRunning = true;
       return true;
-    } catch (error) {
+    } catch (_error) {
       console.error('❌ Failed to start OSC bridge:', error);
       return false;
     }

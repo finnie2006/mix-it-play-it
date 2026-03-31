@@ -56,7 +56,7 @@ export class IntegratedOSCBridge {
             }
             
             this.notifyMessageHandlers(message);
-          } catch (error) {
+          } catch (_error) {
             console.error('Error parsing bridge message:', error);
           }
         };
@@ -85,7 +85,7 @@ export class IntegratedOSCBridge {
           }
         }, 5000);
 
-      } catch (error) {
+      } catch (_error) {
         console.error('❌ Failed to create WebSocket connection:', error);
         resolve(false);
       }

@@ -101,7 +101,7 @@ export class SettingsService {
         const parsed = JSON.parse(stored);
         return { ...DEFAULT_SETTINGS, ...parsed };
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load settings:', error);
     }
     return DEFAULT_SETTINGS;
@@ -112,7 +112,7 @@ export class SettingsService {
       settings.lastUpdated = new Date().toISOString();
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings, null, 2));
       console.log('⚙️ Settings saved successfully');
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to save settings:', error);
     }
   }

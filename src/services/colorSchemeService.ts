@@ -179,7 +179,7 @@ export class ColorSchemeService {
         const scheme = COLOR_SCHEMES.find(s => s.id === stored);
         if (scheme) return scheme;
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load color scheme:', error);
     }
     return COLOR_SCHEMES[0]; // Default

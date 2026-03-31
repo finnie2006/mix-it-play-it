@@ -330,7 +330,7 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
           compressor: new Map(parsed.compressor || [])
         };
       }
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to load channel processing settings:', error);
     }
     return { hpf: new Map(), gate: new Map(), compressor: new Map() };
@@ -345,7 +345,7 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
         compressor: Array.from(comp.entries())
       };
       localStorage.setItem('channelProcessingSettings', JSON.stringify(toSave));
-    } catch (error) {
+    } catch (_error) {
       console.error('Failed to save channel processing settings:', error);
     }
   };
@@ -559,7 +559,7 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
           try {
             const data = JSON.parse(event.data);
             handleMixerResponse(data);
-          } catch (error) {
+          } catch (_error) {
             // Ignore non-JSON messages
           }
         };
@@ -574,7 +574,7 @@ export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = (
           setWsConnected(false);
           setWebsocket(null);
         };
-      } catch (error) {
+      } catch (_error) {
         console.error('🎛️ Failed to connect WebSocket:', error);
       }
     };

@@ -126,7 +126,7 @@ export class XAirWebSocket {
             throw new Error('Failed to connect to OSC bridge server');
           }
 
-        } catch (error) {
+        } catch (_error) {
           console.error('❌ Failed to connect to OSC bridge:', error);
           console.error('Make sure the bridge server is running on ws://localhost:8080');
           this.isConnecting = false;
@@ -370,7 +370,7 @@ export class XAirWebSocket {
       try {
         this.integratedBridge.subscribe(nameAddress);
         this.integratedBridge.sendOSCMessage(nameAddress, []);
-      } catch (error) {
+      } catch (_error) {
         console.warn(`Failed to setup channel name for channel ${channel}:`, error);
       }
     }

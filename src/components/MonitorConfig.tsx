@@ -83,7 +83,7 @@ export const MonitorConfig: React.FC<MonitorConfigProps> = ({ isConnected }) => 
           try {
             const data = JSON.parse(event.data);
             handleMixerResponse(data);
-          } catch (error) {
+          } catch (_error) {
             // Ignore non-JSON messages
           }
         };
@@ -98,7 +98,7 @@ export const MonitorConfig: React.FC<MonitorConfigProps> = ({ isConnected }) => 
           setWsConnected(false);
           setWebsocket(null);
         };
-      } catch (error) {
+      } catch (_error) {
         console.error('🎧 Failed to connect WebSocket:', error);
       }
     };
