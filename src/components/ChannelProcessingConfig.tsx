@@ -308,7 +308,6 @@ const BROADCAST_PRESETS = {
 };
 
 export const ChannelProcessingConfig: React.FC<ChannelProcessingConfigProps> = ({
-  mixerModel,
   isConnected,
   channelNames = {},
 }) => {

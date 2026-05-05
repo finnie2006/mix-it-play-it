@@ -1,0 +1,194 @@
+/* --- MORE WIN 7 CLASSIC UPDATES --- */
+
+[data-color-scheme='classic-broadcast'] .min-h-screen {
+  background: var(--color-bg) !important; /* Will be overridden by the next line intentionally */
+}
+
+/* Force the entire background 'desktop' to be Windows 7 Classic solid color */
+[data-color-scheme='classic-broadcast'] .min-h-screen,
+[data-color-scheme='classic-broadcast'] .bg-gradient-to-br {
+  background: #1f497d !important; 
+  background-image: none !important;
+}
+
+[data-color-scheme='classic-broadcast'] body {
+  background: #1f497d !important;
+}
+
+/* Give the main containers a 'Window' frame look */
+[data-color-scheme='classic-broadcast'] .container {
+  background: #c0c0c0;
+  border: 2px outset #dfdfdf;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+  padding: 10px;
+  box-shadow: 1px 1px 0px #ffffff inset, 1px 1px 0px #808080;
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+/* Style buttons with classic Windows 7 look */
+[data-color-scheme='classic-broadcast'] button {
+  background: #dfdfdf !important;
+  border: 2px outset #dfdfdf;
+  border-right-color: #808080;
+  border-bottom-color: #808080;
+  color: #000 !important;
+  font-weight: bold;
+  padding: 2px 12px;
+  font-size: 12px;
+}
+
+[data-color-scheme='classic-broadcast'] button:hover {
+  background: #dfdfdf !important;
+}
+
+[data-color-scheme='classic-broadcast'] button:active {
+  border-style: inset;
+  border-right-color: #dfdfdf;
+  border-bottom-color: #dfdfdf;
+}
+
+/* VU Meter styling for classic theme */
+[data-color-scheme='classic-broadcast'] .vu-meter-container {
+  background: #c0c0c0 !important;
+  border: 2px inset #808080;
+  border-right-color: #ffffff;
+  border-bottom-color: #ffffff;
+  padding: 4px;
+  box-shadow: 1px 1px 0px #ffffff inset, 1px 1px 0px #000000;
+}
+
+/* VU Meter segments background - classic light grey for visibility */
+[data-color-scheme='classic-broadcast'] .vu-meter-container > div > div {
+  background: #dfdfdf !important;
+  border: 1px inset #808080;
+  border-right-color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+/* VU Meter segments - make them stand out */
+[data-color-scheme='classic-broadcast'] .vu-meter-segment {
+  background: #000080 !important;
+}
+
+/* Active VU segments in classic mode */
+[data-color-scheme='classic-broadcast'] .vu-meter-active {
+  background: #008000 !important;
+}
+
+[data-color-scheme='classic-broadcast'] .vu-meter-warning {
+  background: #ffff00 !important;
+}
+
+[data-color-scheme='classic-broadcast'] .vu-meter-danger {
+  background: #ff0000 !important;
+}
+
+/* Cards in classic mode */
+[data-color-scheme='classic-broadcast'] .card {
+  background: #c0c0c0 !important;
+  border: 2px outset #dfdfdf;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+  box-shadow: 1px 1px 0px #ffffff inset, 1px 1px 0px #808080;
+  color: #000 !important;
+}
+
+/* Text colors for readability on classic background */
+[data-color-scheme='classic-broadcast'] h1.text-white,
+[data-color-scheme='classic-broadcast'] h1,
+[data-color-scheme='classic-broadcast'] h2,
+[data-color-scheme='classic-broadcast'] h3 {
+  color: #000000 !important;
+}
+
+[data-color-scheme='classic-broadcast'] p.text-slate-300,
+[data-color-scheme='classic-broadcast'] p,
+[data-color-scheme='classic-broadcast'] .text-slate-300,
+[data-color-scheme='classic-broadcast'] .text-slate-400,
+[data-color-scheme='classic-broadcast'] .text-white {
+  color: #000000 !important;
+}
+
+[data-color-scheme='classic-broadcast'] label {
+  color: #000000 !important;
+  font-weight: bold;
+}
+
+/* Input fields classic style */
+[data-color-scheme='classic-broadcast'] input,
+[data-color-scheme='classic-broadcast'] select,
+[data-color-scheme='classic-broadcast'] textarea {
+  background: #ffffff !important;
+  border: 2px inset #808080;
+  border-top-color: #dfdfdf;
+  border-left-color: #dfdfdf;
+  color: #000000 !important;
+  padding: 3px 4px;
+  font-family: 'MS Sans Serif', Arial, sans-serif;
+  font-size: 11px;
+}
+
+/* Classic title bar style for modals/dialogs */
+[data-color-scheme='classic-broadcast'] [role="dialog"],
+[data-color-scheme='classic-broadcast'] .modal {
+  background: #c0c0c0 !important;
+  border: 2px outset #dfdfdf;
+  border-right-color: #404040;
+  border-bottom-color: #404040;
+  box-shadow: 1px 1px 0px #ffffff inset, 1px 1px 0px #808080;
+}
+
+/* Status bar style */
+[data-color-scheme='classic-broadcast'] .status-bar {
+  background: #c0c0c0;
+  border: 2px outset #dfdfdf;
+  border-right-color: #808080;
+  border-bottom-color: #808080;
+  border-top-color: #dfdfdf;
+  border-left-color: #dfdfdf;
+  padding: 2px;
+}
+
+/* ===== WINDOWS CLASSIC HEADER / TITLE BAR ===== */
+
+/* Main header container - styled as Windows Classic window */
+[data-color-scheme='classic-broadcast'] .mb-8 {
+  background: #000080 !important;
+  background: linear-gradient(to right, #000080, #1084d7) !important;
+  border: 2px solid;
+  border-color: #dfdfdf #404040 #404040 #dfdfdf !important;
+  padding: 8px !important;
+  margin: 0 !important;
+  box-shadow: 1px 1px 0px #ffffff inset, 1px 1px 0px #000000;
+  border-radius: 0 !important;
+  padding: 10px 6px !important;
+}
+
+/* Header title - Windows Classic window title text */
+[data-color-scheme='classic-broadcast'] .mb-8 h1 {
+  color: #ffffff !important;
+  text-shadow: 1px 1px 0px #000080 !important;
+  font-weight: bold !important;
+  margin: 0 !important;
+  font-size: 16px !important;
+}
+
+/* Header description */
+[data-color-scheme='classic-broadcast'] .mb-8 p {
+  color: #ffffff !important;
+  text-shadow: 1px 1px 0px #000080 !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+}
+
+/* Header icon styling */
+[data-color-scheme='classic-broadcast'] .mb-8 svg {
+  filter: drop-shadow(1px 1px 0px #000080) !important;
+}
+
+/* Header button container */
+[data-color-scheme='classic-broadcast'] .mb-8 .flex.gap-2 {
+  padding: 2px 4px;
+}

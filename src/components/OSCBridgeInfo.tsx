@@ -1,10 +1,10 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Terminal, Info, Play, CheckCircle } from 'lucide-react';
+import { Terminal, Info, CheckCircle } from 'lucide-react';
 
 interface OSCBridgeInfoProps {
   mixerIP: string;
@@ -15,7 +15,7 @@ export const OSCBridgeInfo: React.FC<OSCBridgeInfoProps> = ({
   mixerIP, 
   onBridgeConfigured 
 }) => {
-  const [showInstructions, setShowInstructions] = useState(true);
+  const showInstructions = true;
 
   const handleConfigureBridge = () => {
     if (onBridgeConfigured) {

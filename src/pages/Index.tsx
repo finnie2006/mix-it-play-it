@@ -21,6 +21,48 @@ const Index = () => {
   const [_autoConnectEnabled, setAutoConnectEnabled] = useState(false);
   const [isEndUserMode, setIsEndUserMode] = useState(false);
   const [configPanelTab, setConfigPanelTab] = useState('radio');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Fullscreen logic for the classic window maximize button
+  React.useEffect(() => {
+    const electronAPI = typeof window !== 'undefined' ? window.electronAPI : undefined;
+
+    if (electronAPI) {
+      const checkElectronFullscreen = async () => {
+        const state = await electronAPI.fullscreen.getState();
+        setIsFullscreen(state.isFullScreen);
+      };
+      checkElectronFullscreen();
+
+      const handleElectronFullscreenChange = (_event: unknown, isFS: boolean) => {
+        setIsFullscreen(isFS);
+      };
+      electronAPI.fullscreen.onFullscreenChanged(handleElectronFullscreenChange);
+    } else {
+      const handleFullscreenChange = () => {
+        setIsFullscreen(!!document.fullscreenElement);
+      };
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+      return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      const electronAPI = typeof window !== 'undefined' ? window.electronAPI : undefined;
+      if (electronAPI) {
+        await electronAPI.fullscreen.setFullscreen(!isFullscreen);
+      } else {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+        } else {
+          await document.exitFullscreen();
+        }
+      }
+    } catch (_error) {
+      console.log('Fullscreen not supported or failed:', _error);
+    }
+  };
   
   const { 
     isConnected, 
@@ -92,22 +134,39 @@ const Index = () => {
       <SilenceAlarm />
       
       <div className="container mx-auto p-6">
-        <div className="mb-8 flex justify-between items-start">
-          <div>
-            <h1 className="text-4xl font-bold text-white mb-2 flex items-center gap-3">
-              <Radio className="text-green-400" size={36} />
-              X-Air Radio Control
-            </h1>
-            <p className="text-slate-300">Professional X-Air 16/18 Control for Radio Broadcasting</p>
+        <div className="mb-8 app-header-window p-px md:p-0">
+          {/* Classic Window Titlebar (Only visible in WinClassic via CSS) */}
+          <div className="classic-titlebar hidden">
+            <div className="flex items-center gap-1.5 pl-1 classic-title-text">
+              <Radio size={14} className="classic-title-icon" />
+              <span>X-Air Radio Control</span>
+            </div>
+            <div className="classic-window-controls flex">
+              <button className="win-btn win-minimize" disabled><span>_</span></button>
+              <button className="win-btn win-maximize" onClick={toggleFullscreen} title="Toggle Fullscreen"><span>{isFullscreen ? '❐' : '□'}</span></button>
+              <button className="win-btn win-close" disabled><span>×</span></button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <CloudSyncModal />
-            <AdvancedSettingsModal 
-              onPasswordProtectionChange={handlePasswordProtectionChange}
-              onAutoConnectChange={handleAutoConnectChange}
-            />
-            <FullscreenButton />
-            <HelpModal />
+
+          <div className="app-header-titlebar flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-0 md:p-2">
+            <div className="app-header-text-container">
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-1 md:mb-2 flex items-center gap-3 app-header-title">
+                <Radio className="text-green-400 app-header-icon" size={32} />
+                X-Air Radio Control
+              </h1>
+              <p className="text-slate-300 app-header-subtitle text-sm md:text-base">Professional X-Air 16/18 Control for Radio Broadcasting</p>
+            </div>
+            <div className="flex flex-wrap gap-2 app-header-actions w-full md:w-auto justify-end">
+              <CloudSyncModal />
+              <AdvancedSettingsModal 
+                onPasswordProtectionChange={handlePasswordProtectionChange}
+                onAutoConnectChange={handleAutoConnectChange}
+              />
+              <div className="fullscreen-btn-container hidden-in-classic">
+                <FullscreenButton />
+              </div>
+              <HelpModal />
+            </div>
           </div>
         </div>
 

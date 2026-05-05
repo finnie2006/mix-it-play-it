@@ -17,7 +17,6 @@ interface DynamicsMeterDashboardProps {
 }
 
 export const DynamicsMeterDashboard: React.FC<DynamicsMeterDashboardProps> = ({
-  mixerModel,
   isConnected,
   channelNames,
 }) => {

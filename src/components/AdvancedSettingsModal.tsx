@@ -11,7 +11,7 @@ import { Settings, Shield, Eye, EyeOff, Save, Wifi, Clock, AlertTriangle, Palett
 import { useToast } from '@/hooks/use-toast';
 import { getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
 import { silenceDetectionService, SilenceDetectionConfig } from '@/services/silenceDetectionService';
-import { colorSchemeService, ColorScheme } from '@/services/colorSchemeService';
+import { colorSchemeService } from '@/services/colorSchemeService';
 
 interface AdvancedSettingsModalProps {
   onPasswordProtectionChange?: (enabled: boolean, password: string) => void;

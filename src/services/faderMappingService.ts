@@ -1,4 +1,4 @@
-import { FaderMapping, SettingsService, SpeakerMuteConfig, ChannelNameMap } from './settingsService';
+import { FaderMapping, SettingsService, SpeakerMuteConfig } from './settingsService';
 import { RadioSoftwareConfig } from './settingsService';
 
 export interface FaderState {

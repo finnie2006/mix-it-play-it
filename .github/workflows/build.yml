@@ -43,9 +43,18 @@ jobs:
         run: npm ci
 
       - name: Install bridge server dependencies
-        run: |
-          cd bridge-server
-          npm install
+        working-directory: bridge-server
+        run: npm ci
+
+      - name: Validate application
+        run: npm run lint && npm run typecheck
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
+
+      - name: Audit bridge production dependencies
+        working-directory: bridge-server
+        run: npm audit --omit=dev
 
       - name: Build application
         run: ${{ matrix.build_command }}

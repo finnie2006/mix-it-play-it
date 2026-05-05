@@ -5,14 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { sceneService, Scene } from '@/services/sceneService';
-import { Play, Save, RefreshCw, Trash2, Film, CheckCircle } from 'lucide-react';
+import { Play, Save, RefreshCw, Film, CheckCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 
 interface SceneManagerProps {

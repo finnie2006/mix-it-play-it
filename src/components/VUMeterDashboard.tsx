@@ -8,21 +8,8 @@ import { vuMeterService, VUMeterData } from '@/services/vuMeterService';
 import { silenceDetectionService } from '@/services/silenceDetectionService';
 import { faderMappingService } from '@/services/faderMappingService';
 import { SettingsService, BusMeterConfig, MainLRConfig } from '@/services/settingsService';
-import { formatTime, getTimeSettings, saveTimeSettings, TimeSettings } from '@/lib/utils';
+import { formatTime, getTimeSettings, TimeSettings } from '@/lib/utils';
 import { Activity, Clock, Maximize, Minimize, Mic, Settings, VolumeX } from 'lucide-react';
-
-declare global {
-  interface Window {
-    electronAPI?: {
-      fullscreen: {
-        setFullscreen: (enabled: boolean) => Promise<{ success: boolean }>;
-        getState: () => Promise<{ isFullScreen: boolean }>;
-        onRequestExit: (callback: () => void) => void;
-        onFullscreenChanged: (callback: (event: unknown, isFullScreen: boolean) => void) => void;
-      };
-    };
-  }
-}
 
 interface VUMeterDashboardProps {
   isConnected?: boolean;

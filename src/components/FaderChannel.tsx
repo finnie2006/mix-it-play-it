@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Volume2, VolumeX, Settings, Play, Pause, Plus } from 'lucide-react';
+import { Volume2, VolumeX, Play, Pause, Plus } from 'lucide-react';
 import { faderMappingService } from '@/services/faderMappingService';
 import { MiniVUMeter } from './MiniVUMeter';
 
@@ -23,7 +23,6 @@ export const FaderChannel: React.FC<FaderChannelProps> = ({
   value, 
   isActive,
   isMuted = false,
-  commandExecuted = false,
   vuLevel = -90,
   onConfigureClick
 }) => {

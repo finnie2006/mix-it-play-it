@@ -160,6 +160,26 @@ export const COLOR_SCHEMES: ColorScheme[] = [
       danger: '#ef4444',
     },
   },
+  {
+    id: 'winclassic',
+    name: 'Windows 7 Classic / 2006 DHD',
+    description: 'Retro broadcast console interface with Windows Classic styling',
+    colors: {
+      background: '#3a6ea5',
+      backgroundSecondary: '#d4d0c8',
+      backgroundTertiary: '#dfdfdf',
+      text: '#000000',
+      textSecondary: '#404040',
+      primary: '#0a246a',
+      primaryHover: '#143f8f',
+      accent: '#a6caf0',
+      accentHover: '#7daede',
+      border: '#ffffff',
+      success: '#00ff00',
+      warning: '#ffff00',
+      danger: '#ff0000',
+    },
+  },
 ];
 
 const STORAGE_KEY = 'color-scheme';
@@ -224,6 +244,8 @@ export class ColorSchemeService {
     const body = document.body;
     if (scheme.id === 'light') {
       body.style.background = `linear-gradient(to bottom right, #e2e8f0, #cbd5e1, #94a3b8)`;
+    } else if (scheme.id === 'winclassic') {
+      body.style.background = '#3a6ea5';
     } else {
       // For dark themes, use the background colors in a gradient
       body.style.background = `linear-gradient(to bottom right, ${scheme.colors.background}, ${scheme.colors.backgroundSecondary}, ${scheme.colors.background})`;

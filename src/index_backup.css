@@ -170,6 +170,7 @@ All colors MUST be HSL.
 }
 
 /* Color Scheme System - Dynamic theming */
+@layer utilities {
   /* Apply color scheme variables to common elements */
   [data-color-scheme] .bg-gradient-to-br {
     background: linear-gradient(to bottom right, var(--color-bg), var(--color-bg-secondary), var(--color-bg)) !important;
@@ -391,6 +392,8 @@ All colors MUST be HSL.
   [data-color-scheme] ::-webkit-scrollbar-thumb:active {
     background: var(--color-primary);
   }
+}
+
 /* Windows 7 Classic / 2006 DHD Broadcast Console Theme Overrides */
 [data-color-scheme="winclassic"] {
   font-family: "Tahoma", "MS Sans Serif", "Microsoft Sans Serif", sans-serif !important;
@@ -399,123 +402,8 @@ All colors MUST be HSL.
 
 [data-color-scheme="winclassic"] body,
 [data-color-scheme="winclassic"] #root {
-  background: #3a6ea5 !important;
-  color: black !important;
-}
-
-[data-color-scheme="winclassic"] .min-h-screen,
-[data-color-scheme="winclassic"] .bg-gradient-to-br {
-  background-color: #3a6ea5 !important;
-  background-image: none !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-window {
-  border-top: 2px solid #ffffff !important;
-  border-left: 2px solid #ffffff !important;
-  border-right: 2px solid #404040 !important;
-  border-bottom: 2px solid #404040 !important;
   background: #d4d0c8 !important;
-  box-shadow: inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 2px 2px 0 rgba(0, 0, 0, 0.28) !important;
-  padding: 2px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 4px !important;
-}
-
-[data-color-scheme="winclassic"] .classic-titlebar {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  background: linear-gradient(to right, #0a246a, #a6caf0) !important;
-  color: white !important;
-  padding: 2px 2px 2px 4px !important;
-  height: 22px !important;
-  font-family: 'Tahoma', 'MS Sans Serif', sans-serif !important;
-  font-size: 11px !important;
-  font-weight: bold !important;
-  user-select: none;
-}
-
-[data-color-scheme="winclassic"] .classic-title-icon {
-  color: white !important;
-  filter: drop-shadow(1px 1px 0px rgba(0,0,0,0.5)) !important;
-}
-
-[data-color-scheme="winclassic"] .classic-title-text {
-  text-shadow: 1px 1px 0px #000080;
-  letter-spacing: 0;
-}
-
-[data-color-scheme="winclassic"] .classic-window-controls {
-  display: flex !important;
-  gap: 2px !important;
-}
-
-[data-color-scheme="winclassic"] .win-btn {
-  background: #d4d0c8 !important;
-  border-top: 1px solid #ffffff !important;
-  border-left: 1px solid #ffffff !important;
-  border-right: 1px solid #404040 !important;
-  border-bottom: 1px solid #404040 !important;
-  box-shadow: inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080 !important;
-  width: 16px !important;
-  height: 14px !important;
-  display: flex !important;
-  align-items: flex-end !important;
-  justify-content: center !important;
   color: black !important;
-  font-size: 10px !important;
-  line-height: 1 !important;
-  padding: 0 !important;
-  font-family: 'Marlett', 'Tahoma', sans-serif !important;
-  cursor: default !important;
-  margin: 0 !important;
-  min-height: auto !important;
-}
-
-[data-color-scheme="winclassic"] .win-btn:active {
-  border-top: 1px solid #404040 !important;
-  border-left: 1px solid #404040 !important;
-  border-right: 1px solid #ffffff !important;
-  border-bottom: 1px solid #ffffff !important;
-  box-shadow: inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf !important;
-  padding-top: 2px !important;
-  padding-left: 1px !important;
-}
-
-[data-color-scheme="winclassic"] .win-btn.win-minimize span { position: relative; top: -3px; font-weight: bold; }
-[data-color-scheme="winclassic"] .win-btn.win-maximize span { position: relative; top: -1px; font-size: 12px; }
-[data-color-scheme="winclassic"] .win-btn.win-close span { position: relative; top: -1px; font-weight: bold; }
-
-[data-color-scheme="winclassic"] .app-header-titlebar {
-  background: transparent !important;
-  padding: 4px 8px 8px 8px !important;
-  min-height: auto !important;
-  border: none !important;
-  align-items: center !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-title {
-  color: #000000 !important;
-  text-shadow: none !important;
-  font-size: 1.5rem !important;
-  margin-bottom: 0 !important;
-  font-family: 'Tahoma', 'Segoe UI', Arial, sans-serif !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-subtitle {
-  color: #404040 !important;
-  font-size: 0.8rem !important;
-  margin-top: 2px !important;
-  font-family: 'Tahoma', 'Segoe UI', Arial, sans-serif !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-icon {
-  color: #0a246a !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-actions {
-  align-self: center;
 }
 
 /* Base Panel / Console module styling */
@@ -540,11 +428,6 @@ All colors MUST be HSL.
   border-right: 3px solid #404040 !important;
 }
 
-[data-color-scheme="winclassic"] .dialog-overlay {
-  background: rgba(0, 0, 0, 0.38) !important;
-  backdrop-filter: none !important;
-}
-
 /* Faders and Inputs */
 [data-color-scheme="winclassic"] input[type="range"] {
   -webkit-appearance: none;
@@ -564,7 +447,7 @@ All colors MUST be HSL.
   border-left: 2px solid white !important;
   border-bottom: 2px solid #404040 !important;
   border-right: 2px solid #404040 !important;
-  box-shadow: inset 1px 1px 0px #f8f7f0, inset -1px -1px 0px #9d9a90;
+  box-shadow: inset 1px 1px 0px #dfdfdf, inset -1px -1px 0px #808080;
   background: #d4d0c8 !important;
   border-radius: 0 !important;
 }
@@ -595,31 +478,11 @@ All colors MUST be HSL.
   margin-top: 1px;
 }
 
-[data-color-scheme="winclassic"] button:hover {
-  background-color: #e6e3da !important;
-}
-
 /* Active buttons (like ON buttons in a broadcast console) */
 [data-color-scheme="winclassic"] button.bg-emerald-600,
 [data-color-scheme="winclassic"] button.bg-amber-500,
 [data-color-scheme="winclassic"] button.bg-red-500 {
   background-color: #ffffff !important;
-}
-[data-color-scheme="winclassic"] button.bg-blue-600,
-[data-color-scheme="winclassic"] button.bg-blue-500,
-[data-color-scheme="winclassic"] button[class*="bg-blue-"] {
-  background: linear-gradient(#244eb4, #071a86) !important;
-  border-top: 2px solid #9dbbff !important;
-  border-left: 2px solid #9dbbff !important;
-  border-bottom: 2px solid #030842 !important;
-  border-right: 2px solid #030842 !important;
-  color: #ffffff !important;
-  box-shadow: inset 1px 1px 0 #5f80dc, inset -1px -1px 0 #06106a !important;
-}
-[data-color-scheme="winclassic"] button.bg-blue-600 span,
-[data-color-scheme="winclassic"] button.bg-blue-500 span,
-[data-color-scheme="winclassic"] button[class*="bg-blue-"] span {
-  color: #ffffff !important;
 }
 [data-color-scheme="winclassic"] button.bg-emerald-600 span,
 [data-color-scheme="winclassic"] button.bg-emerald-600 { color: #008000 !important; }
@@ -627,55 +490,12 @@ All colors MUST be HSL.
 [data-color-scheme="winclassic"] button.bg-red-500 { color: #ff0000 !important; }
 
 /* VU Meters */
-[data-color-scheme="winclassic"] .space-y-reverse {
+[data-color-scheme="winclassic"] .bg-slate-700 {
   background-color: #000 !important;
   border-top: 2px solid #808080 !important;
   border-left: 2px solid #808080 !important;
   border-bottom: 2px solid white !important;
   border-right: 2px solid white !important;
-  box-shadow: none !important;
-}
-
-[data-color-scheme="winclassic"] .space-y-reverse > div {
-  border-radius: 0 !important;
-  border: none !important;
-  
-}
-
-[data-color-scheme="winclassic"] .space-y-reverse > .bg-slate-700,
-[data-color-scheme="winclassic"] .space-y-reverse > .bg-slate-600 {
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-[data-color-scheme="winclassic"] .vu-meter-container .space-y-reverse {
-  background:
-    linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0) 35%),
-    #070707 !important;
-}
-
-[data-color-scheme="winclassic"] .vu-meter-container .bg-gray-300 {
-  background-color: #1b1b1b !important;
-  box-shadow: inset 0 0 0 1px #2e2e2e !important;
-}
-
-[data-color-scheme="winclassic"] .vu-meter-container .bg-green-600,
-[data-color-scheme="winclassic"] .vu-meter-container .bg-green-500 {
-  background: linear-gradient(180deg, #7dff55, #19c525) !important;
-  box-shadow: 0 0 5px rgba(41, 255, 64, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-}
-
-[data-color-scheme="winclassic"] .vu-meter-container .bg-yellow-400,
-[data-color-scheme="winclassic"] .vu-meter-container .bg-yellow-500 {
-  background: linear-gradient(180deg, #fff36b, #f0b400) !important;
-  box-shadow: 0 0 5px rgba(255, 214, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.45) !important;
-}
-
-[data-color-scheme="winclassic"] .vu-meter-container .bg-red-600,
-[data-color-scheme="winclassic"] .vu-meter-container .bg-red-500 {
-  background: linear-gradient(180deg, #ff6b5f, #e10000) !important;
-  box-shadow: 0 0 6px rgba(255, 35, 35, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
 }
 
 /* Remove roundness */
@@ -684,9 +504,9 @@ All colors MUST be HSL.
 }
 
 /* Inputs and Selects */
-[data-color-scheme="winclassic"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
-[data-color-scheme="winclassic"] select,
-[data-color-scheme="winclassic"] textarea {
+[data-color-scheme="winclassic"] input[type="text"],
+[data-color-scheme="winclassic"] input[type="password"],
+[data-color-scheme="winclassic"] select {
   background-color: #ffffff !important;
   border-top: 2px solid #808080 !important;
   border-left: 2px solid #808080 !important;
@@ -694,7 +514,6 @@ All colors MUST be HSL.
   border-right: 2px solid white !important;
   color: black !important;
   border-radius: 0 !important;
-  box-shadow: none !important;
 }
 
 /* Typography Overrides */
@@ -711,198 +530,4 @@ All colors MUST be HSL.
   --color-bg-tertiary: #dfdfdf;
   --color-text: #000000;
   --color-text-secondary: #404040;
-}
-
-/* Classic Tabs Styling */
-[data-color-scheme="winclassic"] [role="tablist"] {
-  background: transparent !important;
-  border: none !important;
-  padding: 0 !important;
-  display: flex !important;
-  gap: 2px !important;
-  align-items: flex-end !important;
-  margin-bottom: -2px !important;
-}
-
-[data-color-scheme="winclassic"] [role="tab"] {
-  background: #d4d0c8 !important;
-  border-top: 2px solid #ffffff !important;
-  border-left: 2px solid #ffffff !important;
-  border-right: 2px solid #404040 !important;
-  border-bottom: 2px solid #404040 !important;
-  color: black !important;
-  border-radius: 0 !important;
-  padding: 4px 12px 6px 12px !important;
-  box-shadow: inset -1px -1px 0 #808080 !important;
-  font-family: 'Tahoma', 'Segoe UI', Arial, sans-serif !important;
-  position: relative !important;
-  z-index: 1 !important;
-  margin-bottom: 2px !important;
-}
-
-[data-color-scheme="winclassic"] [role="tab"][data-state="active"] {
-  padding-top: 6px !important;
-  margin-bottom: 0 !important;
-  background: #d4d0c8 !important;
-  border-bottom: 2px solid #d4d0c8 !important; /* blend into content */
-  box-shadow: inset -1px 0 0 #808080 !important; /* remove bottom inset shadow */
-  z-index: 10 !important;
-  font-weight: bold;
-}
-
-/* Make Modals look like Windows */
-[data-color-scheme="winclassic"] [role="dialog"] {
-  background: #d4d0c8 !important;
-  border-top: 2px solid #ffffff !important;
-  border-left: 2px solid #ffffff !important;
-  border-right: 2px solid #404040 !important;
-  border-bottom: 2px solid #404040 !important;
-  box-shadow: inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080, 0 0 0 1px #000000, 2px 2px 0 rgba(0, 0, 0, 0.32) !important;
-  padding: 24px 12px 12px !important;
-  position: fixed !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"]::before {
-  content: "X-Air Radio Control";
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  right: 2px;
-  height: 20px;
-  background: linear-gradient(to right, #0a246a, #a6caf0) !important;
-  color: white;
-  font-family: 'Tahoma', 'Segoe UI', Arial, sans-serif !important;
-  font-size: 11px;
-  font-weight: bold;
-  line-height: 20px;
-  padding-left: 4px;
-  text-shadow: 1px 1px 0px #000080;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] h2 {
-  color: #000 !important;
-  font-size: 14px !important;
-  margin-bottom: 12px !important;
-  font-family: 'Tahoma', 'Segoe UI', Arial, sans-serif !important;
-}
-
-/* Style Radix UI Close button for Dialogs */
-[data-color-scheme="winclassic"] [role="dialog"] > button:last-of-type {
-  position: absolute !important;
-  top: 4px !important;
-  right: 4px !important;
-  width: 16px !important;
-  height: 14px !important;
-  background: #d4d0c8 !important;
-  border-top: 1px solid #ffffff !important;
-  border-left: 1px solid #ffffff !important;
-  border-right: 1px solid #404040 !important;
-  border-bottom: 1px solid #404040 !important;
-  box-shadow: inset 1px 1px 0 #dfdfdf, inset -1px -1px 0 #808080 !important;
-  border-radius: 0 !important;
-  opacity: 1 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  min-height: auto !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] > button:last-of-type:active {
-  border-top: 1px solid #404040 !important;
-  border-left: 1px solid #404040 !important;
-  border-right: 1px solid #ffffff !important;
-  border-bottom: 1px solid #ffffff !important;
-  box-shadow: inset 1px 1px 0 #808080, inset -1px -1px 0 #dfdfdf !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] > button:last-of-type svg {
-  display: none !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] > button:last-of-type::before {
-  content: "×";
-  font-family: 'Marlett', 'Tahoma', sans-serif;
-  color: black;
-  font-size: 10px;
-  font-weight: bold;
-}
-
-/* Hide standard fullscreen button in classic mode, as we use the maximize icon in the titlebar */
-[data-color-scheme="winclassic"] .hidden-in-classic {
-  display: none !important;
-}
-
-/* Remove borders from the main action buttons ("menu knoppen") to make them look flat like a classic toolbar/menubar */
-[data-color-scheme="winclassic"] .app-header-actions button {
-  background: transparent !important;
-  border: 1px solid transparent !important;
-  box-shadow: none !important;
-  padding: 4px 8px !important;
-  font-weight: normal !important;
-  color: #000 !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-actions button:hover {
-  border-top: 1px solid #ffffff !important;
-  border-left: 1px solid #ffffff !important;
-  border-right: 1px solid #808080 !important;
-  border-bottom: 1px solid #808080 !important;
-}
-
-[data-color-scheme="winclassic"] .app-header-actions button:active {
-  background: #d4d0c8 !important;
-  border-top: 1px solid #808080 !important;
-  border-left: 1px solid #808080 !important;
-  border-right: 1px solid #ffffff !important;
-  border-bottom: 1px solid #ffffff !important;
-}
-
-/* Windows Classic refinement pass */
-[data-color-scheme="winclassic"] button,
-[data-color-scheme="winclassic"] input,
-[data-color-scheme="winclassic"] select,
-[data-color-scheme="winclassic"] textarea,
-[data-color-scheme="winclassic"] label,
-[data-color-scheme="winclassic"] p,
-[data-color-scheme="winclassic"] span,
-[data-color-scheme="winclassic"] div {
-  font-family: "Tahoma", "MS Sans Serif", sans-serif !important;
-}
-
-[data-color-scheme="winclassic"] button {
-  min-height: 22px !important;
-  padding: 3px 10px !important;
-  font-size: 11px !important;
-}
-
-[data-color-scheme="winclassic"] input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
-[data-color-scheme="winclassic"] select {
-  min-height: 21px !important;
-  font-size: 11px !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] {
-  font-size: 11px !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] h2 {
-  font-size: 12px !important;
-  font-weight: bold !important;
-}
-
-[data-color-scheme="winclassic"] [role="dialog"] .border-l-2 {
-  border-left: 1px solid #ffffff !important;
-  box-shadow: -1px 0 0 #808080 !important;
-  padding-left: 14px !important;
-}
-
-[data-color-scheme="winclassic"] [role="tab"] {
-  font-size: 11px !important;
-  min-height: 22px !important;
-}
-
-[data-color-scheme="winclassic"] ::selection {
-  background: #0a246a;
-  color: #ffffff;
 }

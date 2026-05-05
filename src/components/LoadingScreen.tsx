@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio, Volume2, Waves } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import packageJson from '../../package.json';
 
 interface LoadingScreenProps {
@@ -52,7 +52,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ isVisible }) => {
           </div>
           
           {/* Progress bar */}
-          <div className="w-64 h-1 bg-slate-700 rounded-full overflow-hidden">
+          <div className="w-64 h-3 bg-slate-700 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full animate-loading-bar"></div>
           </div>
           

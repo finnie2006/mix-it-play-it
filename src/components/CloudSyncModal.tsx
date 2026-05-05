@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Cloud, Upload, Download, RefreshCw, Server, Check, X, AlertCircle } from 'lucide-react';
+import { Cloud, Upload, Download, RefreshCw, Server, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cloudSyncService, CloudSyncSettings, SyncConfig } from '@/services/cloudSyncService';
 

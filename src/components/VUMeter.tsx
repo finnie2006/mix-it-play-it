@@ -11,8 +11,33 @@ interface VUMeterProps {
 export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', height = 'normal', showScale = true }) => {
   const [peakHold, setPeakHold] = useState(-90); // Initialize to minimum dB level
   const [isShowingPeak, setIsShowingPeak] = useState(false);
+  const [isClassicMode, setIsClassicMode] = useState(false);
   const peakTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastPeakTimeRef = useRef<number>(0);
+  const meterRef = useRef<HTMLDivElement>(null);
+
+  // Detect if we're in the Windows classic mode
+  useEffect(() => {
+    const checkClassicMode = () => {
+      const htmlElement = document.documentElement;
+      const colorScheme = htmlElement.getAttribute('data-color-scheme');
+      setIsClassicMode(colorScheme === 'winclassic' || colorScheme === 'classic-broadcast');
+    };
+
+    checkClassicMode();
+
+    // Watch for changes to the data-color-scheme attribute
+    const observer = new MutationObserver(() => {
+      checkClassicMode();
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-color-scheme']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // Convert dB level to percentage for display
   // Professional broadcast range: -50dB to +5dB
@@ -84,11 +109,17 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
     };
   }, []);
 
-  // Determine color based on level
+  // Determine color based on level - different for classic mode
   const getBarColor = (position: number) => {
-    if (position > 85) return 'bg-red-500'; // Peak/danger zone
-    if (position > 70) return 'bg-yellow-500'; // Warning zone
-    return 'bg-green-500'; // Safe zone
+    if (isClassicMode) {
+      if (position > 85) return 'bg-red-600'; // Peak/danger zone
+      if (position > 70) return 'bg-yellow-400'; // Warning zone
+      return 'bg-green-600'; // Safe zone
+    } else {
+      if (position > 85) return 'bg-red-500'; // Peak/danger zone
+      if (position > 70) return 'bg-yellow-500'; // Warning zone
+      return 'bg-green-500'; // Safe zone
+    }
   };
 
   // Get height and segment count based on height prop
@@ -128,7 +159,8 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
     } else if (isActive) {
       colorClass = getBarColor(segmentPosition);
     } else {
-      colorClass = 'bg-slate-700';
+      // Inactive segment - different colors for classic vs normal mode
+      colorClass = isClassicMode ? 'bg-gray-300' : 'bg-slate-700';
     }
     
     return (
@@ -139,21 +171,38 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
     );
   });
 
+  // Get background and border styles based on mode
+  const meterBackgroundClass = isClassicMode 
+    ? 'bg-white border-2' 
+    : 'bg-slate-800 border';
+  
+  const meterBorderClass = isClassicMode
+    ? 'border-gray-400'
+    : 'border-slate-600';
+
+  const labelColorClass = isClassicMode
+    ? 'text-black'
+    : 'text-slate-300';
+
+  const valueColorClass = isClassicMode
+    ? 'text-black'
+    : 'text-slate-400';
+
   return (
-    <div className={`flex flex-col items-center space-y-2 ${className}`}>
-      <div className="text-xs font-mono text-slate-300 text-center min-h-[2rem] flex items-center">
+    <div className={`flex flex-col items-center space-y-2 vu-meter-container ${className}`} ref={meterRef}>
+      <div className={`text-xs font-mono text-center min-h-[2rem] flex items-center font-bold ${labelColorClass}`}>
         {label}
       </div>
       
       <div className="relative flex justify-center">
-        <div className={`flex flex-col-reverse space-y-reverse space-y-1 ${heightClass} w-6 p-1 bg-slate-800 rounded border border-slate-600`}>
+        <div className={`flex flex-col-reverse space-y-reverse space-y-1 ${heightClass} w-6 p-1 rounded vu-meter-segment ${meterBackgroundClass} ${meterBorderClass}`}>
           {segments}
         </div>
         
         {/* dB scale markers - positioned to the left of the meter */}
         {showScale && (
           <div className={`absolute -left-10 top-0 ${heightClass} w-9 pointer-events-none`}>
-            <div className="relative h-full text-[10px] text-slate-500 font-mono">
+            <div className={`relative h-full text-[10px] font-mono ${isClassicMode ? 'text-black' : 'text-slate-500'}`}>
               <div className="absolute" style={{ top: '0%', transform: 'translateY(-50%)' }}>+5</div>
               <div className="absolute" style={{ top: '9.09%', transform: 'translateY(-50%)' }}>0</div>
               <div className="absolute" style={{ top: '18.18%', transform: 'translateY(-50%)' }}>-5</div>
@@ -169,7 +218,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({ level, label, className = '', 
         )}
       </div>
       
-      <div className="text-xs font-mono text-slate-400 text-center">
+      <div className={`text-xs font-mono text-center ${valueColorClass}`}>
         {level > -50 ? `${level.toFixed(1)}` : '-∞'}
       </div>
     </div>

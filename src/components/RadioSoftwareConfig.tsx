@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { RadioSoftwareConfig as RadioConfig, SettingsService } from '@/services/settingsService';
-import { Radio, Settings, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { Radio, Settings, Wifi, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface RadioSoftwareConfigProps {
@@ -56,7 +56,7 @@ export const RadioSoftwareConfig: React.FC<RadioSoftwareConfigProps> = ({ onSett
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        const responseText = await response.text();
+        await response.text();
         toast({
           title: "Verbinding Gelukt! ✅",
           description: `Succesvol verbonden met ${config.type === 'radiodj' ? 'RadioDJ' : 'mAirList'} op ${config.host}:${config.port}`,
